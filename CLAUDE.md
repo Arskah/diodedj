@@ -5,9 +5,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Build & Run Commands
 
 ```bash
-pnpm build          # tsc → dist/, copies HTML/CSS to dist/renderer/
-pnpm start          # electron . (requires build first)
-pnpm dev            # concurrent tsc watch + asset watch + electronmon (hot reload)
+pnpm build          # electron-vite build → out/{main,preload,renderer}
+pnpm start          # electron-vite preview (build + run packaged output)
+pnpm dev            # electron-vite dev (HMR for renderer, watch for main/preload)
+pnpm typecheck      # tsc --noEmit on node + web tsconfigs
 pnpm test           # vitest (watch mode)
 pnpm test -- run    # vitest single run
 pnpm lint           # eslint
@@ -33,9 +34,9 @@ Electron app with strict context isolation. Three process boundaries:
 
 **Renderer** (`src/renderer/`) — browser context, no Node access:
 
-- `renderer.ts` — all UI logic, playback control, playlist state
+- `renderer.ts` — all UI logic, playback control, playlist state (Vite bundles as ES module)
 - `env.d.ts` — TypeScript declarations for `window.api`
-- No module imports allowed in renderer.ts (runs as `<script>`, not a module)
+- `index.html` is the Vite entry; references `<script type="module" src="./renderer.ts">`
 
 ## Key Patterns
 
@@ -49,11 +50,11 @@ Electron app with strict context isolation. Three process boundaries:
 
 ## Gotchas
 
-- `renderer.ts` must have zero imports/exports — tsc emits CJS wrapper that breaks in browser. HTML has `<script>var exports = {};</script>` shim as workaround.
 - `audio.src = ''` does NOT clear src per HTML spec — use `removeAttribute('src')` + `load()`.
 - `better-sqlite3` is a native module — `electron-rebuild` runs in postinstall. `.npmrc` has `shamefully-hoist=true` for pnpm compatibility.
-- `music-metadata` is ESM-only — imported via dynamic `await import()` from CJS context.
-- Static assets (HTML/CSS) not handled by tsc — copied manually in build script and watched by `scripts/watch-assets.mjs` in dev.
+- `music-metadata` is ESM-only — imported via dynamic `await import()`. electron-vite's `externalizeDepsPlugin` keeps it external (not bundled).
+- electron-vite output filenames mirror the entry: main entry `src/main/main.ts` → `out/main/main.js`, preload entry `src/preload.ts` → `out/preload/preload.js`. `package.json#main` and `mainWindow.ts` preload path must match.
+- In dev, `process.env.ELECTRON_RENDERER_URL` is set by electron-vite → `mainWindow.loadURL`. In prod it is undefined → `loadFile('../renderer/index.html')`.
 
 ## Types
 
