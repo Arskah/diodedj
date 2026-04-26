@@ -1,5 +1,6 @@
-import { copyFileSync, mkdirSync } from "fs";
-import { pathToFileURL } from "url";
+import { copyFileSync, mkdirSync } from "node:fs";
+import { pathToFileURL } from "node:url";
+import { argv } from "node:process";
 
 export const ASSETS = ["index.html", "styles.css"];
 
@@ -10,6 +11,6 @@ export function copyAssets() {
   }
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (import.meta.url === pathToFileURL(argv[1]).href) {
   copyAssets();
 }
