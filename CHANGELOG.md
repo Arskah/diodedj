@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.2.1](https://github.com/Arskah/diodedj/compare/v0.2.0...v0.2.1) (2026-04-26)
+
+
+### Bug Fixes
+
+* **scripts:** use node: prefixed imports in copy-assets ([4614c65](https://github.com/Arskah/diodedj/commit/4614c65407d137a368c694e0e3d9775e7dd7f283))
+
+
+### Miscellaneous Chores
+
+* **pkg:** cross-platform build script and add repo metadata ([0b43bb9](https://github.com/Arskah/diodedj/commit/0b43bb97010b4dd0dc8dfca44facdc1e4a701afa))
+
 ## [0.2.0](https://github.com/Arskah/diodedj/compare/v0.1.0...v0.2.0) (2026-04-26)
 
 
