@@ -6,6 +6,7 @@ const playlistCount = document.getElementById("playlist-count")!;
 const btnPaths = document.getElementById("btn-paths")!;
 const btnScan = document.getElementById("btn-scan")!;
 const btnGenerate = document.getElementById("btn-generate")!;
+const btnClearPlaylist = document.getElementById("btn-clear-playlist")!;
 const btnPrev = document.getElementById("btn-prev")!;
 const btnPlay = document.getElementById("btn-play")!;
 const btnStop = document.getElementById("btn-stop")!;
@@ -124,6 +125,12 @@ function renderPlaylist(): void {
     playlistEl.appendChild(row);
   });
 }
+
+btnClearPlaylist.addEventListener("click", () => {
+  stopPlayback();
+  currentPlaylist.length = 0;
+  renderPlaylist();
+});
 
 function removeFromPlaylist(index: number): void {
   currentPlaylist.splice(index, 1);

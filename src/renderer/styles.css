@@ -150,15 +150,37 @@ body {
   border-bottom-color: var(--accent);
 }
 
-#playlist-panel h2 {
+#playlist-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 12px 0 0;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+}
+
+#playlist-header h2 {
   padding: 10px 16px;
   font-size: 13px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.5px;
   color: var(--text-secondary);
-  background: var(--bg-secondary);
-  border-bottom: 1px solid var(--border);
+}
+
+#btn-clear-playlist {
+  padding: 3px 10px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 11px;
+}
+
+#btn-clear-playlist:hover {
+  color: #ff4444;
+  border-color: #ff4444;
 }
 
 #track-list,
