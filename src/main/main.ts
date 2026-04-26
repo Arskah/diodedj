@@ -5,6 +5,7 @@ import * as db from "./db";
 import * as config from "./config";
 import * as scanner from "./scanner";
 import * as playlist from "./playlist";
+import { needsTranscode, transcodeToWav } from "./transcode";
 
 protocol.registerSchemesAsPrivileged([
   { scheme: "media", privileges: { stream: true, supportFetchAPI: true } },
@@ -21,6 +22,14 @@ app.whenReady().then(() => {
     const id = parseInt(url.pathname.replace(/^\/+/, ""));
     const track = db.getTrack(id);
     if (!track) return new Response("Not found", { status: 404 });
+
+    if (needsTranscode(track.format)) {
+      const stream = transcodeToWav(track.path);
+      return new Response(stream, {
+        headers: { "Content-Type": "audio/wav" },
+      });
+    }
+
     return net.fetch(pathToFileURL(track.path).href);
   });
 
