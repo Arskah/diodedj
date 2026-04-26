@@ -17,22 +17,22 @@
   },
   "license": "UNLICENSED",
   "scripts": {
-    "build": "electron-vite build",
-    "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
-    "start": "electron-vite preview",
     "dev": "electron-vite dev",
-    "test": "vitest",
-    "test:e2e": "pnpm build && playwright test",
+    "build": "electron-vite build",
+    "start": "electron-vite preview",
+    "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
     "lint": "eslint",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "prepare": "husky",
-    "postinstall": "electron-rebuild",
+    "test": "vitest",
+    "test:e2e": "pnpm build && playwright test",
     "pack": "pnpm build && electron-builder --dir",
     "dist": "pnpm build && electron-builder",
     "dist:mac": "pnpm build && electron-builder --mac",
     "dist:win": "pnpm build && electron-builder --win",
-    "dist:linux": "pnpm build && electron-builder --linux"
+    "dist:linux": "pnpm build && electron-builder --linux",
+    "postinstall": "electron-rebuild",
+    "prepare": "husky"
   },
   "lint-staged": {
     "*": [
