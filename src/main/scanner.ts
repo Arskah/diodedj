@@ -37,8 +37,8 @@ export async function scanDirectory(
 
       await db.insertTrack(track);
       added++;
-    } catch {
-      // Skip files that fail to parse
+    } catch (err) {
+      console.error(`scan: failed to parse ${filePath}`, err);
     }
 
     processed++;
@@ -55,7 +55,8 @@ async function findAudioFiles(dirPath: string): Promise<string[]> {
     let entries: fs.Dirent[];
     try {
       entries = await fs.promises.readdir(dir, { withFileTypes: true });
-    } catch {
+    } catch (err) {
+      console.error(`scan: readdir failed ${dir}`, err);
       return;
     }
     for (const entry of entries) {
