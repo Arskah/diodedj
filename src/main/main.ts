@@ -8,19 +8,7 @@ import * as config from "./config";
 import * as scanner from "./scanner";
 import * as playlist from "./playlist";
 import { needsTranscode, transcodeToWav } from "./transcode";
-
-const MIME: Record<string, string> = {
-  mp3: "audio/mpeg",
-  m4a: 'audio/mp4; codecs="mp4a.40.2"',
-  mp4: 'audio/mp4; codecs="mp4a.40.2"',
-  aac: "audio/aac",
-  ogg: "audio/ogg",
-  oga: "audio/ogg",
-  opus: "audio/ogg",
-  wav: "audio/wav",
-  flac: "audio/flac",
-  webm: "audio/webm",
-};
+import { MIME_TYPES } from "./audio-formats";
 
 protocol.registerSchemesAsPrivileged([
   { scheme: "media", privileges: { stream: true, supportFetchAPI: true } },
@@ -48,7 +36,7 @@ app.whenReady().then(() => {
     const range = request.headers.get("range");
     const stats = await stat(track.path);
     const total = stats.size;
-    const contentType = MIME[track.format] || "application/octet-stream";
+    const contentType = MIME_TYPES[track.format] || "application/octet-stream";
 
     let start = 0;
     let end = total - 1;

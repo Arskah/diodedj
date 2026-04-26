@@ -2,19 +2,7 @@ import fs from "fs";
 import path from "path";
 import { ContentType, TrackInsert, ScanResult } from "../types";
 import * as db from "./db";
-
-const AUDIO_EXTENSIONS = new Set([
-  ".mp3",
-  ".flac",
-  ".wav",
-  ".ogg",
-  ".aac",
-  ".m4a",
-  ".wma",
-  ".opus",
-  ".aiff",
-  ".aif",
-]);
+import { AUDIO_EXTENSIONS } from "./audio-formats";
 
 export async function scanDirectory(
   dirPath: string,

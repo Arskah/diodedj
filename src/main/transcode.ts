@@ -1,10 +1,6 @@
 import { spawn } from "child_process";
 import { Readable } from "stream";
-
-// Formats Chromium plays directly via <audio> + our protocol handler.
-// m4a/mp4 excluded: Chromium's pipeline rejects our Range responses for moov-at-end
-// containers even when bytes match. Route through ffmpeg → wav instead.
-const NATIVE_FORMATS = new Set(["mp3", "wav", "flac", "ogg", "opus", "aac"]);
+import { NATIVE_FORMATS } from "./audio-formats";
 
 export function needsTranscode(format: string): boolean {
   return !NATIVE_FORMATS.has(format.toLowerCase());
