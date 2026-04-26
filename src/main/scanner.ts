@@ -1,26 +1,26 @@
-import fs from 'fs';
-import path from 'path';
-import { TrackInsert, ScanResult } from '../types';
-import * as db from './db';
+import fs from "fs";
+import path from "path";
+import { TrackInsert, ScanResult } from "../types";
+import * as db from "./db";
 
 const AUDIO_EXTENSIONS = new Set([
-  '.mp3',
-  '.flac',
-  '.wav',
-  '.ogg',
-  '.aac',
-  '.m4a',
-  '.wma',
-  '.opus',
-  '.aiff',
-  '.aif'
+  ".mp3",
+  ".flac",
+  ".wav",
+  ".ogg",
+  ".aac",
+  ".m4a",
+  ".wma",
+  ".opus",
+  ".aiff",
+  ".aif",
 ]);
 
 export async function scanDirectory(
   dirPath: string,
-  onProgress?: (processed: number, total: number) => void
+  onProgress?: (processed: number, total: number) => void,
 ): Promise<ScanResult> {
-  const mm = await import('music-metadata');
+  const mm = await import("music-metadata");
   const files = await findAudioFiles(dirPath);
   let processed = 0;
   let added = 0;
@@ -33,15 +33,15 @@ export async function scanDirectory(
       const track: TrackInsert = {
         path: filePath,
         title: common.title || path.basename(filePath, path.extname(filePath)),
-        artist: common.artist || 'Unknown',
-        album: common.album || 'Unknown',
+        artist: common.artist || "Unknown",
+        album: common.album || "Unknown",
         genre: common.genre?.[0] || null,
         year: common.year || null,
         duration: format.duration || 0,
         bpm: common.bpm || null,
         sample_rate: format.sampleRate || null,
         bitrate: format.bitrate || null,
-        format: path.extname(filePath).slice(1).toLowerCase()
+        format: path.extname(filePath).slice(1).toLowerCase(),
       };
 
       db.insertTrack(track);
@@ -69,7 +69,7 @@ async function findAudioFiles(dirPath: string): Promise<string[]> {
     }
     for (const entry of entries) {
       const fullPath = path.join(dir, entry.name);
-      if (entry.isDirectory() && !entry.name.startsWith('.')) {
+      if (entry.isDirectory() && !entry.name.startsWith(".")) {
         await walk(fullPath);
       } else if (AUDIO_EXTENSIONS.has(path.extname(entry.name).toLowerCase())) {
         results.push(fullPath);

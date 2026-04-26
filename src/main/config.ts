@@ -1,27 +1,27 @@
-import fs from 'fs';
-import path from 'path';
-import { app } from 'electron';
+import fs from "fs";
+import path from "path";
+import { app } from "electron";
 
 export interface AppConfig {
   libraryPaths: string[];
 }
 
 const defaults: AppConfig = {
-  libraryPaths: []
+  libraryPaths: [],
 };
 
 let config: AppConfig;
 let configPath: string;
 
 export function init(): AppConfig {
-  configPath = path.join(app.getPath('userData'), 'config.json');
+  configPath = path.join(app.getPath("userData"), "config.json");
   config = load();
   return config;
 }
 
 function load(): AppConfig {
   try {
-    const raw = fs.readFileSync(configPath, 'utf-8');
+    const raw = fs.readFileSync(configPath, "utf-8");
     return { ...defaults, ...JSON.parse(raw) };
   } catch {
     return { ...defaults };

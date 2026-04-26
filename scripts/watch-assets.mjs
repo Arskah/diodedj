@@ -1,8 +1,8 @@
-import { watch, copyFileSync, mkdirSync } from 'fs';
+import { watch, copyFileSync, mkdirSync } from "fs";
 
-const assets = ['index.html', 'styles.css'];
+const assets = ["index.html", "styles.css"];
 
-mkdirSync('dist/renderer', { recursive: true });
+mkdirSync("dist/renderer", { recursive: true });
 
 // Initial copy
 for (const file of assets) {
@@ -10,7 +10,7 @@ for (const file of assets) {
 }
 
 // Watch for changes
-watch('src/renderer', (event, filename) => {
+watch("src/renderer", (event, filename) => {
   if (assets.includes(filename)) {
     copyFileSync(`src/renderer/${filename}`, `dist/renderer/${filename}`);
     console.log(`[assets] copied ${filename}`);

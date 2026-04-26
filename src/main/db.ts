@@ -1,14 +1,14 @@
-import Database from 'better-sqlite3';
-import path from 'path';
-import { app } from 'electron';
-import { Track, TrackInsert, LibraryStats } from '../types';
+import Database from "better-sqlite3";
+import path from "path";
+import { app } from "electron";
+import { Track, TrackInsert, LibraryStats } from "../types";
 
 let db: Database.Database;
 
 export function init(): Database.Database {
-  const dbPath = path.join(app.getPath('userData'), 'diodedj.db');
+  const dbPath = path.join(app.getPath("userData"), "diodedj.db");
   db = new Database(dbPath);
-  db.pragma('journal_mode = WAL');
+  db.pragma("journal_mode = WAL");
 
   db.exec(`
     CREATE TABLE IF NOT EXISTS tracks (
@@ -65,14 +65,14 @@ export function init(): Database.Database {
 export function search(query: string): Track[] {
   if (!query?.trim()) {
     return db
-      .prepare('SELECT * FROM tracks ORDER BY artist, album, title LIMIT 200')
+      .prepare("SELECT * FROM tracks ORDER BY artist, album, title LIMIT 200")
       .all() as Track[];
   }
   const ftsQuery = query
     .trim()
     .split(/\s+/)
     .map((t) => `"${t}"*`)
-    .join(' ');
+    .join(" ");
   return db
     .prepare(
       `
@@ -81,17 +81,21 @@ export function search(query: string): Track[] {
     WHERE tracks_fts MATCH ?
     ORDER BY rank
     LIMIT 200
-  `
+  `,
     )
     .all(ftsQuery) as Track[];
 }
 
 export function getTrack(id: number): Track | undefined {
-  return db.prepare('SELECT * FROM tracks WHERE id = ?').get(id) as Track | undefined;
+  return db.prepare("SELECT * FROM tracks WHERE id = ?").get(id) as
+    | Track
+    | undefined;
 }
 
 export function getRandomTracks(count: number): Track[] {
-  return db.prepare('SELECT * FROM tracks ORDER BY RANDOM() LIMIT ?').all(count) as Track[];
+  return db
+    .prepare("SELECT * FROM tracks ORDER BY RANDOM() LIMIT ?")
+    .all(count) as Track[];
 }
 
 export function insertTrack(track: TrackInsert): Database.RunResult {
@@ -100,9 +104,22 @@ export function insertTrack(track: TrackInsert): Database.RunResult {
       `
     INSERT OR REPLACE INTO tracks (path, title, artist, album, genre, year, duration, bpm, sample_rate, bitrate, format)
     VALUES (@path, @title, @artist, @album, @genre, @year, @duration, @bpm, @sample_rate, @bitrate, @format)
-  `
+  `,
     )
     .run(track);
+}
+
+export function removeTracksNotInPaths(paths: string[]): number {
+  if (paths.length === 0) {
+    const result = db.prepare("DELETE FROM tracks").run();
+    return result.changes;
+  }
+  const where = paths.map(() => "path NOT LIKE ?").join(" AND ");
+  const patterns = paths.map((p) => `${p}%`);
+  const result = db
+    .prepare(`DELETE FROM tracks WHERE ${where}`)
+    .run(...patterns);
+  return result.changes;
 }
 
 export function getStats(): LibraryStats {
@@ -115,7 +132,7 @@ export function getStats(): LibraryStats {
       COUNT(DISTINCT album) as totalAlbums,
       ROUND(SUM(duration) / 3600.0, 1) as totalHours
     FROM tracks
-  `
+  `,
     )
     .get() as LibraryStats;
 }

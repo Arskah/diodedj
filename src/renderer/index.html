@@ -10,12 +10,19 @@
     <div id="app">
       <header id="toolbar">
         <div id="search-area">
-          <input type="text" id="search-input" placeholder="Search tracks..." autocomplete="off" />
+          <input
+            type="text"
+            id="search-input"
+            placeholder="Search tracks..."
+            autocomplete="off"
+          />
         </div>
         <div id="toolbar-actions">
           <button id="btn-paths" title="Manage library paths">Paths</button>
           <button id="btn-scan" title="Rescan all library paths">Scan</button>
-          <button id="btn-generate" title="Generate random playlist">Auto Playlist</button>
+          <button id="btn-generate" title="Generate random playlist">
+            Auto Playlist
+          </button>
           <span id="library-stats"></span>
         </div>
       </header>
@@ -49,7 +56,15 @@
           </div>
           <div id="player-right">
             <span id="time-display">0:00 / 0:00</span>
-            <input type="range" id="volume" min="0" max="1" step="0.01" value="1" title="Volume" />
+            <input
+              type="range"
+              id="volume"
+              min="0"
+              max="1"
+              step="0.01"
+              value="1"
+              title="Volume"
+            />
           </div>
         </div>
       </footer>
