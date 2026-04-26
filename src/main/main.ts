@@ -2,7 +2,6 @@ import { app, BrowserWindow, ipcMain, protocol, dialog } from "electron";
 import path from "path";
 import fs from "fs";
 import { stat } from "fs/promises";
-import { Readable } from "stream";
 import { ContentType } from "../types";
 import * as db from "./db";
 import * as config from "./config";
@@ -12,8 +11,8 @@ import { needsTranscode, transcodeToWav } from "./transcode";
 
 const MIME: Record<string, string> = {
   mp3: "audio/mpeg",
-  m4a: "audio/mp4",
-  mp4: "audio/mp4",
+  m4a: 'audio/mp4; codecs="mp4a.40.2"',
+  mp4: 'audio/mp4; codecs="mp4a.40.2"',
   aac: "audio/aac",
   ogg: "audio/ogg",
   oga: "audio/ogg",
@@ -46,37 +45,51 @@ app.whenReady().then(() => {
       });
     }
 
+    const range = request.headers.get("range");
     const stats = await stat(track.path);
     const total = stats.size;
     const contentType = MIME[track.format] || "application/octet-stream";
-    const range = request.headers.get("range");
+
+    let start = 0;
+    let end = total - 1;
+    let status = 200;
+    const headers: Record<string, string> = {
+      "Content-Type": contentType,
+      "Accept-Ranges": "bytes",
+    };
 
     if (range) {
       const match = /bytes=(\d+)-(\d*)/.exec(range);
       if (match) {
-        const start = parseInt(match[1]);
-        const end = match[2] ? parseInt(match[2]) : total - 1;
-        const nodeStream = fs.createReadStream(track.path, { start, end });
-        return new Response(Readable.toWeb(nodeStream) as ReadableStream, {
-          status: 206,
-          headers: {
-            "Content-Type": contentType,
-            "Content-Length": String(end - start + 1),
-            "Content-Range": `bytes ${start}-${end}/${total}`,
-            "Accept-Ranges": "bytes",
-          },
-        });
+        start = parseInt(match[1]);
+        end = match[2] ? parseInt(match[2]) : total - 1;
+        if (end >= total) end = total - 1;
+        if (start > end) {
+          return new Response("Range Not Satisfiable", {
+            status: 416,
+            headers: { "Content-Range": `bytes */${total}` },
+          });
+        }
+        status = 206;
+        headers["Content-Range"] = `bytes ${start}-${end}/${total}`;
       }
     }
 
-    const nodeStream = fs.createReadStream(track.path);
-    return new Response(Readable.toWeb(nodeStream) as ReadableStream, {
-      headers: {
-        "Content-Type": contentType,
-        "Content-Length": String(total),
-        "Accept-Ranges": "bytes",
-      },
-    });
+    const length = end - start + 1;
+    headers["Content-Length"] = String(length);
+
+    const fd = await fs.promises.open(track.path, "r");
+    try {
+      const buf = Buffer.alloc(length);
+      await fd.read(buf, 0, length, start);
+      const ab = buf.buffer.slice(
+        buf.byteOffset,
+        buf.byteOffset + buf.byteLength,
+      );
+      return new Response(ab, { status, headers });
+    } finally {
+      await fd.close();
+    }
   });
 
   mainWindow = new BrowserWindow({

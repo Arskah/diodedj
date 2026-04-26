@@ -278,6 +278,14 @@ audio.addEventListener("play", () => {
 audio.addEventListener("pause", () => {
   btnPlay.innerHTML = "&#9654;";
 });
+audio.addEventListener("error", () => {
+  const err = audio.error;
+  console.error("Audio error:", {
+    code: err?.code,
+    message: err?.message,
+    src: audio.currentSrc,
+  });
+});
 
 audio.addEventListener("timeupdate", () => {
   const trackDuration =
