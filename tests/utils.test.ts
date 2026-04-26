@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { formatTime, sanitizeSearchQuery } from "../utils";
+import { formatTime, sanitizeSearchQuery } from "../src/utils";
 
 describe("formatTime", () => {
   it("formats zero", () => {
