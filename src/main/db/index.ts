@@ -1,16 +1,14 @@
 import BetterSqlite3 from "better-sqlite3";
 import path from "path";
-import { promises as fsp } from "fs";
 import { app } from "electron";
-import {
-  Kysely,
-  SqliteDialect,
-  Migrator,
-  FileMigrationProvider,
-  sql,
-} from "kysely";
+import { Kysely, SqliteDialect, Migrator, Migration, sql } from "kysely";
 import { ContentType, LibraryStats } from "../../types";
 import { Database, Track, TrackInsert } from "./types";
+import * as initial from "./migrations/001_initial";
+
+const migrations: Record<string, Migration> = {
+  "001_initial": initial,
+};
 
 let db: Kysely<Database>;
 let sqlite: BetterSqlite3.Database;
@@ -26,11 +24,9 @@ export async function init(): Promise<Kysely<Database>> {
 
   const migrator = new Migrator({
     db,
-    provider: new FileMigrationProvider({
-      fs: fsp,
-      path,
-      migrationFolder: path.join(__dirname, "migrations"),
-    }),
+    provider: {
+      getMigrations: async () => migrations,
+    },
   });
   const { error, results } = await migrator.migrateToLatest();
   if (error) {

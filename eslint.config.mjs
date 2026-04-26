@@ -3,23 +3,8 @@ import tseslint from "typescript-eslint";
 
 export default tseslint.config(
   {
-    ignores: ["dist/", "playwright-report/", "test-results/", "node_modules/"],
+    ignores: ["out/", "playwright-report/", "test-results/", "node_modules/"],
   },
   eslint.configs.recommended,
   ...tseslint.configs.recommended,
-  {
-    files: ["**/*.ts", "**/*.mts"],
-    languageOptions: {
-      parserOptions: {
-        project: "./tsconfig.eslint.json",
-        tsconfigRootDir: import.meta.dirname,
-      },
-    },
-  },
-  {
-    files: ["scripts/**/*.mjs"],
-    languageOptions: {
-      globals: { console: "readonly" },
-    },
-  },
 );

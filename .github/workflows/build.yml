@@ -20,6 +20,6 @@ jobs:
         with:
           name: build-artifact
           path: |
-            dist/
+            out/
           retention-days: 7
           if-no-files-found: "error"

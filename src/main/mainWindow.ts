@@ -14,14 +14,20 @@ export function createMainWindow(): BrowserWindow {
     title: "DiodeDJ",
     backgroundColor: "#0f0f1a",
     webPreferences: {
-      preload: path.join(__dirname, "..", "preload.js"),
+      preload: path.join(__dirname, "../preload/preload.js"),
       contextIsolation: true,
       nodeIntegration: false,
     },
   });
-  mainWindow.loadFile(path.join(__dirname, "..", "renderer", "index.html"));
 
-  if (!app.isPackaged && process.env.NODE_ENV !== "test") {
+  const devUrl = process.env["ELECTRON_RENDERER_URL"];
+  if (devUrl) {
+    mainWindow.loadURL(devUrl);
+  } else {
+    mainWindow.loadFile(path.join(__dirname, "../renderer/index.html"));
+  }
+
+  if (!app.isPackaged && process.env["NODE_ENV"] !== "test") {
     mainWindow.webContents.openDevTools();
   }
 
