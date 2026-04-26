@@ -7,13 +7,4 @@ export default tseslint.config(
   },
   eslint.configs.recommended,
   ...tseslint.configs.recommended,
-  {
-    files: ["**/*.ts", "**/*.mts"],
-    languageOptions: {
-      parserOptions: {
-        project: "./tsconfig.eslint.json",
-        tsconfigRootDir: import.meta.dirname,
-      },
-    },
-  },
 );
