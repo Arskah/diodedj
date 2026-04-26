@@ -2,6 +2,8 @@
   "extends": "./tsconfig.base.json",
   "compilerOptions": {
     "noEmit": true,
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
     "types": ["node"],
     "allowJs": true
   },
@@ -9,8 +11,8 @@
     "src/**/*",
     "tests/**/*",
     "e2e/**/*",
-    "scripts/**/*",
     "eslint.config.mjs",
+    "electron.vite.config.ts",
     "vitest.config.ts",
     "playwright.config.ts",
     "commitlint.config.ts"
