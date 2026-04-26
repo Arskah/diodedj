@@ -197,8 +197,12 @@ audio.addEventListener("pause", () => {
 });
 
 audio.addEventListener("timeupdate", () => {
-  timeDisplay.textContent = `${formatTime(audio.currentTime)} / ${formatTime(audio.duration || 0)}`;
-  const pct = audio.duration ? (audio.currentTime / audio.duration) * 100 : 0;
+  const trackDuration =
+    isFinite(audio.duration) && audio.duration > 0
+      ? audio.duration
+      : currentPlaylist[currentIndex]?.duration || 0;
+  timeDisplay.textContent = `${formatTime(audio.currentTime)} / ${formatTime(trackDuration)}`;
+  const pct = trackDuration ? (audio.currentTime / trackDuration) * 100 : 0;
   progressFill.style.width = pct + "%";
 });
 
@@ -322,7 +326,7 @@ async function loadStats(): Promise<void> {
 // --- Helpers ---
 
 function formatTime(seconds: number): string {
-  if (!seconds || isNaN(seconds)) return "0:00";
+  if (!seconds || !isFinite(seconds)) return "0:00";
   const m = Math.floor(seconds / 60);
   const s = Math.floor(seconds % 60);
   return `${m}:${s.toString().padStart(2, "0")}`;

@@ -20,6 +20,11 @@ describe("formatTime", () => {
   it("handles NaN", () => {
     expect(formatTime(NaN)).toBe("0:00");
   });
+
+  it("handles Infinity", () => {
+    expect(formatTime(Infinity)).toBe("0:00");
+    expect(formatTime(-Infinity)).toBe("0:00");
+  });
 });
 
 describe("sanitizeSearchQuery", () => {
