@@ -1,7 +1,8 @@
 import fs from "fs";
 import path from "path";
-import { ContentType, TrackInsert, ScanResult } from "../types";
+import { ContentType, ScanResult } from "../types";
 import * as db from "./db";
+import { TrackInsert } from "./db/types";
 import { AUDIO_EXTENSIONS } from "./audio-formats";
 
 export async function scanDirectory(
@@ -34,7 +35,7 @@ export async function scanDirectory(
         format: path.extname(filePath).slice(1).toLowerCase(),
       };
 
-      db.insertTrack(track);
+      await db.insertTrack(track);
       added++;
     } catch {
       // Skip files that fail to parse

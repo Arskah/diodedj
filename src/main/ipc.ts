@@ -8,24 +8,24 @@ import * as playlist from "./playlist";
 export function register(mainWindow: BrowserWindow): void {
   ipcMain.handle(
     "search",
-    (_event, query: string, contentType?: ContentType) => {
+    async (_event, query: string, contentType?: ContentType) => {
       return db.search(query, contentType);
     },
   );
 
-  ipcMain.handle("get-track", (_event, id: number) => {
+  ipcMain.handle("get-track", async (_event, id: number) => {
     return db.getTrack(id);
   });
 
-  ipcMain.handle("track-played", (_event, id: number) => {
-    db.incrementPlayCount(id);
+  ipcMain.handle("track-played", async (_event, id: number) => {
+    await db.incrementPlayCount(id);
   });
 
-  ipcMain.handle("generate-playlist", (_event, count: number) => {
+  ipcMain.handle("generate-playlist", async (_event, count: number) => {
     return playlist.generate(count);
   });
 
-  ipcMain.handle("get-stats", () => {
+  ipcMain.handle("get-stats", async () => {
     return db.getStats();
   });
 
@@ -63,7 +63,7 @@ export function register(mainWindow: BrowserWindow): void {
   ipcMain.handle("scan-library", async () => {
     // Prune tracks from removed paths
     const allPaths = config.getAllPathsFlat();
-    db.removeTracksNotInPaths(allPaths);
+    await db.removeTracksNotInPaths(allPaths);
 
     const totalResult = { total: 0, added: 0 };
     const types: ContentType[] = ["music", "commercial", "jingle"];

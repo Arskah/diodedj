@@ -14,14 +14,14 @@ protocol.registerSchemesAsPrivileged([
 
 let mainWindow: BrowserWindow;
 
-app.whenReady().then(() => {
-  db.init();
+app.whenReady().then(async () => {
+  await db.init();
   config.init();
 
   protocol.handle("media", async (request) => {
     const url = new URL(request.url);
     const id = parseInt(url.pathname.replace(/^\/+/, ""));
-    const track = db.getTrack(id);
+    const track = await db.getTrack(id);
     if (!track) return new Response("Not found", { status: 404 });
 
     if (needsTranscode(track.format)) {
@@ -101,7 +101,7 @@ app.whenReady().then(() => {
   ipc.register(mainWindow);
 });
 
-app.on("window-all-closed", () => {
-  db.close();
+app.on("window-all-closed", async () => {
+  await db.close();
   app.quit();
 });
