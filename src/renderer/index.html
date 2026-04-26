@@ -27,31 +27,7 @@
         </div>
       </header>
 
-      <main id="content">
-        <section id="library-panel">
-          <div id="library-tabs">
-            <button class="lib-tab active" data-type="music">Music</button>
-            <button class="lib-tab" data-type="commercial">Commercials</button>
-            <button class="lib-tab" data-type="jingle">Jingles</button>
-          </div>
-          <div id="track-list"></div>
-        </section>
-
-        <section id="playlist-panel">
-          <div id="playlist-header">
-            <h2>Playlist <span id="playlist-count"></span></h2>
-            <button id="btn-clear-playlist" title="Clear playlist">
-              Clear
-            </button>
-          </div>
-          <div id="playlist"></div>
-        </section>
-      </main>
-
-      <footer id="now-playing">
-        <div id="progress-bar">
-          <div id="progress-fill"></div>
-        </div>
+      <section id="now-playing">
         <div id="player-info">
           <div id="track-info">
             <span id="np-title">No track loaded</span>
@@ -83,7 +59,31 @@
             />
           </div>
         </div>
-      </footer>
+        <div id="progress-bar">
+          <div id="progress-fill"></div>
+        </div>
+      </section>
+
+      <main id="content">
+        <section id="library-panel">
+          <div id="library-tabs">
+            <button class="lib-tab active" data-type="music">Music</button>
+            <button class="lib-tab" data-type="commercial">Commercials</button>
+            <button class="lib-tab" data-type="jingle">Jingles</button>
+          </div>
+          <div id="track-list"></div>
+        </section>
+
+        <section id="playlist-panel">
+          <div id="playlist-header">
+            <h2>Playlist <span id="playlist-count"></span></h2>
+            <button id="btn-clear-playlist" title="Clear playlist">
+              Clear
+            </button>
+          </div>
+          <div id="playlist"></div>
+        </section>
+      </main>
 
       <div id="paths-overlay" class="hidden">
         <div id="paths-modal">
