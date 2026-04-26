@@ -371,6 +371,23 @@ body {
   font-size: 16px;
 }
 
+#btn-mode {
+  padding: 4px 10px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+#btn-mode.active {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
 #player-right {
   display: flex;
   align-items: center;

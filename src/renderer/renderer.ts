@@ -7,6 +7,7 @@ const btnPaths = document.getElementById("btn-paths")!;
 const btnScan = document.getElementById("btn-scan")!;
 const btnGenerate = document.getElementById("btn-generate")!;
 const btnClearPlaylist = document.getElementById("btn-clear-playlist")!;
+const btnMode = document.getElementById("btn-mode")!;
 const btnPrev = document.getElementById("btn-prev")!;
 const btnPlay = document.getElementById("btn-play")!;
 const btnStop = document.getElementById("btn-stop")!;
@@ -37,6 +38,7 @@ const currentPlaylist: Track[] = [];
 let currentIndex = -1;
 let autoPlaylistActive = false;
 const AUTO_PLAYLIST_BUFFER = 5;
+let autoAdvance = true;
 let activeLibraryTab: ContentType = "music";
 
 // --- Library Tabs ---
@@ -190,6 +192,12 @@ btnPlay.addEventListener("click", () => {
 
 btnStop.addEventListener("click", stopPlayback);
 
+btnMode.addEventListener("click", () => {
+  autoAdvance = !autoAdvance;
+  btnMode.textContent = autoAdvance ? "AUTO" : "MANUAL";
+  btnMode.classList.toggle("active", autoAdvance);
+});
+
 btnNext.addEventListener("click", () => {
   if (currentIndex < currentPlaylist.length - 1) {
     playIndex(currentIndex + 1);
@@ -226,6 +234,10 @@ audio.addEventListener("timeupdate", () => {
 });
 
 audio.addEventListener("ended", async () => {
+  if (!autoAdvance) {
+    btnPlay.innerHTML = "&#9654;";
+    return;
+  }
   if (currentIndex < currentPlaylist.length - 1) {
     playIndex(currentIndex + 1);
   } else if (autoPlaylistActive) {
