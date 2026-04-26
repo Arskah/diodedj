@@ -121,7 +121,35 @@ body {
   flex: 2;
 }
 
-#library-panel h2,
+#library-tabs {
+  display: flex;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+}
+
+.lib-tab {
+  flex: 1;
+  padding: 10px 16px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-secondary);
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+}
+
+.lib-tab:hover {
+  color: var(--text-primary);
+}
+
+.lib-tab.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
 #playlist-panel h2 {
   padding: 10px 16px;
   font-size: 13px;

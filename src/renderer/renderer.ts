@@ -36,6 +36,19 @@ const currentPlaylist: Track[] = [];
 let currentIndex = -1;
 let autoPlaylistActive = false;
 const AUTO_PLAYLIST_BUFFER = 5;
+let activeLibraryTab: ContentType = "music";
+
+// --- Library Tabs ---
+
+const libTabs = document.querySelectorAll(".lib-tab");
+libTabs.forEach((tab) => {
+  tab.addEventListener("click", () => {
+    libTabs.forEach((t) => t.classList.remove("active"));
+    tab.classList.add("active");
+    activeLibraryTab = (tab as HTMLElement).dataset.type as ContentType;
+    doSearch();
+  });
+});
 
 // --- Search ---
 
@@ -47,7 +60,7 @@ searchInput.addEventListener("input", () => {
 
 async function doSearch(): Promise<void> {
   const query = searchInput.value;
-  const tracks = await window.api.search(query);
+  const tracks = await window.api.search(query, activeLibraryTab);
   renderTrackList(tracks);
 }
 
