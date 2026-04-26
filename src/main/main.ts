@@ -38,6 +38,10 @@ app.whenReady().then(() => {
 
   mainWindow.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
 
+  if (!app.isPackaged) {
+    mainWindow.webContents.openDevTools();
+  }
+
   setupIPC();
 });
 

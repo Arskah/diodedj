@@ -6,7 +6,7 @@
   "scripts": {
     "build": "tsc && mkdir -p dist/renderer && cp src/renderer/index.html src/renderer/styles.css dist/renderer/",
     "start": "electron .",
-    "dev": "electron .",
+    "dev": "pnpm build && concurrently -k -n tsc,assets,app \"tsc -w --preserveWatchOutput\" \"node scripts/watch-assets.mjs\" \"electronmon .\"",
     "test": "vitest",
     "lint": "eslint",
     "format": "prettier --write .",
@@ -31,7 +31,9 @@
     "@electron/rebuild": "4.0.4",
     "@eslint/js": "^9.0.0",
     "@types/better-sqlite3": "^7.6.13",
+    "concurrently": "^9.2.1",
     "electron": "^41.3.0",
+    "electronmon": "^2.0.4",
     "eslint": "^9.0.0",
     "husky": "^9.0.0",
     "lint-staged": "^15.0.0",
