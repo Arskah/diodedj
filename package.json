@@ -1,0 +1,24 @@
+{
+  "name": "diodedj",
+  "version": "0.1.0",
+  "description": "Radio station music player",
+  "main": "dist/main/main.js",
+  "scripts": {
+    "build": "tsc && mkdir -p dist/renderer && cp src/renderer/index.html src/renderer/styles.css dist/renderer/",
+    "start": "electron .",
+    "dev": "electron .",
+    "postinstall": "electron-rebuild"
+  },
+  "dependencies": {
+    "better-sqlite3": "^12.9.0",
+    "fluent-ffmpeg": "^2.1.3",
+    "music-metadata": "^11.12.3"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "electron": "^41.3.0",
+    "@electron/rebuild": "4.0.4",
+    "typescript": "^6.0.3"
+  },
+  "packageManager": "pnpm@9.15.4+sha512.b2dc20e2fc72b3e18848459b37359a32064663e5627a51e4c74b2c29dd8e8e0491483c3abb40789cfd578bf362fb6ba8261b05f0387d76792ed6e23ea3b1b6a0"
+}

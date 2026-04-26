@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DiodeDJ</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="app">
+    <header id="toolbar">
+      <div id="search-area">
+        <input type="text" id="search-input" placeholder="Search tracks..." autocomplete="off">
+      </div>
+      <div id="toolbar-actions">
+        <button id="btn-scan" title="Scan music folder">Scan Library</button>
+        <button id="btn-generate" title="Generate random playlist">Auto Playlist</button>
+        <span id="library-stats"></span>
+      </div>
+    </header>
+
+    <main id="content">
+      <section id="library-panel">
+        <h2>Library</h2>
+        <div id="track-list"></div>
+      </section>
+
+      <section id="playlist-panel">
+        <h2>Playlist <span id="playlist-count"></span></h2>
+        <div id="playlist"></div>
+      </section>
+    </main>
+
+    <footer id="now-playing">
+      <div id="progress-bar">
+        <div id="progress-fill"></div>
+      </div>
+      <div id="player-info">
+        <div id="track-info">
+          <span id="np-title">No track loaded</span>
+          <span id="np-artist"></span>
+        </div>
+        <div id="player-controls">
+          <button id="btn-prev" title="Previous">&#9198;</button>
+          <button id="btn-play" title="Play">&#9654;</button>
+          <button id="btn-stop" title="Stop">&#9632;</button>
+          <button id="btn-next" title="Next">&#9197;</button>
+        </div>
+        <div id="player-right">
+          <span id="time-display">0:00 / 0:00</span>
+          <input type="range" id="volume" min="0" max="1" step="0.01" value="1" title="Volume">
+        </div>
+      </div>
+    </footer>
+
+    <div id="scan-overlay" class="hidden">
+      <div id="scan-modal">
+        <h3>Scanning Library...</h3>
+        <div id="scan-status">Preparing...</div>
+        <div id="scan-bar-container">
+          <div id="scan-bar-fill"></div>
+        </div>
+      </div>
+    </div>
+
+    <audio id="audio"></audio>
+  </div>
+  <script src="renderer.js"></script>
+</body>
+</html>
