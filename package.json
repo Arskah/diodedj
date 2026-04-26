@@ -108,7 +108,15 @@
           ]
         }
       ],
-      "category": "public.app-category.music"
+      "category": "public.app-category.music",
+      "extendInfo": {
+        "NSDesktopFolderUsageDescription": "DiodeDJ scans audio files on your Desktop.",
+        "NSDocumentsFolderUsageDescription": "DiodeDJ scans audio files in Documents.",
+        "NSDownloadsFolderUsageDescription": "DiodeDJ scans audio files in Downloads.",
+        "NSMusicLibraryUsageDescription": "DiodeDJ scans your music library.",
+        "NSRemovableVolumesUsageDescription": "DiodeDJ scans audio on external drives.",
+        "NSNetworkVolumesUsageDescription": "DiodeDJ scans audio on network volumes."
+      }
     },
     "win": {
       "target": [
