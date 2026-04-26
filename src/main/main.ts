@@ -1,12 +1,27 @@
-import { app, BrowserWindow, ipcMain, protocol, net, dialog } from "electron";
-import { pathToFileURL } from "url";
+import { app, BrowserWindow, ipcMain, protocol, dialog } from "electron";
 import path from "path";
+import fs from "fs";
+import { stat } from "fs/promises";
+import { Readable } from "stream";
 import { ContentType } from "../types";
 import * as db from "./db";
 import * as config from "./config";
 import * as scanner from "./scanner";
 import * as playlist from "./playlist";
 import { needsTranscode, transcodeToWav } from "./transcode";
+
+const MIME: Record<string, string> = {
+  mp3: "audio/mpeg",
+  m4a: "audio/mp4",
+  mp4: "audio/mp4",
+  aac: "audio/aac",
+  ogg: "audio/ogg",
+  oga: "audio/ogg",
+  opus: "audio/ogg",
+  wav: "audio/wav",
+  flac: "audio/flac",
+  webm: "audio/webm",
+};
 
 protocol.registerSchemesAsPrivileged([
   { scheme: "media", privileges: { stream: true, supportFetchAPI: true } },
@@ -18,7 +33,7 @@ app.whenReady().then(() => {
   db.init();
   config.init();
 
-  protocol.handle("media", (request) => {
+  protocol.handle("media", async (request) => {
     const url = new URL(request.url);
     const id = parseInt(url.pathname.replace(/^\/+/, ""));
     const track = db.getTrack(id);
@@ -31,7 +46,37 @@ app.whenReady().then(() => {
       });
     }
 
-    return net.fetch(pathToFileURL(track.path).href);
+    const stats = await stat(track.path);
+    const total = stats.size;
+    const contentType = MIME[track.format] || "application/octet-stream";
+    const range = request.headers.get("range");
+
+    if (range) {
+      const match = /bytes=(\d+)-(\d*)/.exec(range);
+      if (match) {
+        const start = parseInt(match[1]);
+        const end = match[2] ? parseInt(match[2]) : total - 1;
+        const nodeStream = fs.createReadStream(track.path, { start, end });
+        return new Response(Readable.toWeb(nodeStream) as ReadableStream, {
+          status: 206,
+          headers: {
+            "Content-Type": contentType,
+            "Content-Length": String(end - start + 1),
+            "Content-Range": `bytes ${start}-${end}/${total}`,
+            "Accept-Ranges": "bytes",
+          },
+        });
+      }
+    }
+
+    const nodeStream = fs.createReadStream(track.path);
+    return new Response(Readable.toWeb(nodeStream) as ReadableStream, {
+      headers: {
+        "Content-Type": contentType,
+        "Content-Length": String(total),
+        "Accept-Ranges": "bytes",
+      },
+    });
   });
 
   mainWindow = new BrowserWindow({

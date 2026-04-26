@@ -307,11 +307,41 @@ audio.addEventListener("ended", async () => {
   }
 });
 
-progressBar.addEventListener("click", (e) => {
-  if (!audio.duration) return;
+let scrubbing = false;
+
+function seekToClientX(clientX: number): void {
+  const trackDuration =
+    isFinite(audio.duration) && audio.duration > 0
+      ? audio.duration
+      : currentPlaylist[currentIndex]?.duration || 0;
+  if (!trackDuration) return;
   const rect = progressBar.getBoundingClientRect();
-  const pct = (e.clientX - rect.left) / rect.width;
-  audio.currentTime = pct * audio.duration;
+  const pct = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width));
+  try {
+    audio.currentTime = pct * trackDuration;
+  } catch (err) {
+    console.error("Seek failed:", err);
+  }
+  progressFill.style.width = pct * 100 + "%";
+}
+
+progressBar.addEventListener("pointerdown", (e) => {
+  scrubbing = true;
+  progressBar.setPointerCapture(e.pointerId);
+  seekToClientX(e.clientX);
+});
+
+progressBar.addEventListener("pointermove", (e) => {
+  if (scrubbing) seekToClientX(e.clientX);
+});
+
+progressBar.addEventListener("pointerup", (e) => {
+  scrubbing = false;
+  progressBar.releasePointerCapture(e.pointerId);
+});
+
+progressBar.addEventListener("pointercancel", () => {
+  scrubbing = false;
 });
 
 // --- Library Paths ---
