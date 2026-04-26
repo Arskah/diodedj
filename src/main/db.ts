@@ -81,14 +81,18 @@ export function search(query: string, contentType?: ContentType): Track[] {
   if (!query?.trim()) {
     if (contentType) {
       return db
-        .prepare(
-          "SELECT * FROM tracks WHERE content_type = ? ORDER BY artist, album, title LIMIT 200",
-        )
-        .all(contentType) as Track[];
+        .prepare<
+          [ContentType],
+          Track
+        >("SELECT * FROM tracks WHERE content_type = ? ORDER BY artist, album, title LIMIT 200")
+        .all(contentType);
     }
     return db
-      .prepare("SELECT * FROM tracks ORDER BY artist, album, title LIMIT 200")
-      .all() as Track[];
+      .prepare<
+        [],
+        Track
+      >("SELECT * FROM tracks ORDER BY artist, album, title LIMIT 200")
+      .all();
   }
   const ftsQuery = query
     .trim()
@@ -97,7 +101,7 @@ export function search(query: string, contentType?: ContentType): Track[] {
     .join(" ");
   if (contentType) {
     return db
-      .prepare(
+      .prepare<[string, ContentType], Track>(
         `
       SELECT tracks.* FROM tracks_fts
       JOIN tracks ON tracks.id = tracks_fts.rowid
@@ -106,10 +110,10 @@ export function search(query: string, contentType?: ContentType): Track[] {
       LIMIT 200
     `,
       )
-      .all(ftsQuery, contentType) as Track[];
+      .all(ftsQuery, contentType);
   }
   return db
-    .prepare(
+    .prepare<[string], Track>(
       `
     SELECT tracks.* FROM tracks_fts
     JOIN tracks ON tracks.id = tracks_fts.rowid
@@ -118,13 +122,13 @@ export function search(query: string, contentType?: ContentType): Track[] {
     LIMIT 200
   `,
     )
-    .all(ftsQuery) as Track[];
+    .all(ftsQuery);
 }
 
 export function getTrack(id: number): Track | undefined {
-  return db.prepare("SELECT * FROM tracks WHERE id = ?").get(id) as
-    | Track
-    | undefined;
+  return db
+    .prepare<[number], Track>("SELECT * FROM tracks WHERE id = ?")
+    .get(id);
 }
 
 export function getRandomTracks(
@@ -132,15 +136,16 @@ export function getRandomTracks(
   contentType: ContentType = "music",
 ): Track[] {
   return db
-    .prepare(
-      "SELECT * FROM tracks WHERE content_type = ? ORDER BY RANDOM() LIMIT ?",
-    )
-    .all(contentType, count) as Track[];
+    .prepare<
+      [ContentType, number],
+      Track
+    >("SELECT * FROM tracks WHERE content_type = ? ORDER BY RANDOM() LIMIT ?")
+    .all(contentType, count);
 }
 
 export function insertTrack(track: TrackInsert): Database.RunResult {
   return db
-    .prepare(
+    .prepare<TrackInsert>(
       `
     INSERT OR REPLACE INTO tracks (path, content_type, title, artist, album, genre, year, duration, bpm, sample_rate, bitrate, format)
     VALUES (@path, @content_type, @title, @artist, @album, @genre, @year, @duration, @bpm, @sample_rate, @bitrate, @format)
@@ -151,26 +156,26 @@ export function insertTrack(track: TrackInsert): Database.RunResult {
 
 export function removeTracksNotInPaths(paths: string[]): number {
   if (paths.length === 0) {
-    const result = db.prepare("DELETE FROM tracks").run();
+    const result = db.prepare<[]>("DELETE FROM tracks").run();
     return result.changes;
   }
   const where = paths.map(() => "path NOT LIKE ?").join(" AND ");
   const patterns = paths.map((p) => `${p}%`);
   const result = db
-    .prepare(`DELETE FROM tracks WHERE ${where}`)
+    .prepare<string[]>(`DELETE FROM tracks WHERE ${where}`)
     .run(...patterns);
   return result.changes;
 }
 
 export function incrementPlayCount(id: number): void {
-  db.prepare("UPDATE tracks SET play_count = play_count + 1 WHERE id = ?").run(
-    id,
-  );
+  db.prepare<[number]>(
+    "UPDATE tracks SET play_count = play_count + 1 WHERE id = ?",
+  ).run(id);
 }
 
 export function getStats(): LibraryStats {
   return db
-    .prepare(
+    .prepare<[], LibraryStats>(
       `
     SELECT
       COUNT(*) as totalTracks,
@@ -180,7 +185,7 @@ export function getStats(): LibraryStats {
     FROM tracks
   `,
     )
-    .get() as LibraryStats;
+    .get()!;
 }
 
 export function close(): void {
