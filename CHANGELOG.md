@@ -1,5 +1,35 @@
 # Changelog
 
+## [0.3.0](https://github.com/Arskah/diodedj/compare/v0.2.1...v0.3.0) (2026-04-26)
+
+
+### Features
+
+* **main:** persist console output to log file ([b05ee72](https://github.com/Arskah/diodedj/commit/b05ee72d36fcf832005babf71935bdc782424ac3))
+
+
+### Bug Fixes
+
+* **deps:** pin dependency kysely to 0.28.16 ([#31](https://github.com/Arskah/diodedj/issues/31)) ([278fa19](https://github.com/Arskah/diodedj/commit/278fa19f676b6844e3e05587775c23ceb22f30df))
+* **deps:** promote ms to direct dependency ([9c7a6bb](https://github.com/Arskah/diodedj/commit/9c7a6bb7c210f75584d2f06adb519111e2593cb7))
+* **scanner:** surface readdir and parse errors ([bcd7ea6](https://github.com/Arskah/diodedj/commit/bcd7ea6889b1dbc452a6a9f9d3834cb18e7449f3))
+
+
+### Code Refactoring
+
+* **db:** migrate to Kysely with file-based migrations ([cc71d23](https://github.com/Arskah/diodedj/commit/cc71d2320b0ae329261419e56bb93e7b484bdd4a))
+* split window from main ([ac7d190](https://github.com/Arskah/diodedj/commit/ac7d19050d012e4749a28fc5a14012ec352b622e))
+
+
+### Tests
+
+* rm unused unit tests ([497c863](https://github.com/Arskah/diodedj/commit/497c863a1cce5a8413364525e8417a948ba258d9))
+
+
+### Build System
+
+* **mac:** declare TCC usage descriptions for protected dirs ([d545292](https://github.com/Arskah/diodedj/commit/d545292640ca9b55d4c7f5ad43d4e0adcaf288cf))
+
 ## [0.2.1](https://github.com/Arskah/diodedj/compare/v0.2.0...v0.2.1) (2026-04-26)
 
 
