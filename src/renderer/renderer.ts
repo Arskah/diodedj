@@ -177,8 +177,12 @@ volumeSlider.addEventListener('input', () => {
   audio.volume = parseFloat(volumeSlider.value);
 });
 
-audio.addEventListener('play', () => { btnPlay.innerHTML = '&#9208;'; });
-audio.addEventListener('pause', () => { btnPlay.innerHTML = '&#9654;'; });
+audio.addEventListener('play', () => {
+  btnPlay.innerHTML = '&#9208;';
+});
+audio.addEventListener('pause', () => {
+  btnPlay.innerHTML = '&#9654;';
+});
 
 audio.addEventListener('timeupdate', () => {
   timeDisplay.textContent = `${formatTime(audio.currentTime)} / ${formatTime(audio.duration || 0)}`;
@@ -222,7 +226,7 @@ btnScan.addEventListener('click', async () => {
 
 window.api.onScanProgress(({ processed, total }) => {
   scanStatus.textContent = `${processed} / ${total} files`;
-  scanBarFill.style.width = ((processed / total) * 100) + '%';
+  scanBarFill.style.width = (processed / total) * 100 + '%';
 });
 
 // --- Auto Playlist ---

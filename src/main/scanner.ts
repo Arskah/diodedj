@@ -4,8 +4,16 @@ import { TrackInsert, ScanResult } from '../types';
 import * as db from './db';
 
 const AUDIO_EXTENSIONS = new Set([
-  '.mp3', '.flac', '.wav', '.ogg', '.aac', '.m4a',
-  '.wma', '.opus', '.aiff', '.aif'
+  '.mp3',
+  '.flac',
+  '.wav',
+  '.ogg',
+  '.aac',
+  '.m4a',
+  '.wma',
+  '.opus',
+  '.aiff',
+  '.aif'
 ]);
 
 export async function scanDirectory(

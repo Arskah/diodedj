@@ -99,7 +99,8 @@ body {
   overflow: hidden;
 }
 
-#library-panel, #playlist-panel {
+#library-panel,
+#playlist-panel {
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -114,7 +115,8 @@ body {
   flex: 2;
 }
 
-#library-panel h2, #playlist-panel h2 {
+#library-panel h2,
+#playlist-panel h2 {
   padding: 10px 16px;
   font-size: 13px;
   font-weight: 600;
@@ -125,7 +127,8 @@ body {
   border-bottom: 1px solid var(--border);
 }
 
-#track-list, #playlist {
+#track-list,
+#playlist {
   flex: 1;
   overflow-y: auto;
   padding: 4px 0;
@@ -133,7 +136,8 @@ body {
 
 /* --- Track Rows --- */
 
-.track-row, .playlist-row {
+.track-row,
+.playlist-row {
   display: flex;
   align-items: center;
   padding: 8px 16px;
@@ -142,7 +146,8 @@ body {
   font-size: 13px;
 }
 
-.track-row:hover, .playlist-row:hover {
+.track-row:hover,
+.playlist-row:hover {
   background: var(--bg-secondary);
 }
 
@@ -151,14 +156,16 @@ body {
   border-left: 3px solid var(--accent);
 }
 
-.track-title, .pl-title {
+.track-title,
+.pl-title {
   flex: 2;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.track-artist, .pl-artist {
+.track-artist,
+.pl-artist {
   flex: 1.5;
   color: var(--text-secondary);
   overflow: hidden;
@@ -174,7 +181,8 @@ body {
   white-space: nowrap;
 }
 
-.track-duration, .pl-duration {
+.track-duration,
+.pl-duration {
   width: 50px;
   text-align: right;
   color: var(--text-secondary);
@@ -188,7 +196,8 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
-.btn-add, .btn-remove {
+.btn-add,
+.btn-remove {
   width: 26px;
   height: 26px;
   background: none;

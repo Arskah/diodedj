@@ -64,16 +64,26 @@ export function init(): Database.Database {
 
 export function search(query: string): Track[] {
   if (!query?.trim()) {
-    return db.prepare('SELECT * FROM tracks ORDER BY artist, album, title LIMIT 200').all() as Track[];
+    return db
+      .prepare('SELECT * FROM tracks ORDER BY artist, album, title LIMIT 200')
+      .all() as Track[];
   }
-  const ftsQuery = query.trim().split(/\s+/).map(t => `"${t}"*`).join(' ');
-  return db.prepare(`
+  const ftsQuery = query
+    .trim()
+    .split(/\s+/)
+    .map((t) => `"${t}"*`)
+    .join(' ');
+  return db
+    .prepare(
+      `
     SELECT tracks.* FROM tracks_fts
     JOIN tracks ON tracks.id = tracks_fts.rowid
     WHERE tracks_fts MATCH ?
     ORDER BY rank
     LIMIT 200
-  `).all(ftsQuery) as Track[];
+  `
+    )
+    .all(ftsQuery) as Track[];
 }
 
 export function getTrack(id: number): Track | undefined {
@@ -85,21 +95,29 @@ export function getRandomTracks(count: number): Track[] {
 }
 
 export function insertTrack(track: TrackInsert): Database.RunResult {
-  return db.prepare(`
+  return db
+    .prepare(
+      `
     INSERT OR REPLACE INTO tracks (path, title, artist, album, genre, year, duration, bpm, sample_rate, bitrate, format)
     VALUES (@path, @title, @artist, @album, @genre, @year, @duration, @bpm, @sample_rate, @bitrate, @format)
-  `).run(track);
+  `
+    )
+    .run(track);
 }
 
 export function getStats(): LibraryStats {
-  return db.prepare(`
+  return db
+    .prepare(
+      `
     SELECT
       COUNT(*) as totalTracks,
       COUNT(DISTINCT artist) as totalArtists,
       COUNT(DISTINCT album) as totalAlbums,
       ROUND(SUM(duration) / 3600.0, 1) as totalHours
     FROM tracks
-  `).get() as LibraryStats;
+  `
+    )
+    .get() as LibraryStats;
 }
 
 export function close(): void {

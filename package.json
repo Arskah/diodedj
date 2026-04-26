@@ -7,7 +7,20 @@
     "build": "tsc && mkdir -p dist/renderer && cp src/renderer/index.html src/renderer/styles.css dist/renderer/",
     "start": "electron .",
     "dev": "electron .",
+    "test": "vitest",
+    "lint": "eslint",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "prepare": "husky",
     "postinstall": "electron-rebuild"
+  },
+  "lint-staged": {
+    "*": [
+      "prettier --write --ignore-unknown"
+    ],
+    "*.{ts,mts}": [
+      "eslint --fix"
+    ]
   },
   "dependencies": {
     "better-sqlite3": "^12.9.0",
@@ -15,10 +28,17 @@
     "music-metadata": "^11.12.3"
   },
   "devDependencies": {
+    "@electron/rebuild": "4.0.4",
+    "@eslint/js": "^9.0.0",
     "@types/better-sqlite3": "^7.6.13",
     "electron": "^41.3.0",
-    "@electron/rebuild": "4.0.4",
-    "typescript": "^6.0.3"
+    "eslint": "^9.0.0",
+    "husky": "^9.0.0",
+    "lint-staged": "^15.0.0",
+    "prettier": "^3.0.0",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.0.0",
+    "vitest": "^3.0.0"
   },
   "packageManager": "pnpm@9.15.4+sha512.b2dc20e2fc72b3e18848459b37359a32064663e5627a51e4c74b2c29dd8e8e0491483c3abb40789cfd578bf362fb6ba8261b05f0387d76792ed6e23ea3b1b6a0"
 }
