@@ -1,6 +1,11 @@
 import { spawn } from "child_process";
 import { Readable } from "stream";
+import ffmpegStatic from "ffmpeg-static";
 import { NATIVE_FORMATS } from "./audio-formats";
+
+// Packaged app: ffmpeg binary lives in app.asar.unpacked, not app.asar
+const FFMPEG_PATH =
+  ffmpegStatic?.replace("app.asar", "app.asar.unpacked") ?? "ffmpeg";
 
 export function needsTranscode(format: string): boolean {
   return !NATIVE_FORMATS.has(format.toLowerCase());
@@ -8,7 +13,7 @@ export function needsTranscode(format: string): boolean {
 
 export function transcodeToWav(filePath: string): ReadableStream {
   const proc = spawn(
-    "ffmpeg",
+    FFMPEG_PATH,
     [
       "-i",
       filePath,
