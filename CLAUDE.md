@@ -5,16 +5,18 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Build & Run Commands
 
 ```bash
-pnpm build          # electron-vite build → out/{main,preload,renderer}
-pnpm start          # electron-vite preview (build + run packaged output)
 pnpm dev            # electron-vite dev (HMR for renderer, watch for main/preload)
+pnpm build          # electron-vite build → out/{main,preload,renderer}
 pnpm typecheck      # tsc --noEmit on node + web tsconfigs
 pnpm test           # vitest (watch mode)
 pnpm test -- run    # vitest single run
+pnpm test:e2e       # build then playwright (electron app under xvfb-style harness)
 pnpm lint           # eslint
 pnpm format         # prettier --write .
 pnpm format:check   # prettier --check .
 ```
+
+Packaging: `pnpm build && pnpm exec electron-builder [--mac|--win|--linux]` — no wrapper script (matches CI in `.github/workflows/release-please.yml`).
 
 Pre-commit hook runs lint-staged (prettier + eslint fix) then vitest.
 
