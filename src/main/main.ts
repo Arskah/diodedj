@@ -2,6 +2,7 @@ import { app, BrowserWindow, ipcMain, protocol, net, dialog } from 'electron';
 import { pathToFileURL } from 'url';
 import path from 'path';
 import * as db from './db';
+import * as config from './config';
 import * as scanner from './scanner';
 import * as playlist from './playlist';
 
@@ -13,6 +14,7 @@ let mainWindow: BrowserWindow;
 
 app.whenReady().then(() => {
   db.init();
+  config.init();
 
   protocol.handle('media', (request) => {
     const url = new URL(request.url);
@@ -62,25 +64,43 @@ function setupIPC(): void {
     return db.getStats();
   });
 
-  ipcMain.handle('select-folder', async () => {
+  ipcMain.handle('get-library-paths', () => {
+    return config.getLibraryPaths();
+  });
+
+  ipcMain.handle('add-library-path', async () => {
     const result = await dialog.showOpenDialog(mainWindow, {
       properties: ['openDirectory'],
       title: 'Select Music Library Folder'
     });
     if (result.canceled) return null;
-    return result.filePaths[0];
+    const dirPath = result.filePaths[0];
+    config.addLibraryPath(dirPath);
+    return dirPath;
   });
 
-  ipcMain.handle('scan-library', async (_event, dirPath: string) => {
-    let lastReport = 0;
-    const result = await scanner.scanDirectory(dirPath, (processed, total) => {
-      const now = Date.now();
-      if (now - lastReport > 200) {
-        lastReport = now;
-        mainWindow.webContents.send('scan-progress', { processed, total });
-      }
-    });
-    return result;
+  ipcMain.handle('remove-library-path', (_event, dirPath: string) => {
+    return config.removeLibraryPath(dirPath);
+  });
+
+  ipcMain.handle('scan-library', async (_event, dirPath?: string) => {
+    const paths = dirPath ? [dirPath] : config.getLibraryPaths();
+    const totalResult = { total: 0, added: 0 };
+
+    for (const p of paths) {
+      let lastReport = 0;
+      const result = await scanner.scanDirectory(p, (processed, total) => {
+        const now = Date.now();
+        if (now - lastReport > 200) {
+          lastReport = now;
+          mainWindow.webContents.send('scan-progress', { processed, total });
+        }
+      });
+      totalResult.total += result.total;
+      totalResult.added += result.added;
+    }
+
+    return totalResult;
   });
 }
 

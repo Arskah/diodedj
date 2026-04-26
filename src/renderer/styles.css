@@ -333,6 +333,85 @@ body {
   accent-color: var(--accent);
 }
 
+/* --- Paths Modal --- */
+
+#paths-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+#paths-overlay.hidden {
+  display: none;
+}
+
+#paths-modal {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px 32px;
+  min-width: 450px;
+  max-width: 600px;
+}
+
+#paths-modal h3 {
+  margin-bottom: 16px;
+  font-size: 16px;
+}
+
+#paths-list {
+  max-height: 300px;
+  overflow-y: auto;
+  margin-bottom: 16px;
+}
+
+.path-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.path-row:last-child {
+  border-bottom: none;
+}
+
+.path-text {
+  flex: 1;
+  font-size: 13px;
+  font-family: monospace;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-secondary);
+}
+
+#paths-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+#paths-actions button {
+  padding: 8px 16px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-primary);
+  cursor: pointer;
+  font-size: 13px;
+}
+
+#paths-actions button:hover {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
 /* --- Scan Overlay --- */
 
 #scan-overlay {

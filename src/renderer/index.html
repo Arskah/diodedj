@@ -13,7 +13,8 @@
           <input type="text" id="search-input" placeholder="Search tracks..." autocomplete="off" />
         </div>
         <div id="toolbar-actions">
-          <button id="btn-scan" title="Scan music folder">Scan Library</button>
+          <button id="btn-paths" title="Manage library paths">Paths</button>
+          <button id="btn-scan" title="Rescan all library paths">Scan</button>
           <button id="btn-generate" title="Generate random playlist">Auto Playlist</button>
           <span id="library-stats"></span>
         </div>
@@ -52,6 +53,17 @@
           </div>
         </div>
       </footer>
+
+      <div id="paths-overlay" class="hidden">
+        <div id="paths-modal">
+          <h3>Library Paths</h3>
+          <div id="paths-list"></div>
+          <div id="paths-actions">
+            <button id="btn-add-path">Add Folder</button>
+            <button id="btn-close-paths">Close</button>
+          </div>
+        </div>
+      </div>
 
       <div id="scan-overlay" class="hidden">
         <div id="scan-modal">

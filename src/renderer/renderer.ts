@@ -3,6 +3,7 @@ const searchInput = document.getElementById('search-input') as HTMLInputElement;
 const trackList = document.getElementById('track-list')!;
 const playlistEl = document.getElementById('playlist')!;
 const playlistCount = document.getElementById('playlist-count')!;
+const btnPaths = document.getElementById('btn-paths')!;
 const btnScan = document.getElementById('btn-scan')!;
 const btnGenerate = document.getElementById('btn-generate')!;
 const btnPrev = document.getElementById('btn-prev')!;
@@ -16,6 +17,10 @@ const timeDisplay = document.getElementById('time-display')!;
 const progressFill = document.getElementById('progress-fill')!;
 const progressBar = document.getElementById('progress-bar')!;
 const libraryStats = document.getElementById('library-stats')!;
+const pathsOverlay = document.getElementById('paths-overlay')!;
+const pathsList = document.getElementById('paths-list')!;
+const btnAddPath = document.getElementById('btn-add-path')!;
+const btnClosePaths = document.getElementById('btn-close-paths')!;
 const scanOverlay = document.getElementById('scan-overlay')!;
 const scanStatus = document.getElementById('scan-status')!;
 const scanBarFill = document.getElementById('scan-bar-fill')!;
@@ -207,17 +212,52 @@ progressBar.addEventListener('click', (e) => {
   audio.currentTime = pct * audio.duration;
 });
 
+// --- Library Paths ---
+
+btnPaths.addEventListener('click', () => {
+  renderPaths();
+  pathsOverlay.classList.remove('hidden');
+});
+
+btnClosePaths.addEventListener('click', () => {
+  pathsOverlay.classList.add('hidden');
+});
+
+btnAddPath.addEventListener('click', async () => {
+  const added = await window.api.addLibraryPath();
+  if (added) renderPaths();
+});
+
+async function renderPaths(): Promise<void> {
+  const paths = await window.api.getLibraryPaths();
+  pathsList.innerHTML = '';
+  if (paths.length === 0) {
+    pathsList.innerHTML = '<div class="empty">No library paths configured</div>';
+    return;
+  }
+  for (const p of paths) {
+    const row = document.createElement('div');
+    row.className = 'path-row';
+    row.innerHTML = `
+      <span class="path-text">${esc(p)}</span>
+      <button class="btn-remove" title="Remove">&#10005;</button>
+    `;
+    row.querySelector('.btn-remove')!.addEventListener('click', async () => {
+      await window.api.removeLibraryPath(p);
+      renderPaths();
+    });
+    pathsList.appendChild(row);
+  }
+}
+
 // --- Library Scan ---
 
 btnScan.addEventListener('click', async () => {
-  const folder = await window.api.selectFolder();
-  if (!folder) return;
-
   scanOverlay.classList.remove('hidden');
   scanStatus.textContent = 'Scanning...';
   scanBarFill.style.width = '0%';
 
-  await window.api.scanLibrary(folder);
+  await window.api.scanLibrary();
 
   scanOverlay.classList.add('hidden');
   doSearch();
