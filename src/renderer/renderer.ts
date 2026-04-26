@@ -33,8 +33,10 @@ type Track = {
   duration: number;
 };
 
-let currentPlaylist: Track[] = [];
+const currentPlaylist: Track[] = [];
 let currentIndex = -1;
+let autoPlaylistActive = false;
+const AUTO_PLAYLIST_BUFFER = 5;
 
 // --- Search ---
 
@@ -131,6 +133,7 @@ function playIndex(index: number): void {
   audio.play();
   updateNowPlaying(track);
   renderPlaylist();
+  maybeRefillPlaylist();
 }
 
 function updateNowPlaying(track: Track): void {
@@ -144,6 +147,8 @@ function stopPlayback(): void {
   audio.removeAttribute("src");
   audio.load();
   currentIndex = -1;
+  autoPlaylistActive = false;
+  btnGenerate.classList.remove("active");
   npTitle.textContent = "No track loaded";
   npArtist.textContent = "";
   timeDisplay.textContent = "0:00 / 0:00";
@@ -197,9 +202,14 @@ audio.addEventListener("timeupdate", () => {
   progressFill.style.width = pct + "%";
 });
 
-audio.addEventListener("ended", () => {
+audio.addEventListener("ended", async () => {
   if (currentIndex < currentPlaylist.length - 1) {
     playIndex(currentIndex + 1);
+  } else if (autoPlaylistActive) {
+    await maybeRefillPlaylist();
+    if (currentIndex < currentPlaylist.length - 1) {
+      playIndex(currentIndex + 1);
+    }
   } else {
     stopPlayback();
     renderPlaylist();
@@ -273,13 +283,32 @@ window.api.onScanProgress(({ processed, total }) => {
 
 // --- Auto Playlist ---
 
-btnGenerate.addEventListener("click", async () => {
-  const tracks = await window.api.generatePlaylist(20);
-  currentPlaylist = tracks;
-  currentIndex = -1;
-  renderPlaylist();
-  if (tracks.length > 0) playIndex(0);
+btnGenerate.addEventListener("click", () => {
+  toggleAutoPlaylist();
 });
+
+function toggleAutoPlaylist(): void {
+  autoPlaylistActive = !autoPlaylistActive;
+  btnGenerate.classList.toggle("active", autoPlaylistActive);
+
+  if (autoPlaylistActive) {
+    maybeRefillPlaylist();
+    if (currentIndex === -1 && currentPlaylist.length > 0) {
+      playIndex(0);
+    }
+  }
+}
+
+async function maybeRefillPlaylist(): Promise<void> {
+  if (!autoPlaylistActive) return;
+  const remaining = currentPlaylist.length - currentIndex - 1;
+  if (remaining < AUTO_PLAYLIST_BUFFER) {
+    const count = AUTO_PLAYLIST_BUFFER - remaining;
+    const tracks = await window.api.generatePlaylist(count);
+    currentPlaylist.push(...tracks);
+    renderPlaylist();
+  }
+}
 
 // --- Stats ---
 
