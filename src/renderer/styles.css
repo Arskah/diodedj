@@ -237,6 +237,14 @@ body {
   white-space: nowrap;
 }
 
+.track-plays {
+  width: 35px;
+  text-align: right;
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
 .track-duration,
 .pl-duration {
   width: 50px;

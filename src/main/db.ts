@@ -25,15 +25,21 @@ export function init(): Database.Database {
       sample_rate INTEGER,
       bitrate INTEGER,
       format TEXT,
+      play_count INTEGER NOT NULL DEFAULT 0,
       added_at TEXT DEFAULT (datetime('now'))
     )
   `);
 
-  // Migration: add content_type if missing
+  // Migrations
   const cols = db.pragma("table_info(tracks)") as { name: string }[];
   if (!cols.some((c) => c.name === "content_type")) {
     db.exec(
       `ALTER TABLE tracks ADD COLUMN content_type TEXT NOT NULL DEFAULT 'music'`,
+    );
+  }
+  if (!cols.some((c) => c.name === "play_count")) {
+    db.exec(
+      `ALTER TABLE tracks ADD COLUMN play_count INTEGER NOT NULL DEFAULT 0`,
     );
   }
 
@@ -154,6 +160,12 @@ export function removeTracksNotInPaths(paths: string[]): number {
     .prepare(`DELETE FROM tracks WHERE ${where}`)
     .run(...patterns);
   return result.changes;
+}
+
+export function incrementPlayCount(id: number): void {
+  db.prepare("UPDATE tracks SET play_count = play_count + 1 WHERE id = ?").run(
+    id,
+  );
 }
 
 export function getStats(): LibraryStats {

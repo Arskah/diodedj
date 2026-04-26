@@ -4,6 +4,7 @@ contextBridge.exposeInMainWorld("api", {
   search: (query: string, contentType?: string) =>
     ipcRenderer.invoke("search", query, contentType),
   getTrack: (id: number) => ipcRenderer.invoke("get-track", id),
+  trackPlayed: (id: number) => ipcRenderer.invoke("track-played", id),
   generatePlaylist: (count: number) =>
     ipcRenderer.invoke("generate-playlist", count),
   getStats: () => ipcRenderer.invoke("get-stats"),

@@ -69,6 +69,10 @@ function setupIPC(): void {
     return db.getTrack(id);
   });
 
+  ipcMain.handle("track-played", (_event, id: number) => {
+    db.incrementPlayCount(id);
+  });
+
   ipcMain.handle("generate-playlist", (_event, count: number) => {
     return playlist.generate(count);
   });

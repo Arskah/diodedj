@@ -14,6 +14,7 @@ export interface Track {
   sample_rate: number | null;
   bitrate: number | null;
   format: string;
+  play_count: number;
   added_at: string;
 }
 

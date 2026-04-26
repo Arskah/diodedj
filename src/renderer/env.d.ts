@@ -6,6 +6,7 @@ interface ElectronAPI {
     contentType?: ContentType,
   ): Promise<import("../types").Track[]>;
   getTrack(id: number): Promise<import("../types").Track>;
+  trackPlayed(id: number): Promise<void>;
   generatePlaylist(count: number): Promise<import("../types").Track[]>;
   getStats(): Promise<import("../types").LibraryStats>;
   getPaths(type: ContentType): Promise<string[]>;

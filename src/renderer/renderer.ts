@@ -32,6 +32,7 @@ type Track = {
   artist: string;
   album: string;
   duration: number;
+  play_count: number;
 };
 
 const currentPlaylist: Track[] = [];
@@ -80,6 +81,7 @@ function renderTrackList(tracks: Track[]): void {
       <span class="track-title">${esc(track.title)}</span>
       <span class="track-artist">${esc(track.artist)}</span>
       <span class="track-album">${esc(track.album)}</span>
+      <span class="track-plays">${track.play_count || 0}</span>
       <span class="track-duration">${formatTime(track.duration)}</span>
       <button class="btn-add" title="Add to playlist">+</button>
     `;
@@ -152,6 +154,7 @@ function playIndex(index: number): void {
   const track = currentPlaylist[index];
   audio.src = window.api.getMediaUrl(track.id);
   audio.play();
+  window.api.trackPlayed(track.id);
   updateNowPlaying(track);
   renderPlaylist();
   maybeRefillPlaylist();
