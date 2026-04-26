@@ -15,6 +15,7 @@
   "timezone": "Europe/Helsinki",
   "postUpdateOptions": ["pnpmDedupe"],
   "minimumReleaseAge": "3 days",
+  "semanticCommits": "enabled",
   "packageRules": [
     {
       "groupName": "playwright",
