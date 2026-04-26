@@ -6,6 +6,7 @@ import * as config from "./config";
 import { needsTranscode, transcodeToWav } from "./transcode";
 import { MIME_TYPES } from "./audio-formats";
 import * as ipc from "./ipc";
+import * as logger from "./logger";
 import { createMainWindow } from "./mainWindow";
 
 protocol.registerSchemesAsPrivileged([
@@ -73,6 +74,7 @@ const mediaHandler = async (request: Request) => {
 };
 
 app.on("ready", async () => {
+  logger.init();
   await db.init();
   config.init();
   protocol.handle("media", mediaHandler);
@@ -81,5 +83,6 @@ app.on("ready", async () => {
 
 app.on("window-all-closed", async () => {
   await db.close();
+  logger.close();
   app.quit();
 });
