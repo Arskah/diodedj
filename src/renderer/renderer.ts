@@ -83,15 +83,20 @@ function renderTrackList(tracks: Track[]): void {
       <span class="track-album">${esc(track.album)}</span>
       <span class="track-plays">${track.play_count || 0}</span>
       <span class="track-duration">${formatTime(track.duration)}</span>
+      <button class="btn-play-track" title="Add and play">&#9654;</button>
       <button class="btn-add" title="Add to playlist">+</button>
     `;
+    row.querySelector(".btn-play-track")!.addEventListener("click", (e) => {
+      e.stopPropagation();
+      addToPlaylist(track);
+      playIndex(currentPlaylist.length - 1);
+    });
     row.querySelector(".btn-add")!.addEventListener("click", (e) => {
       e.stopPropagation();
       addToPlaylist(track);
     });
     row.addEventListener("dblclick", () => {
       addToPlaylist(track);
-      playIndex(currentPlaylist.length - 1);
     });
     trackList.appendChild(row);
   }
@@ -104,6 +109,8 @@ function addToPlaylist(track: Track): void {
   renderPlaylist();
 }
 
+let dragFromIndex = -1;
+
 function renderPlaylist(): void {
   playlistCount.textContent = `(${currentPlaylist.length})`;
   playlistEl.innerHTML = "";
@@ -114,7 +121,10 @@ function renderPlaylist(): void {
   currentPlaylist.forEach((track, i) => {
     const row = document.createElement("div");
     row.className = "playlist-row" + (i === currentIndex ? " active" : "");
+    row.draggable = true;
+    row.dataset.index = String(i);
     row.innerHTML = `
+      <span class="pl-drag">&#8942;</span>
       <span class="pl-num">${i + 1}</span>
       <span class="pl-title">${esc(track.title)}</span>
       <span class="pl-artist">${esc(track.artist)}</span>
@@ -126,8 +136,51 @@ function renderPlaylist(): void {
       removeFromPlaylist(i);
     });
     row.addEventListener("dblclick", () => playIndex(i));
+
+    row.addEventListener("dragstart", () => {
+      dragFromIndex = i;
+      row.classList.add("dragging");
+    });
+    row.addEventListener("dragend", () => {
+      row.classList.remove("dragging");
+      dragFromIndex = -1;
+      playlistEl
+        .querySelectorAll(".drag-over")
+        .forEach((el) => el.classList.remove("drag-over"));
+    });
+    row.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      row.classList.add("drag-over");
+    });
+    row.addEventListener("dragleave", () => {
+      row.classList.remove("drag-over");
+    });
+    row.addEventListener("drop", (e) => {
+      e.preventDefault();
+      row.classList.remove("drag-over");
+      const toIndex = i;
+      if (dragFromIndex === -1 || dragFromIndex === toIndex) return;
+      movePlaylistItem(dragFromIndex, toIndex);
+    });
+
     playlistEl.appendChild(row);
   });
+}
+
+function movePlaylistItem(from: number, to: number): void {
+  const [item] = currentPlaylist.splice(from, 1);
+  currentPlaylist.splice(to, 0, item);
+
+  // Update currentIndex to follow the playing track
+  if (currentIndex === from) {
+    currentIndex = to;
+  } else if (from < currentIndex && to >= currentIndex) {
+    currentIndex--;
+  } else if (from > currentIndex && to <= currentIndex) {
+    currentIndex++;
+  }
+
+  renderPlaylist();
 }
 
 btnClearPlaylist.addEventListener("click", () => {

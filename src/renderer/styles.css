@@ -253,6 +253,27 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+.pl-drag {
+  width: 16px;
+  text-align: center;
+  color: var(--border);
+  cursor: grab;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.pl-drag:hover {
+  color: var(--text-secondary);
+}
+
+.playlist-row.dragging {
+  opacity: 0.4;
+}
+
+.playlist-row.drag-over {
+  border-top: 2px solid var(--accent);
+}
+
 .pl-num {
   width: 28px;
   text-align: right;
@@ -260,6 +281,7 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+.btn-play-track,
 .btn-add,
 .btn-remove {
   width: 26px;
@@ -277,6 +299,7 @@ body {
   flex-shrink: 0;
 }
 
+.btn-play-track:hover,
 .btn-add:hover {
   color: var(--accent);
   border-color: var(--accent);
