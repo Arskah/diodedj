@@ -1,12 +1,18 @@
+type ContentType = "music" | "commercial" | "jingle";
+
 interface ElectronAPI {
-  search(query: string): Promise<import("../types").Track[]>;
+  search(
+    query: string,
+    contentType?: ContentType,
+  ): Promise<import("../types").Track[]>;
   getTrack(id: number): Promise<import("../types").Track>;
   generatePlaylist(count: number): Promise<import("../types").Track[]>;
   getStats(): Promise<import("../types").LibraryStats>;
-  getLibraryPaths(): Promise<string[]>;
-  addLibraryPath(): Promise<string | null>;
-  removeLibraryPath(dirPath: string): Promise<boolean>;
-  scanLibrary(dirPath?: string): Promise<import("../types").ScanResult>;
+  getPaths(type: ContentType): Promise<string[]>;
+  getAllPaths(): Promise<Record<ContentType, string[]>>;
+  addPath(type: ContentType): Promise<string | null>;
+  removePath(type: ContentType, dirPath: string): Promise<boolean>;
+  scanLibrary(): Promise<import("../types").ScanResult>;
   onScanProgress(
     callback: (data: { processed: number; total: number }) => void,
   ): void;

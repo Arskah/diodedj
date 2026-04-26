@@ -1,17 +1,18 @@
 import { contextBridge, ipcRenderer } from "electron";
 
 contextBridge.exposeInMainWorld("api", {
-  search: (query: string) => ipcRenderer.invoke("search", query),
+  search: (query: string, contentType?: string) =>
+    ipcRenderer.invoke("search", query, contentType),
   getTrack: (id: number) => ipcRenderer.invoke("get-track", id),
   generatePlaylist: (count: number) =>
     ipcRenderer.invoke("generate-playlist", count),
   getStats: () => ipcRenderer.invoke("get-stats"),
-  getLibraryPaths: () => ipcRenderer.invoke("get-library-paths"),
-  addLibraryPath: () => ipcRenderer.invoke("add-library-path"),
-  removeLibraryPath: (dirPath: string) =>
-    ipcRenderer.invoke("remove-library-path", dirPath),
-  scanLibrary: (dirPath?: string) =>
-    ipcRenderer.invoke("scan-library", dirPath),
+  getPaths: (type: string) => ipcRenderer.invoke("get-paths", type),
+  getAllPaths: () => ipcRenderer.invoke("get-all-paths"),
+  addPath: (type: string) => ipcRenderer.invoke("add-path", type),
+  removePath: (type: string, dirPath: string) =>
+    ipcRenderer.invoke("remove-path", type, dirPath),
+  scanLibrary: () => ipcRenderer.invoke("scan-library"),
   onScanProgress: (
     callback: (data: { processed: number; total: number }) => void,
   ) => {

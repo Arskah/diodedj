@@ -1,7 +1,7 @@
 import Database from "better-sqlite3";
 import path from "path";
 import { app } from "electron";
-import { Track, TrackInsert, LibraryStats } from "../types";
+import { ContentType, Track, TrackInsert, LibraryStats } from "../types";
 
 let db: Database.Database;
 
@@ -14,6 +14,7 @@ export function init(): Database.Database {
     CREATE TABLE IF NOT EXISTS tracks (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       path TEXT UNIQUE NOT NULL,
+      content_type TEXT NOT NULL DEFAULT 'music',
       title TEXT,
       artist TEXT,
       album TEXT,
@@ -27,6 +28,14 @@ export function init(): Database.Database {
       added_at TEXT DEFAULT (datetime('now'))
     )
   `);
+
+  // Migration: add content_type if missing
+  const cols = db.pragma("table_info(tracks)") as { name: string }[];
+  if (!cols.some((c) => c.name === "content_type")) {
+    db.exec(
+      `ALTER TABLE tracks ADD COLUMN content_type TEXT NOT NULL DEFAULT 'music'`,
+    );
+  }
 
   db.exec(`
     CREATE VIRTUAL TABLE IF NOT EXISTS tracks_fts USING fts5(
@@ -62,8 +71,15 @@ export function init(): Database.Database {
   return db;
 }
 
-export function search(query: string): Track[] {
+export function search(query: string, contentType?: ContentType): Track[] {
   if (!query?.trim()) {
+    if (contentType) {
+      return db
+        .prepare(
+          "SELECT * FROM tracks WHERE content_type = ? ORDER BY artist, album, title LIMIT 200",
+        )
+        .all(contentType) as Track[];
+    }
     return db
       .prepare("SELECT * FROM tracks ORDER BY artist, album, title LIMIT 200")
       .all() as Track[];
@@ -73,6 +89,19 @@ export function search(query: string): Track[] {
     .split(/\s+/)
     .map((t) => `"${t}"*`)
     .join(" ");
+  if (contentType) {
+    return db
+      .prepare(
+        `
+      SELECT tracks.* FROM tracks_fts
+      JOIN tracks ON tracks.id = tracks_fts.rowid
+      WHERE tracks_fts MATCH ? AND tracks.content_type = ?
+      ORDER BY rank
+      LIMIT 200
+    `,
+      )
+      .all(ftsQuery, contentType) as Track[];
+  }
   return db
     .prepare(
       `
@@ -92,18 +121,23 @@ export function getTrack(id: number): Track | undefined {
     | undefined;
 }
 
-export function getRandomTracks(count: number): Track[] {
+export function getRandomTracks(
+  count: number,
+  contentType: ContentType = "music",
+): Track[] {
   return db
-    .prepare("SELECT * FROM tracks ORDER BY RANDOM() LIMIT ?")
-    .all(count) as Track[];
+    .prepare(
+      "SELECT * FROM tracks WHERE content_type = ? ORDER BY RANDOM() LIMIT ?",
+    )
+    .all(contentType, count) as Track[];
 }
 
 export function insertTrack(track: TrackInsert): Database.RunResult {
   return db
     .prepare(
       `
-    INSERT OR REPLACE INTO tracks (path, title, artist, album, genre, year, duration, bpm, sample_rate, bitrate, format)
-    VALUES (@path, @title, @artist, @album, @genre, @year, @duration, @bpm, @sample_rate, @bitrate, @format)
+    INSERT OR REPLACE INTO tracks (path, content_type, title, artist, album, genre, year, duration, bpm, sample_rate, bitrate, format)
+    VALUES (@path, @content_type, @title, @artist, @album, @genre, @year, @duration, @bpm, @sample_rate, @bitrate, @format)
   `,
     )
     .run(track);

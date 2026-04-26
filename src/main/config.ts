@@ -1,13 +1,18 @@
 import fs from "fs";
 import path from "path";
 import { app } from "electron";
+import { ContentType } from "../types";
 
 export interface AppConfig {
-  libraryPaths: string[];
+  musicPaths: string[];
+  commercialPaths: string[];
+  jinglePaths: string[];
 }
 
 const defaults: AppConfig = {
-  libraryPaths: [],
+  musicPaths: [],
+  commercialPaths: [],
+  jinglePaths: [],
 };
 
 let config: AppConfig;
@@ -22,7 +27,13 @@ export function init(): AppConfig {
 function load(): AppConfig {
   try {
     const raw = fs.readFileSync(configPath, "utf-8");
-    return { ...defaults, ...JSON.parse(raw) };
+    const parsed = JSON.parse(raw);
+    // Migrate old config format
+    if (parsed.libraryPaths && !parsed.musicPaths) {
+      parsed.musicPaths = parsed.libraryPaths;
+      delete parsed.libraryPaths;
+    }
+    return { ...defaults, ...parsed };
   } catch {
     return { ...defaults };
   }
@@ -32,27 +43,52 @@ function save(): void {
   fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
 }
 
-export function get(): AppConfig {
-  return config;
+function getPathsArray(type: ContentType): string[] {
+  switch (type) {
+    case "music":
+      return config.musicPaths;
+    case "commercial":
+      return config.commercialPaths;
+    case "jingle":
+      return config.jinglePaths;
+  }
 }
 
-export function getLibraryPaths(): string[] {
-  return config.libraryPaths;
+export function getPaths(type: ContentType): string[] {
+  return getPathsArray(type);
 }
 
-export function addLibraryPath(dirPath: string): boolean {
+export function getAllPaths(): Record<ContentType, string[]> {
+  return {
+    music: config.musicPaths,
+    commercial: config.commercialPaths,
+    jingle: config.jinglePaths,
+  };
+}
+
+export function getAllPathsFlat(): string[] {
+  return [
+    ...config.musicPaths,
+    ...config.commercialPaths,
+    ...config.jinglePaths,
+  ];
+}
+
+export function addPath(type: ContentType, dirPath: string): boolean {
   const resolved = path.resolve(dirPath);
-  if (config.libraryPaths.includes(resolved)) return false;
-  config.libraryPaths.push(resolved);
+  const arr = getPathsArray(type);
+  if (arr.includes(resolved)) return false;
+  arr.push(resolved);
   save();
   return true;
 }
 
-export function removeLibraryPath(dirPath: string): boolean {
+export function removePath(type: ContentType, dirPath: string): boolean {
   const resolved = path.resolve(dirPath);
-  const idx = config.libraryPaths.indexOf(resolved);
+  const arr = getPathsArray(type);
+  const idx = arr.indexOf(resolved);
   if (idx === -1) return false;
-  config.libraryPaths.splice(idx, 1);
+  arr.splice(idx, 1);
   save();
   return true;
 }

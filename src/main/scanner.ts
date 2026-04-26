@@ -1,6 +1,6 @@
 import fs from "fs";
 import path from "path";
-import { TrackInsert, ScanResult } from "../types";
+import { ContentType, TrackInsert, ScanResult } from "../types";
 import * as db from "./db";
 
 const AUDIO_EXTENSIONS = new Set([
@@ -18,6 +18,7 @@ const AUDIO_EXTENSIONS = new Set([
 
 export async function scanDirectory(
   dirPath: string,
+  contentType: ContentType = "music",
   onProgress?: (processed: number, total: number) => void,
 ): Promise<ScanResult> {
   const mm = await import("music-metadata");
@@ -32,6 +33,7 @@ export async function scanDirectory(
 
       const track: TrackInsert = {
         path: filePath,
+        content_type: contentType,
         title: common.title || path.basename(filePath, path.extname(filePath)),
         artist: common.artist || "Unknown",
         album: common.album || "Unknown",

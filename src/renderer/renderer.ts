@@ -19,7 +19,6 @@ const progressBar = document.getElementById("progress-bar")!;
 const libraryStats = document.getElementById("library-stats")!;
 const pathsOverlay = document.getElementById("paths-overlay")!;
 const pathsList = document.getElementById("paths-list")!;
-const btnAddPath = document.getElementById("btn-add-path")!;
 const btnClosePaths = document.getElementById("btn-close-paths")!;
 const scanOverlay = document.getElementById("scan-overlay")!;
 const scanStatus = document.getElementById("scan-status")!;
@@ -229,6 +228,12 @@ progressBar.addEventListener("click", (e) => {
 
 // --- Library Paths ---
 
+const pathSections: { type: ContentType; label: string }[] = [
+  { type: "music", label: "Music" },
+  { type: "commercial", label: "Commercials" },
+  { type: "jingle", label: "Jingles" },
+];
+
 btnPaths.addEventListener("click", () => {
   renderPaths();
   pathsOverlay.classList.remove("hidden");
@@ -238,31 +243,53 @@ btnClosePaths.addEventListener("click", () => {
   pathsOverlay.classList.add("hidden");
 });
 
-btnAddPath.addEventListener("click", async () => {
-  const added = await window.api.addLibraryPath();
-  if (added) renderPaths();
-});
-
 async function renderPaths(): Promise<void> {
-  const paths = await window.api.getLibraryPaths();
+  const allPaths = await window.api.getAllPaths();
   pathsList.innerHTML = "";
-  if (paths.length === 0) {
-    pathsList.innerHTML =
-      '<div class="empty">No library paths configured</div>';
-    return;
-  }
-  for (const p of paths) {
-    const row = document.createElement("div");
-    row.className = "path-row";
-    row.innerHTML = `
-      <span class="path-text">${esc(p)}</span>
-      <button class="btn-remove" title="Remove">&#10005;</button>
+
+  for (const { type, label } of pathSections) {
+    const section = document.createElement("div");
+    section.className = "path-section";
+
+    const header = document.createElement("div");
+    header.className = "path-section-header";
+    header.innerHTML = `
+      <span>${esc(label)}</span>
+      <button class="btn-add-section" title="Add ${esc(label)} folder">+ Add</button>
     `;
-    row.querySelector(".btn-remove")!.addEventListener("click", async () => {
-      await window.api.removeLibraryPath(p);
-      renderPaths();
-    });
-    pathsList.appendChild(row);
+    header
+      .querySelector(".btn-add-section")!
+      .addEventListener("click", async () => {
+        const added = await window.api.addPath(type);
+        if (added) renderPaths();
+      });
+    section.appendChild(header);
+
+    const paths = allPaths[type] || [];
+    if (paths.length === 0) {
+      const empty = document.createElement("div");
+      empty.className = "empty path-empty";
+      empty.textContent = "No folders configured";
+      section.appendChild(empty);
+    } else {
+      for (const p of paths) {
+        const row = document.createElement("div");
+        row.className = "path-row";
+        row.innerHTML = `
+          <span class="path-text">${esc(p)}</span>
+          <button class="btn-remove" title="Remove">&#10005;</button>
+        `;
+        row
+          .querySelector(".btn-remove")!
+          .addEventListener("click", async () => {
+            await window.api.removePath(type, p);
+            renderPaths();
+          });
+        section.appendChild(row);
+      }
+    }
+
+    pathsList.appendChild(section);
   }
 }
 

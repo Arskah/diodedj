@@ -1,6 +1,9 @@
+export type ContentType = "music" | "commercial" | "jingle";
+
 export interface Track {
   id: number;
   path: string;
+  content_type: ContentType;
   title: string;
   artist: string;
   album: string;
@@ -16,6 +19,7 @@ export interface Track {
 
 export interface TrackInsert {
   path: string;
+  content_type: ContentType;
   title: string;
   artist: string;
   album: string;
