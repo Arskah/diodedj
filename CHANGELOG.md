@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.3.1](https://github.com/Arskah/diodedj/compare/v0.3.0...v0.3.1) (2026-04-26)
+
+
+### Miscellaneous Chores
+
+* **deps:** update dependency vite to v8 ([#37](https://github.com/Arskah/diodedj/issues/37)) ([5a6cf50](https://github.com/Arskah/diodedj/commit/5a6cf507bfc78f8d492a932aab14e7f8b78586da))
+* update pnpm-workspace ([4f3818c](https://github.com/Arskah/diodedj/commit/4f3818c46bee58bb84103735398c7ee844d49402))
+
+
+### Build System
+
+* migrate to electron-vite ([#35](https://github.com/Arskah/diodedj/issues/35)) ([2f3955d](https://github.com/Arskah/diodedj/commit/2f3955de1256337d23fc43cac1bf2d21e391e82c))
+
 ## [0.3.0](https://github.com/Arskah/diodedj/compare/v0.2.1...v0.3.0) (2026-04-26)
 
 
