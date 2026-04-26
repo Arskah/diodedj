@@ -95,7 +95,7 @@ app.whenReady().then(() => {
 
   mainWindow.loadFile(path.join(__dirname, "..", "renderer", "index.html"));
 
-  if (!app.isPackaged) {
+  if (!app.isPackaged && process.env.NODE_ENV !== "test") {
     mainWindow.webContents.openDevTools();
   }
 
