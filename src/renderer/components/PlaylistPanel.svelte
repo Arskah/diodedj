@@ -1,8 +1,13 @@
 <script lang="ts">
-  import { app, formatTime } from "../state.svelte";
+  import { app, formatTime, type Track } from "../state.svelte";
 
   let dragFromIndex = $state(-1);
   let dragOverIndex = $state(-1);
+
+  function onEnter(track: Track, e: MouseEvent): void {
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    app.setHover(track, rect);
+  }
 
   function onDragStart(i: number): void {
     dragFromIndex = i;
@@ -59,6 +64,8 @@
           ondragover={(e) => onDragOver(e, i)}
           ondragleave={() => onDragLeave(i)}
           ondrop={(e) => onDrop(e, i)}
+          onmouseenter={(e) => onEnter(track, e)}
+          onmouseleave={() => app.clearHover()}
           role="listitem"
         >
           <span class="pl-drag">&#8942;</span>

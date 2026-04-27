@@ -1,14 +1,7 @@
-import type { ContentType, LibraryStats } from "../types";
+import type { ContentType, LibraryStats, Track } from "../types";
 import logger from "electron-log/renderer";
 
-export type Track = {
-  id: number;
-  title: string;
-  artist: string;
-  album: string;
-  duration: number;
-  play_count: number;
-};
+export type { Track };
 
 const AUTO_PLAYLIST_BUFFER = 5;
 
@@ -35,6 +28,10 @@ export class AppState {
   volume = $state(1);
   currentTime = $state(0);
   duration = $state(0);
+
+  hoveredTrack = $state<Track | null>(null);
+  hoverX = $state(0);
+  hoverY = $state(0);
 
   audio: HTMLAudioElement;
 
@@ -204,6 +201,16 @@ export class AppState {
       const tracks = await window.api.generatePlaylist(count);
       this.playlist.push(...tracks);
     }
+  }
+
+  setHover(track: Track, rect: DOMRect): void {
+    this.hoveredTrack = track;
+    this.hoverX = rect.right;
+    this.hoverY = rect.top;
+  }
+
+  clearHover(): void {
+    this.hoveredTrack = null;
   }
 
   seekToPct(pct: number): void {

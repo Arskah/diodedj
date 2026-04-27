@@ -5,6 +5,7 @@
   import PlaylistPanel from "./components/PlaylistPanel.svelte";
   import PathsOverlay from "./components/PathsOverlay.svelte";
   import ScanOverlay from "./components/ScanOverlay.svelte";
+  import TrackTooltip from "./components/TrackTooltip.svelte";
 </script>
 
 <Toolbar />
@@ -15,3 +16,4 @@
 </main>
 <PathsOverlay />
 <ScanOverlay />
+<TrackTooltip />

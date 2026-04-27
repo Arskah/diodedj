@@ -17,6 +17,11 @@
     e.stopPropagation();
     app.addToPlaylist(track);
   }
+
+  function onEnter(track: Track, e: MouseEvent): void {
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    app.setHover(track, rect);
+  }
 </script>
 
 <section id="library-panel">
@@ -40,6 +45,8 @@
         <div
           class="track-row"
           ondblclick={() => app.addToPlaylist(track)}
+          onmouseenter={(e) => onEnter(track, e)}
+          onmouseleave={() => app.clearHover()}
           role="button"
           tabindex="0"
         >
