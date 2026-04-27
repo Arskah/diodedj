@@ -84,9 +84,9 @@ test.describe("playback", () => {
   }) => {
     const fx = await library({
       music: [
-        { name: "song-a", durationSec: 1 },
-        { name: "song-b", durationSec: 1 },
-        { name: "song-c", durationSec: 1 },
+        { name: "song-a", durationSec: 30 },
+        { name: "song-b", durationSec: 30 },
+        { name: "song-c", durationSec: 30 },
       ],
     });
     const { win } = await launch({ musicPaths: [fx.musicDir] });
@@ -94,7 +94,8 @@ test.describe("playback", () => {
     await clickScan(win);
     await waitForTrackCount(win, 3);
     await win.evaluate(() => {
-      (document.getElementById("audio") as HTMLAudioElement).muted = true;
+      const a = document.getElementById("audio") as HTMLAudioElement;
+      a.muted = true;
     });
 
     const addButtons = win.locator("#track-list .btn-add");
@@ -114,6 +115,7 @@ test.describe("playback", () => {
 
     await win.evaluate(() => {
       const a = document.getElementById("audio") as HTMLAudioElement;
+      a.pause();
       a.currentTime = 5;
     });
     await win.click("#btn-prev");
@@ -121,7 +123,17 @@ test.describe("playback", () => {
     const t = await win.evaluate(
       () => (document.getElementById("audio") as HTMLAudioElement).currentTime,
     );
-    expect(t).toBe(0);
+    expect(t).toBeLessThan(2);
+
+    // Within 3s of start, prev pulls the previously-played track back from history
+    await win.evaluate(() => {
+      const a = document.getElementById("audio") as HTMLAudioElement;
+      a.pause();
+      a.currentTime = 1;
+    });
+    await win.click("#btn-prev");
+    await expect(win.locator("#np-title")).toHaveText("song-a");
+    await expect(win.locator("#playlist .playlist-row")).toHaveCount(2);
   });
 
   test("clearing playlist keeps current track playing", async ({

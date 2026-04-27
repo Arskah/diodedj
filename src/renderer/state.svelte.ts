@@ -4,10 +4,14 @@ import logger from "electron-log/renderer";
 export type { Track };
 
 const AUTO_PLAYLIST_BUFFER = 5;
+const HISTORY_CAP = 100;
+
+export type PlaylistTab = "queue" | "history";
 
 export class AppState {
   searchQuery = $state("");
   activeTab = $state<ContentType>("music");
+  playlistTab = $state<PlaylistTab>("queue");
   tracks = $state<Track[]>([]);
   stats = $state<LibraryStats | null>(null);
   paths = $state<Record<ContentType, string[]>>({
@@ -21,6 +25,7 @@ export class AppState {
   scanTotal = $state(0);
 
   playlist = $state<Track[]>([]);
+  history = $state<Track[]>([]);
   currentTrack = $state<Track | null>(null);
   autoPlaylistActive = $state(false);
   autoAdvance = $state(true);
@@ -117,6 +122,37 @@ export class AppState {
   }
 
   private playTrack(track: Track): void {
+    if (this.currentTrack) {
+      this.history.push(this.currentTrack);
+      if (this.history.length > HISTORY_CAP) {
+        this.history.splice(0, this.history.length - HISTORY_CAP);
+      }
+    }
+    this.setCurrent(track);
+  }
+
+  get historyDisplay(): Track[] {
+    return this.history.slice().reverse();
+  }
+
+  removeFromHistory(displayIndex: number): void {
+    const i = this.history.length - 1 - displayIndex;
+    if (i < 0 || i >= this.history.length) return;
+    this.history.splice(i, 1);
+  }
+
+  clearHistory(): void {
+    this.history.length = 0;
+  }
+
+  requeueFromHistory(displayIndex: number): void {
+    const i = this.history.length - 1 - displayIndex;
+    const track = this.history[i];
+    if (!track) return;
+    this.playlist.push(track);
+  }
+
+  private setCurrent(track: Track): void {
     this.currentTrack = track;
     this.audio.src = window.api.getMediaUrl(track.id);
     void this.audio.play();
@@ -153,7 +189,21 @@ export class AppState {
   }
 
   prev(): void {
-    if (this.currentTrack) this.audio.currentTime = 0;
+    if (this.currentTrack && this.audio.currentTime > 3) {
+      this.audio.currentTime = 0;
+      return;
+    }
+    const previous = this.history[this.history.length - 1];
+    if (!previous) {
+      if (this.currentTrack) this.audio.currentTime = 0;
+      return;
+    }
+    if (this.currentTrack?.id === previous.id) {
+      this.audio.currentTime = 0;
+      return;
+    }
+    if (this.currentTrack) this.playlist.unshift(this.currentTrack);
+    this.setCurrent(previous);
   }
 
   toggleMode(): void {

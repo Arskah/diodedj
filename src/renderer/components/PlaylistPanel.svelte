@@ -33,55 +33,110 @@
     if (dragFromIndex === -1 || dragFromIndex === i) return;
     app.movePlaylistItem(dragFromIndex, i);
   }
+
+  function onClear(): void {
+    if (app.playlistTab === "queue") app.clearPlaylist();
+    else app.clearHistory();
+  }
 </script>
 
 <section id="playlist-panel">
   <div id="playlist-header">
-    <h2>
-      Playlist <span id="playlist-count">({app.playlist.length})</span>
-    </h2>
+    <div id="playlist-tabs" role="tablist">
+      <button
+        class="pl-tab"
+        class:active={app.playlistTab === "queue"}
+        role="tab"
+        aria-selected={app.playlistTab === "queue"}
+        onclick={() => (app.playlistTab = "queue")}
+      >
+        Up next <span class="pl-tab-count">({app.playlist.length})</span>
+      </button>
+      <button
+        class="pl-tab"
+        class:active={app.playlistTab === "history"}
+        role="tab"
+        aria-selected={app.playlistTab === "history"}
+        onclick={() => (app.playlistTab = "history")}
+      >
+        History <span class="pl-tab-count">({app.history.length})</span>
+      </button>
+    </div>
     <button
       id="btn-clear-playlist"
-      title="Clear playlist"
-      onclick={() => app.clearPlaylist()}>Clear</button
+      title={app.playlistTab === "queue" ? "Clear queue" : "Clear history"}
+      onclick={onClear}>Clear</button
     >
   </div>
-  <div id="playlist">
-    {#if app.playlist.length === 0}
-      <div class="empty">Playlist empty</div>
-    {:else}
-      {#each app.playlist as track, i (i + "-" + track.id)}
-        <div
-          class="playlist-row"
-          class:dragging={i === dragFromIndex}
-          class:drag-over={i === dragOverIndex && i !== dragFromIndex}
-          draggable="true"
-          data-index={i}
-          ondblclick={() => app.playIndex(i)}
-          ondragstart={() => onDragStart(i)}
-          ondragend={onDragEnd}
-          ondragover={(e) => onDragOver(e, i)}
-          ondragleave={() => onDragLeave(i)}
-          ondrop={(e) => onDrop(e, i)}
-          onmouseenter={(e) => onEnter(track, e)}
-          onmouseleave={() => app.clearHover()}
-          role="listitem"
-        >
-          <span class="pl-drag">&#8942;</span>
-          <span class="pl-num">{i + 1}</span>
-          <span class="pl-title">{track.title}</span>
-          <span class="pl-artist">{track.artist}</span>
-          <span class="pl-duration">{formatTime(track.duration)}</span>
-          <button
-            class="btn-remove"
-            title="Remove"
-            onclick={(e) => {
-              e.stopPropagation();
-              app.removeFromPlaylist(i);
-            }}>&#10005;</button
+
+  {#if app.playlistTab === "queue"}
+    <div id="playlist">
+      {#if app.playlist.length === 0}
+        <div class="empty">Playlist empty</div>
+      {:else}
+        {#each app.playlist as track, i (i + "-" + track.id)}
+          <div
+            class="playlist-row"
+            class:dragging={i === dragFromIndex}
+            class:drag-over={i === dragOverIndex && i !== dragFromIndex}
+            draggable="true"
+            data-index={i}
+            ondblclick={() => app.playIndex(i)}
+            ondragstart={() => onDragStart(i)}
+            ondragend={onDragEnd}
+            ondragover={(e) => onDragOver(e, i)}
+            ondragleave={() => onDragLeave(i)}
+            ondrop={(e) => onDrop(e, i)}
+            onmouseenter={(e) => onEnter(track, e)}
+            onmouseleave={() => app.clearHover()}
+            role="listitem"
           >
-        </div>
-      {/each}
-    {/if}
-  </div>
+            <span class="pl-drag">&#8942;</span>
+            <span class="pl-num">{i + 1}</span>
+            <span class="pl-title">{track.title}</span>
+            <span class="pl-artist">{track.artist}</span>
+            <span class="pl-duration">{formatTime(track.duration)}</span>
+            <button
+              class="btn-remove"
+              title="Remove"
+              onclick={(e) => {
+                e.stopPropagation();
+                app.removeFromPlaylist(i);
+              }}>&#10005;</button
+            >
+          </div>
+        {/each}
+      {/if}
+    </div>
+  {:else}
+    <div id="history">
+      {#if app.historyDisplay.length === 0}
+        <div class="empty">History empty</div>
+      {:else}
+        {#each app.historyDisplay as track, i (i + "-" + track.id)}
+          <div
+            class="playlist-row history-row"
+            data-index={i}
+            ondblclick={() => app.requeueFromHistory(i)}
+            onmouseenter={(e) => onEnter(track, e)}
+            onmouseleave={() => app.clearHover()}
+            role="listitem"
+          >
+            <span class="pl-num">{i + 1}</span>
+            <span class="pl-title">{track.title}</span>
+            <span class="pl-artist">{track.artist}</span>
+            <span class="pl-duration">{formatTime(track.duration)}</span>
+            <button
+              class="btn-remove"
+              title="Remove from history"
+              onclick={(e) => {
+                e.stopPropagation();
+                app.removeFromHistory(i);
+              }}>&#10005;</button
+            >
+          </div>
+        {/each}
+      {/if}
+    </div>
+  {/if}
 </section>

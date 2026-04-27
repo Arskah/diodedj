@@ -150,6 +150,68 @@ describe("AppState playlist mutations", () => {
   });
 });
 
+describe("AppState history view", () => {
+  let app: AppState;
+  beforeEach(() => {
+    resetApi();
+    app = makeApp();
+  });
+
+  it("playlistTab defaults to queue", () => {
+    expect(app.playlistTab).toBe("queue");
+  });
+
+  it("historyDisplay reverses storage order (newest first)", () => {
+    app.history.push(t(1), t(2), t(3));
+    expect(app.historyDisplay.map((x) => x.id)).toEqual([3, 2, 1]);
+  });
+
+  it("history caps at 100 entries, dropping the oldest", () => {
+    for (let i = 0; i < 100; i++) app.history.push(t(i));
+    app.currentTrack = t(500);
+    app.playNow(t(999));
+    expect(app.history.length).toBe(100);
+    expect(app.history[0].id).toBe(1);
+    expect(app.history[99].id).toBe(500);
+  });
+
+  it("removeFromHistory uses display index (newest first)", () => {
+    app.history.push(t(1), t(2), t(3));
+    app.removeFromHistory(0);
+    expect(app.history.map((x) => x.id)).toEqual([1, 2]);
+    app.removeFromHistory(1);
+    expect(app.history.map((x) => x.id)).toEqual([2]);
+  });
+
+  it("removeFromHistory ignores out-of-range indices", () => {
+    app.history.push(t(1));
+    app.removeFromHistory(5);
+    app.removeFromHistory(-1);
+    expect(app.history.length).toBe(1);
+  });
+
+  it("clearHistory empties history without touching playback", () => {
+    app.history.push(t(1), t(2));
+    app.currentTrack = t(99);
+    app.clearHistory();
+    expect(app.history.length).toBe(0);
+    expect(app.currentTrack?.id).toBe(99);
+  });
+
+  it("requeueFromHistory appends the chosen entry to the playlist tail", () => {
+    app.history.push(t(1), t(2), t(3));
+    app.requeueFromHistory(2);
+    expect(app.playlist.map((x) => x.id)).toEqual([1]);
+    expect(app.history.map((x) => x.id)).toEqual([1, 2, 3]);
+  });
+
+  it("requeueFromHistory is a no-op for invalid indices", () => {
+    app.history.push(t(1));
+    app.requeueFromHistory(5);
+    expect(app.playlist.length).toBe(0);
+  });
+});
+
 describe("AppState playback control", () => {
   let app: AppState;
   beforeEach(() => {
@@ -165,6 +227,19 @@ describe("AppState playback control", () => {
     expect(app.audio.getAttribute("src")).toBe("media://track/7");
     expect(api.trackPlayed).toHaveBeenCalledWith(7);
     expect(document.title).toBe("Song - Band | DiodeDJ");
+  });
+
+  it("playing a new track moves the previous one into history", () => {
+    app.addToPlaylist(t(1));
+    app.addToPlaylist(t(2));
+    app.addToPlaylist(t(3));
+    app.playIndex(0);
+    expect(app.history.length).toBe(0);
+    app.playIndex(0);
+    expect(app.history.map((x) => x.id)).toEqual([1]);
+    app.playNow(t(99));
+    expect(app.history.map((x) => x.id)).toEqual([1, 2]);
+    expect(app.currentTrack?.id).toBe(99);
   });
 
   it("playIndex out of range is a no-op", () => {
@@ -193,17 +268,58 @@ describe("AppState playback control", () => {
     expect(app.currentTrack?.id).toBe(99);
   });
 
-  it("prev seeks to start of current track", () => {
+  it("prev after 3s seeks to start of current track", () => {
     app.currentTrack = t(1);
     defineMutableCurrentTime(app.audio, 5);
     app.prev();
     expect(app.audio.currentTime).toBe(0);
+    expect(app.currentTrack?.id).toBe(1);
   });
 
-  it("prev is a no-op when no current track", () => {
+  it("prev within 3s peeks history (entry stays) and pushes current onto queue head", () => {
+    app.addToPlaylist(t(1));
+    app.addToPlaylist(t(2));
+    app.playIndex(0);
+    app.playIndex(0);
+    expect(app.currentTrack?.id).toBe(2);
+    expect(app.history.map((x) => x.id)).toEqual([1]);
+    defineMutableCurrentTime(app.audio, 1);
+    app.prev();
+    expect(app.currentTrack?.id).toBe(1);
+    expect(app.history.map((x) => x.id)).toEqual([1]);
+    expect(app.playlist.map((x) => x.id)).toEqual([2]);
+  });
+
+  it("prev within 3s when current already equals history top just rewinds", () => {
+    app.addToPlaylist(t(1));
+    app.addToPlaylist(t(2));
+    app.playIndex(0);
+    app.playIndex(0);
+    defineMutableCurrentTime(app.audio, 1);
+    app.prev();
+    expect(app.currentTrack?.id).toBe(1);
+    expect(app.playlist.map((x) => x.id)).toEqual([2]);
+    defineMutableCurrentTime(app.audio, 1);
+    app.prev();
+    expect(app.currentTrack?.id).toBe(1);
+    expect(app.history.map((x) => x.id)).toEqual([1]);
+    expect(app.playlist.map((x) => x.id)).toEqual([2]);
+    expect(app.audio.currentTime).toBe(0);
+  });
+
+  it("prev within 3s with empty history just restarts current", () => {
+    app.currentTrack = t(1);
+    defineMutableCurrentTime(app.audio, 1);
+    app.prev();
+    expect(app.audio.currentTime).toBe(0);
+    expect(app.currentTrack?.id).toBe(1);
+  });
+
+  it("prev is a no-op when no current track and empty history", () => {
     defineMutableCurrentTime(app.audio, 5);
     app.prev();
     expect(app.audio.currentTime).toBe(5);
+    expect(app.currentTrack).toBeNull();
   });
 
   it("togglePlay starts head of queue when nothing playing and playlist non-empty", () => {
@@ -234,14 +350,18 @@ describe("AppState playback control", () => {
     expect(app.autoPlaylistActive).toBe(false);
   });
 
-  it("stop clears currentTrack, autoPlaylist flag, time/duration and title", () => {
+  it("stop clears currentTrack, autoPlaylist flag, time/duration and title but preserves history", () => {
     app.addToPlaylist(t(5));
+    app.addToPlaylist(t(6));
     app.playIndex(0);
+    app.playIndex(0);
+    expect(app.history.length).toBe(1);
     app.autoPlaylistActive = true;
     app.currentTime = 12;
     app.duration = 200;
     app.stop();
     expect(app.currentTrack).toBeNull();
+    expect(app.history.map((x) => x.id)).toEqual([5]);
     expect(app.autoPlaylistActive).toBe(false);
     expect(app.currentTime).toBe(0);
     expect(app.duration).toBe(0);
