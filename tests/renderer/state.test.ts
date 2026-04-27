@@ -116,40 +116,22 @@ describe("AppState playlist mutations", () => {
     expect(app.playlist[1].id).toBe(2);
   });
 
-  it("removeFromPlaylist decrements currentIndex when removing before current", () => {
+  it("removeFromPlaylist splices the entry without touching currentTrack", () => {
     app.addToPlaylist(t(1));
     app.addToPlaylist(t(2));
     app.addToPlaylist(t(3));
-    app.currentIndex = 2;
+    app.currentTrack = t(99);
     app.removeFromPlaylist(0);
-    expect(app.playlist.length).toBe(2);
-    expect(app.currentIndex).toBe(1);
+    expect(app.playlist.map((x) => x.id)).toEqual([2, 3]);
+    expect(app.currentTrack?.id).toBe(99);
   });
 
-  it("removeFromPlaylist stops playback when removing the current track", () => {
+  it("clearPlaylist empties the queue but leaves currentTrack playing", () => {
     app.addToPlaylist(t(1));
-    app.addToPlaylist(t(2));
-    app.currentIndex = 1;
-    app.removeFromPlaylist(1);
-    expect(app.currentIndex).toBe(-1);
-  });
-
-  it("removeFromPlaylist leaves currentIndex alone when removing after current", () => {
-    app.addToPlaylist(t(1));
-    app.addToPlaylist(t(2));
-    app.addToPlaylist(t(3));
-    app.currentIndex = 0;
-    app.removeFromPlaylist(2);
-    expect(app.playlist.length).toBe(2);
-    expect(app.currentIndex).toBe(0);
-  });
-
-  it("clearPlaylist empties and resets currentIndex", () => {
-    app.addToPlaylist(t(1));
-    app.currentIndex = 0;
+    app.currentTrack = t(99);
     app.clearPlaylist();
     expect(app.playlist.length).toBe(0);
-    expect(app.currentIndex).toBe(-1);
+    expect(app.currentTrack?.id).toBe(99);
   });
 
   it("movePlaylistItem reorders entries", () => {
@@ -158,36 +140,6 @@ describe("AppState playlist mutations", () => {
     app.addToPlaylist(t(3));
     app.movePlaylistItem(0, 2);
     expect(app.playlist.map((x) => x.id)).toEqual([2, 3, 1]);
-  });
-
-  it("movePlaylistItem follows the playing track", () => {
-    app.addToPlaylist(t(1));
-    app.addToPlaylist(t(2));
-    app.addToPlaylist(t(3));
-    app.currentIndex = 0;
-    app.movePlaylistItem(0, 2);
-    expect(app.currentIndex).toBe(2);
-    expect(app.playlist[app.currentIndex].id).toBe(1);
-  });
-
-  it("movePlaylistItem decrements currentIndex when an earlier item moves past it", () => {
-    app.addToPlaylist(t(1));
-    app.addToPlaylist(t(2));
-    app.addToPlaylist(t(3));
-    app.currentIndex = 1;
-    app.movePlaylistItem(0, 2);
-    expect(app.playlist[app.currentIndex].id).toBe(2);
-    expect(app.currentIndex).toBe(0);
-  });
-
-  it("movePlaylistItem increments currentIndex when a later item moves before it", () => {
-    app.addToPlaylist(t(1));
-    app.addToPlaylist(t(2));
-    app.addToPlaylist(t(3));
-    app.currentIndex = 1;
-    app.movePlaylistItem(2, 0);
-    expect(app.playlist[app.currentIndex].id).toBe(2);
-    expect(app.currentIndex).toBe(2);
   });
 
   it("movePlaylistItem is a no-op when from === to", () => {
@@ -205,10 +157,11 @@ describe("AppState playback control", () => {
     app = makeApp();
   });
 
-  it("playIndex sets src, calls trackPlayed, updates state and document.title", () => {
+  it("playIndex pulls track out of playlist into currentTrack and plays it", () => {
     app.addToPlaylist(t(7, { title: "Song", artist: "Band" }));
     app.playIndex(0);
-    expect(app.currentIndex).toBe(0);
+    expect(app.currentTrack?.id).toBe(7);
+    expect(app.playlist.length).toBe(0);
     expect(app.audio.getAttribute("src")).toBe("media://track/7");
     expect(api.trackPlayed).toHaveBeenCalledWith(7);
     expect(document.title).toBe("Song - Band | DiodeDJ");
@@ -216,56 +169,47 @@ describe("AppState playback control", () => {
 
   it("playIndex out of range is a no-op", () => {
     app.playIndex(0);
-    expect(app.currentIndex).toBe(-1);
+    expect(app.currentTrack).toBeNull();
     expect(api.trackPlayed).not.toHaveBeenCalled();
   });
 
-  it("currentTrack reflects currentIndex", () => {
-    expect(app.currentTrack).toBeNull();
-    app.addToPlaylist(t(1));
-    app.addToPlaylist(t(2));
-    app.currentIndex = 1;
-    expect(app.currentTrack?.id).toBe(2);
+  it("playNow plays directly without enqueuing", () => {
+    app.playNow(t(5));
+    expect(app.currentTrack?.id).toBe(5);
+    expect(app.playlist.length).toBe(0);
   });
 
-  it("next advances when not at end", () => {
+  it("next plays the next queued track", () => {
     app.addToPlaylist(t(1));
     app.addToPlaylist(t(2));
-    app.currentIndex = 0;
     app.next();
-    expect(app.currentIndex).toBe(1);
+    expect(app.currentTrack?.id).toBe(1);
+    expect(app.playlist.map((x) => x.id)).toEqual([2]);
   });
 
-  it("next at end is a no-op", () => {
-    app.addToPlaylist(t(1));
-    app.currentIndex = 0;
+  it("next is a no-op when playlist empty", () => {
+    app.currentTrack = t(99);
     app.next();
-    expect(app.currentIndex).toBe(0);
+    expect(app.currentTrack?.id).toBe(99);
   });
 
-  it("prev within 3s of start jumps to previous track", () => {
-    app.addToPlaylist(t(1));
-    app.addToPlaylist(t(2));
-    app.currentIndex = 1;
-    defineMutableCurrentTime(app.audio, 1);
-    app.prev();
-    expect(app.currentIndex).toBe(0);
-  });
-
-  it("prev after 3s seeks to start of current track", () => {
-    app.addToPlaylist(t(1));
-    app.addToPlaylist(t(2));
-    app.currentIndex = 1;
+  it("prev seeks to start of current track", () => {
+    app.currentTrack = t(1);
     defineMutableCurrentTime(app.audio, 5);
     app.prev();
-    expect(app.currentIndex).toBe(1);
     expect(app.audio.currentTime).toBe(0);
   });
 
-  it("togglePlay starts at index 0 when nothing playing and playlist non-empty", () => {
+  it("prev is a no-op when no current track", () => {
+    defineMutableCurrentTime(app.audio, 5);
+    app.prev();
+    expect(app.audio.currentTime).toBe(5);
+  });
+
+  it("togglePlay starts head of queue when nothing playing and playlist non-empty", () => {
     app.addToPlaylist(t(3));
     app.togglePlay();
-    expect(app.currentIndex).toBe(0);
+    expect(app.currentTrack?.id).toBe(3);
     expect(api.trackPlayed).toHaveBeenCalledWith(3);
   });
 
@@ -281,7 +225,7 @@ describe("AppState playback control", () => {
     app.addToPlaylist(t(9));
     app.toggleAutoPlaylist();
     expect(app.autoPlaylistActive).toBe(true);
-    expect(app.currentIndex).toBe(0);
+    expect(app.currentTrack?.id).toBe(9);
   });
 
   it("toggleAutoPlaylist deactivates without touching playback", () => {
@@ -290,14 +234,14 @@ describe("AppState playback control", () => {
     expect(app.autoPlaylistActive).toBe(false);
   });
 
-  it("stop clears index, autoPlaylist flag, time/duration and title", () => {
+  it("stop clears currentTrack, autoPlaylist flag, time/duration and title", () => {
     app.addToPlaylist(t(5));
     app.playIndex(0);
     app.autoPlaylistActive = true;
     app.currentTime = 12;
     app.duration = 200;
     app.stop();
-    expect(app.currentIndex).toBe(-1);
+    expect(app.currentTrack).toBeNull();
     expect(app.autoPlaylistActive).toBe(false);
     expect(app.currentTime).toBe(0);
     expect(app.duration).toBe(0);
@@ -455,7 +399,6 @@ describe("AppState auto-playlist refill", () => {
   it("does nothing when remaining buffer is already met", async () => {
     app.autoPlaylistActive = true;
     for (let i = 0; i < 10; i++) app.addToPlaylist(t(i));
-    app.currentIndex = 0;
     await app.maybeRefillPlaylist();
     expect(api.generatePlaylist).not.toHaveBeenCalled();
   });

@@ -53,7 +53,6 @@
       {#each app.playlist as track, i (i + "-" + track.id)}
         <div
           class="playlist-row"
-          class:active={i === app.currentIndex}
           class:dragging={i === dragFromIndex}
           class:drag-over={i === dragOverIndex && i !== dragFromIndex}
           draggable="true"
