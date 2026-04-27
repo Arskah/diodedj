@@ -20,8 +20,10 @@ test.describe("playback", () => {
 
     await win.locator("#track-list .btn-play-track").first().click();
 
-    await waitForPlaylistCount(win, 1);
     await expect(win.locator("#np-title")).toHaveText("first-song");
+    await expect(win.locator("#playlist .empty")).toContainText(
+      "Playlist empty",
+    );
     await win.waitForFunction(() => {
       const a = document.getElementById("audio") as HTMLAudioElement;
       return !!a.src && a.src.startsWith("media://track/");
@@ -76,7 +78,10 @@ test.describe("playback", () => {
     expect(hasSrc).toBe(false);
   });
 
-  test("next/prev navigate the playlist", async ({ launch, library }) => {
+  test("next consumes queue head; prev restarts current", async ({
+    launch,
+    library,
+  }) => {
     const fx = await library({
       music: [
         { name: "song-a", durationSec: 1 },
@@ -100,32 +105,67 @@ test.describe("playback", () => {
     await waitForPlaylistCount(win, 3);
 
     await win.locator("#playlist .playlist-row").first().dblclick();
-    await win.waitForFunction(
-      () =>
-        document
-          .querySelector("#playlist .playlist-row.active")
-          ?.textContent?.includes("song-a") ?? false,
-    );
+    await expect(win.locator("#np-title")).toHaveText("song-a");
+    await expect(win.locator("#playlist .playlist-row")).toHaveCount(2);
 
     await win.click("#btn-next");
-    await win.waitForFunction(
-      () =>
-        document
-          .querySelector("#playlist .playlist-row.active")
-          ?.textContent?.includes("song-b") ?? false,
-    );
+    await expect(win.locator("#np-title")).toHaveText("song-b");
+    await expect(win.locator("#playlist .playlist-row")).toHaveCount(1);
 
     await win.evaluate(() => {
       const a = document.getElementById("audio") as HTMLAudioElement;
-      a.currentTime = 0;
+      a.currentTime = 5;
     });
     await win.click("#btn-prev");
-    await win.waitForFunction(
-      () =>
-        document
-          .querySelector("#playlist .playlist-row.active")
-          ?.textContent?.includes("song-a") ?? false,
+    await expect(win.locator("#np-title")).toHaveText("song-b");
+    const t = await win.evaluate(
+      () => (document.getElementById("audio") as HTMLAudioElement).currentTime,
     );
+    expect(t).toBe(0);
+  });
+
+  test("clearing playlist keeps current track playing", async ({
+    launch,
+    library,
+  }) => {
+    const fx = await library({
+      music: [
+        { name: "keep-playing", durationSec: 1 },
+        { name: "queued-1", durationSec: 1 },
+        { name: "queued-2", durationSec: 1 },
+      ],
+    });
+    const { win } = await launch({ musicPaths: [fx.musicDir] });
+
+    await clickScan(win);
+    await waitForTrackCount(win, 3);
+    await win.evaluate(() => {
+      (document.getElementById("audio") as HTMLAudioElement).muted = true;
+    });
+
+    const addButtons = win.locator("#track-list .btn-add");
+    const count = await addButtons.count();
+    for (let i = 0; i < count; i++) {
+      await addButtons.nth(i).click();
+    }
+    await waitForPlaylistCount(win, 3);
+
+    await win.locator("#playlist .playlist-row").first().dblclick();
+    await expect(win.locator("#np-title")).toHaveText("keep-playing");
+    await win.waitForFunction(() => {
+      const a = document.getElementById("audio") as HTMLAudioElement;
+      return a.paused === false;
+    });
+
+    await win.click("#btn-clear-playlist");
+    await expect(win.locator("#playlist .empty")).toContainText(
+      "Playlist empty",
+    );
+    await expect(win.locator("#np-title")).toHaveText("keep-playing");
+    const paused = await win.evaluate(
+      () => (document.getElementById("audio") as HTMLAudioElement).paused,
+    );
+    expect(paused).toBe(false);
   });
 
   test("volume slider updates audio volume", async ({ launch, library }) => {
