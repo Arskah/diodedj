@@ -126,16 +126,20 @@ export class AppState {
 
   private playTrack(track: Track): void {
     if (this.currentTrack) {
-      this.history.push(this.currentTrack);
-      if (this.history.length > HISTORY_CAP) {
-        this.history.splice(0, this.history.length - HISTORY_CAP);
-      }
+      this.appendHistory(this.currentTrack);
     }
     this.setCurrent(track);
   }
 
   get historyDisplay(): Track[] {
     return this.history.slice().reverse();
+  }
+
+  appendHistory(track: Track): void {
+    this.history.push(track);
+    if (this.history.length > HISTORY_CAP) {
+      this.history.splice(0, this.history.length - HISTORY_CAP);
+    }
   }
 
   removeFromHistory(displayIndex: number): void {
@@ -177,7 +181,7 @@ export class AppState {
   }
 
   stop(): void {
-    if (this.currentTrack) this.history.push(this.currentTrack);
+    if (this.currentTrack) this.appendHistory(this.currentTrack);
     this.audio.pause();
     this.audio.removeAttribute("src");
     this.audio.load();
