@@ -11,7 +11,7 @@ export type Track = {
 
 const AUTO_PLAYLIST_BUFFER = 5;
 
-class AppState {
+export class AppState {
   searchQuery = $state("");
   activeTab = $state<ContentType>("music");
   tracks = $state<Track[]>([]);

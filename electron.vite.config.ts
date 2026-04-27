@@ -21,7 +21,7 @@ export default defineConfig({
   },
   renderer: {
     root: resolve(__dirname, "src/renderer"),
-    plugins: [svelte()],
+    plugins: [svelte({ configFile: resolve(__dirname, "svelte.config.mjs") })],
     build: {
       sourcemap: true,
       rollupOptions: {
