@@ -665,6 +665,12 @@ body {
   word-break: break-word;
 }
 
+.track-tooltip .unknown {
+  color: var(--text-secondary);
+  font-style: italic;
+  opacity: 0.7;
+}
+
 /* --- Scrollbar --- */
 
 ::-webkit-scrollbar {

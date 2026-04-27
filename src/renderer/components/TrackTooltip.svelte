@@ -25,17 +25,42 @@
     return Math.min(Math.max(GAP, app.hoverY), max);
   });
 
-  function formatRate(hz: number): string {
-    return `${(hz / 1000).toFixed(1)} kHz`;
+  const UNKNOWN = "Unknown";
+
+  function formatRate(hz: number | null | undefined): string {
+    return hz ? `${(hz / 1000).toFixed(1)} kHz` : UNKNOWN;
   }
 
-  function formatBitrate(bps: number): string {
-    return `${Math.round(bps / 1000)} kbps`;
+  function formatBitrate(bps: number | null | undefined): string {
+    return bps ? `${Math.round(bps / 1000)} kbps` : UNKNOWN;
+  }
+
+  function strOr(v: string | null | undefined): string {
+    return v && v.trim() ? v : UNKNOWN;
+  }
+
+  function numOr(v: number | null | undefined): string {
+    return v != null ? String(v) : UNKNOWN;
+  }
+
+  function isUnknown(v: string): boolean {
+    return v === UNKNOWN;
   }
 </script>
 
 {#if app.hoveredTrack}
   {@const t = app.hoveredTrack}
+  {@const fields = [
+    { label: "Album", value: strOr(t.album) },
+    { label: "Genre", value: strOr(t.genre) },
+    { label: "Year", value: numOr(t.year) },
+    { label: "Duration", value: t.duration ? formatTime(t.duration) : UNKNOWN },
+    { label: "BPM", value: numOr(t.bpm) },
+    { label: "Format", value: t.format ? t.format.toUpperCase() : UNKNOWN },
+    { label: "Bitrate", value: formatBitrate(t.bitrate) },
+    { label: "Sample rate", value: formatRate(t.sample_rate) },
+    { label: "Plays", value: String(t.play_count ?? 0) },
+  ]}
   <div
     class="track-tooltip"
     bind:this={tooltip}
@@ -44,39 +69,15 @@
     style:width="{TOOLTIP_WIDTH}px"
     role="tooltip"
   >
-    <div class="tt-title">{t.title}</div>
-    <div class="tt-artist">{t.artist}</div>
+    <div class="tt-title">{strOr(t.title)}</div>
+    <div class="tt-artist" class:unknown={isUnknown(strOr(t.artist))}>
+      {strOr(t.artist)}
+    </div>
     <dl class="tt-meta">
-      <dt>Album</dt>
-      <dd>{t.album}</dd>
-      {#if t.genre}
-        <dt>Genre</dt>
-        <dd>{t.genre}</dd>
-      {/if}
-      {#if t.year}
-        <dt>Year</dt>
-        <dd>{t.year}</dd>
-      {/if}
-      <dt>Duration</dt>
-      <dd>{formatTime(t.duration)}</dd>
-      {#if t.bpm}
-        <dt>BPM</dt>
-        <dd>{t.bpm}</dd>
-      {/if}
-      {#if t.format}
-        <dt>Format</dt>
-        <dd>{t.format.toUpperCase()}</dd>
-      {/if}
-      {#if t.bitrate}
-        <dt>Bitrate</dt>
-        <dd>{formatBitrate(t.bitrate)}</dd>
-      {/if}
-      {#if t.sample_rate}
-        <dt>Sample rate</dt>
-        <dd>{formatRate(t.sample_rate)}</dd>
-      {/if}
-      <dt>Plays</dt>
-      <dd>{t.play_count ?? 0}</dd>
+      {#each fields as { label, value } (label)}
+        <dt>{label}</dt>
+        <dd class:unknown={isUnknown(value)}>{value}</dd>
+      {/each}
     </dl>
   </div>
 {/if}
