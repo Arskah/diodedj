@@ -337,20 +337,20 @@ describe("AppState playback control", () => {
     expect(app.autoAdvance).toBe(true);
   });
 
-  it("toggleAutoPlaylist activates and starts playing first track when idle", () => {
+  it("toggleAutoPlaylist activates and starts playing first track when idle", async () => {
     app.addToPlaylist(t(9));
-    app.toggleAutoPlaylist();
+    await app.toggleAutoPlaylist();
     expect(app.autoPlaylistActive).toBe(true);
     expect(app.currentTrack?.id).toBe(9);
   });
 
-  it("toggleAutoPlaylist deactivates without touching playback", () => {
+  it("toggleAutoPlaylist deactivates without touching playback", async () => {
     app.autoPlaylistActive = true;
-    app.toggleAutoPlaylist();
+    await app.toggleAutoPlaylist();
     expect(app.autoPlaylistActive).toBe(false);
   });
 
-  it("stop clears currentTrack, autoPlaylist flag, time/duration and title but preserves history", () => {
+  it("stop clears currentTrack, autoPlaylist flag, time/duration and title, and pushes to history", () => {
     app.addToPlaylist(t(5));
     app.addToPlaylist(t(6));
     app.playIndex(0);
@@ -488,9 +488,13 @@ describe("AppState library + paths", () => {
 
 describe("AppState auto-playlist refill", () => {
   let app: AppState;
+  const bufferSize = 20;
+  const generateTracks = (start: number, count: number): Track[] =>
+    Array.from({ length: count }, (_, i) => t(start + i));
+
   beforeEach(() => {
     resetApi();
-    api.generatePlaylist.mockResolvedValue([t(10), t(11), t(12), t(13), t(14)]);
+    api.generatePlaylist.mockResolvedValue(generateTracks(0, bufferSize));
     app = makeApp();
   });
 
@@ -502,23 +506,30 @@ describe("AppState auto-playlist refill", () => {
   it("fills empty playlist up to the buffer", async () => {
     app.autoPlaylistActive = true;
     await app.maybeRefillPlaylist();
-    expect(api.generatePlaylist).toHaveBeenCalledWith(5);
-    expect(app.playlist.length).toBe(5);
+    expect(api.generatePlaylist).toHaveBeenCalledWith(bufferSize);
+    expect(app.playlist.length).toBe(bufferSize);
   });
 
   it("requests only the deficit when partially full", async () => {
     app.autoPlaylistActive = true;
     app.addToPlaylist(t(1));
     app.addToPlaylist(t(2));
-    api.generatePlaylist.mockResolvedValueOnce([t(20), t(21), t(22)]);
+    app.addToPlaylist(t(3));
+    app.addToPlaylist(t(4));
+
+    api.generatePlaylist.mockResolvedValueOnce(
+      generateTracks(10, bufferSize - 4),
+    );
     await app.maybeRefillPlaylist();
-    expect(api.generatePlaylist).toHaveBeenCalledWith(3);
-    expect(app.playlist.length).toBe(5);
+    expect(api.generatePlaylist).toHaveBeenCalledWith(bufferSize - 4);
+    expect(app.playlist.length).toBe(bufferSize);
   });
 
-  it("does nothing when remaining buffer is already met", async () => {
+  it("does nothing when remaining threshold is already met", async () => {
+    const threshold = 5;
     app.autoPlaylistActive = true;
-    for (let i = 0; i < 10; i++) app.addToPlaylist(t(i));
+    const initialTracks = generateTracks(0, threshold);
+    initialTracks.forEach((track) => app.addToPlaylist(track));
     await app.maybeRefillPlaylist();
     expect(api.generatePlaylist).not.toHaveBeenCalled();
   });

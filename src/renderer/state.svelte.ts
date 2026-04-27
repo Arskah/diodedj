@@ -3,7 +3,10 @@ import logger from "electron-log/renderer";
 
 export type { Track };
 
-const AUTO_PLAYLIST_BUFFER = 5;
+// Auto playlist configuration
+const AUTO_PLAYLIST_BUFFER = 20;
+// Threshold at which the auto playlist will be refilled. Should be lower than AUTO_PLAYLIST_BUFFER to avoid excessive refilling.
+const AUTO_PLAYLIST_THRESHOLD = 5;
 const HISTORY_CAP = 100;
 
 export type PlaylistTab = "queue" | "history";
@@ -211,20 +214,19 @@ export class AppState {
     this.autoAdvance = !this.autoAdvance;
   }
 
-  toggleAutoPlaylist(): void {
+  async toggleAutoPlaylist(): Promise<void> {
     this.autoPlaylistActive = !this.autoPlaylistActive;
     if (this.autoPlaylistActive) {
+      await this.maybeRefillPlaylist();
       if (!this.currentTrack && this.playlist.length > 0) {
         this.playIndex(0);
-      } else {
-        void this.maybeRefillPlaylist();
       }
     }
   }
 
   async maybeRefillPlaylist(): Promise<void> {
     if (!this.autoPlaylistActive) return;
-    if (this.playlist.length < AUTO_PLAYLIST_BUFFER) {
+    if (this.playlist.length < AUTO_PLAYLIST_THRESHOLD) {
       const count = AUTO_PLAYLIST_BUFFER - this.playlist.length;
       const tracks = await window.api.generatePlaylist(count);
       this.playlist.push(...tracks);
@@ -280,15 +282,13 @@ export class AppState {
   }
 
   private async handleEnded(): Promise<void> {
-    if (!this.autoAdvance) return;
-    if (this.playlist.length > 0) {
-      this.playIndex(0);
-    } else if (this.autoPlaylistActive) {
-      await this.maybeRefillPlaylist();
-      if (this.playlist.length > 0) this.playIndex(0);
-    } else {
+    if (!this.autoAdvance) {
       this.stop();
+      return;
     }
+
+    await this.maybeRefillPlaylist();
+    if (this.playlist.length > 0) this.playIndex(0);
   }
 }
 
