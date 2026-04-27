@@ -21,7 +21,7 @@ export class AppState {
   scanTotal = $state(0);
 
   playlist = $state<Track[]>([]);
-  currentIndex = $state(-1);
+  currentTrack = $state<Track | null>(null);
   autoPlaylistActive = $state(false);
   autoAdvance = $state(true);
   isPlaying = $state(false);
@@ -50,7 +50,7 @@ export class AppState {
       this.duration =
         isFinite(this.audio.duration) && this.audio.duration > 0
           ? this.audio.duration
-          : (this.playlist[this.currentIndex]?.duration ?? 0);
+          : (this.currentTrack?.duration ?? 0);
     });
     this.audio.addEventListener("ended", () => {
       void this.handleEnded();
@@ -68,12 +68,6 @@ export class AppState {
       this.scanProcessed = processed;
       this.scanTotal = total;
     });
-  }
-
-  get currentTrack(): Track | null {
-    return this.currentIndex >= 0
-      ? (this.playlist[this.currentIndex] ?? null)
-      : null;
   }
 
   get progressPct(): number {
@@ -99,42 +93,31 @@ export class AppState {
   }
 
   playNow(track: Track): void {
-    this.addToPlaylist(track);
-    this.playIndex(this.playlist.length - 1);
+    this.playTrack(track);
   }
 
   removeFromPlaylist(index: number): void {
     this.playlist.splice(index, 1);
-    if (index < this.currentIndex) {
-      this.currentIndex--;
-    } else if (index === this.currentIndex) {
-      this.stop();
-      this.currentIndex = -1;
-    }
   }
 
   movePlaylistItem(from: number, to: number): void {
     if (from === to) return;
     const [item] = this.playlist.splice(from, 1);
     this.playlist.splice(to, 0, item);
-    if (this.currentIndex === from) {
-      this.currentIndex = to;
-    } else if (from < this.currentIndex && to >= this.currentIndex) {
-      this.currentIndex--;
-    } else if (from > this.currentIndex && to <= this.currentIndex) {
-      this.currentIndex++;
-    }
   }
 
   clearPlaylist(): void {
-    this.stop();
     this.playlist.length = 0;
   }
 
   playIndex(index: number): void {
     if (index < 0 || index >= this.playlist.length) return;
-    this.currentIndex = index;
-    const track = this.playlist[index];
+    const [track] = this.playlist.splice(index, 1);
+    this.playTrack(track);
+  }
+
+  private playTrack(track: Track): void {
+    this.currentTrack = track;
     this.audio.src = window.api.getMediaUrl(track.id);
     void this.audio.play();
     void window.api.trackPlayed(track.id);
@@ -143,7 +126,7 @@ export class AppState {
   }
 
   togglePlay(): void {
-    if (this.currentIndex === -1) {
+    if (!this.currentTrack) {
       if (this.playlist.length > 0) this.playIndex(0);
       return;
     }
@@ -158,7 +141,7 @@ export class AppState {
     this.audio.pause();
     this.audio.removeAttribute("src");
     this.audio.load();
-    this.currentIndex = -1;
+    this.currentTrack = null;
     this.autoPlaylistActive = false;
     this.currentTime = 0;
     this.duration = 0;
@@ -166,17 +149,11 @@ export class AppState {
   }
 
   next(): void {
-    if (this.currentIndex < this.playlist.length - 1) {
-      this.playIndex(this.currentIndex + 1);
-    }
+    if (this.playlist.length > 0) this.playIndex(0);
   }
 
   prev(): void {
-    if (this.audio.currentTime > 3) {
-      this.audio.currentTime = 0;
-    } else if (this.currentIndex > 0) {
-      this.playIndex(this.currentIndex - 1);
-    }
+    if (this.currentTrack) this.audio.currentTime = 0;
   }
 
   toggleMode(): void {
@@ -186,18 +163,18 @@ export class AppState {
   toggleAutoPlaylist(): void {
     this.autoPlaylistActive = !this.autoPlaylistActive;
     if (this.autoPlaylistActive) {
-      void this.maybeRefillPlaylist();
-      if (this.currentIndex === -1 && this.playlist.length > 0) {
+      if (!this.currentTrack && this.playlist.length > 0) {
         this.playIndex(0);
+      } else {
+        void this.maybeRefillPlaylist();
       }
     }
   }
 
   async maybeRefillPlaylist(): Promise<void> {
     if (!this.autoPlaylistActive) return;
-    const remaining = this.playlist.length - this.currentIndex - 1;
-    if (remaining < AUTO_PLAYLIST_BUFFER) {
-      const count = AUTO_PLAYLIST_BUFFER - remaining;
+    if (this.playlist.length < AUTO_PLAYLIST_BUFFER) {
+      const count = AUTO_PLAYLIST_BUFFER - this.playlist.length;
       const tracks = await window.api.generatePlaylist(count);
       this.playlist.push(...tracks);
     }
@@ -253,13 +230,11 @@ export class AppState {
 
   private async handleEnded(): Promise<void> {
     if (!this.autoAdvance) return;
-    if (this.currentIndex < this.playlist.length - 1) {
-      this.playIndex(this.currentIndex + 1);
+    if (this.playlist.length > 0) {
+      this.playIndex(0);
     } else if (this.autoPlaylistActive) {
       await this.maybeRefillPlaylist();
-      if (this.currentIndex < this.playlist.length - 1) {
-        this.playIndex(this.currentIndex + 1);
-      }
+      if (this.playlist.length > 0) this.playIndex(0);
     } else {
       this.stop();
     }
