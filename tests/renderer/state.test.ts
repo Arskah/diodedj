@@ -333,7 +333,7 @@ describe("AppState playback control", () => {
     expect(app.autoPlaylistActive).toBe(false);
   });
 
-  it("stop clears currentTrack, history, autoPlaylist flag, time/duration and title", () => {
+  it("stop clears currentTrack, autoPlaylist flag, time/duration and title but preserves history", () => {
     app.addToPlaylist(t(5));
     app.addToPlaylist(t(6));
     app.playIndex(0);
@@ -344,7 +344,7 @@ describe("AppState playback control", () => {
     app.duration = 200;
     app.stop();
     expect(app.currentTrack).toBeNull();
-    expect(app.history.length).toBe(0);
+    expect(app.history.map((x) => x.id)).toEqual([5]);
     expect(app.autoPlaylistActive).toBe(false);
     expect(app.currentTime).toBe(0);
     expect(app.duration).toBe(0);

@@ -178,7 +178,6 @@ export class AppState {
     this.audio.removeAttribute("src");
     this.audio.load();
     this.currentTrack = null;
-    this.history.length = 0;
     this.autoPlaylistActive = false;
     this.currentTime = 0;
     this.duration = 0;
