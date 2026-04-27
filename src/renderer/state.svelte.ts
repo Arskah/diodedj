@@ -193,9 +193,13 @@ export class AppState {
       this.audio.currentTime = 0;
       return;
     }
-    const previous = this.history.pop();
+    const previous = this.history[this.history.length - 1];
     if (!previous) {
       if (this.currentTrack) this.audio.currentTime = 0;
+      return;
+    }
+    if (this.currentTrack?.id === previous.id) {
+      this.audio.currentTime = 0;
       return;
     }
     if (this.currentTrack) this.playlist.unshift(this.currentTrack);

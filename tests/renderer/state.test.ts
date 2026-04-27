@@ -276,7 +276,7 @@ describe("AppState playback control", () => {
     expect(app.currentTrack?.id).toBe(1);
   });
 
-  it("prev within 3s pops history and pushes current onto queue head", () => {
+  it("prev within 3s peeks history (entry stays) and pushes current onto queue head", () => {
     app.addToPlaylist(t(1));
     app.addToPlaylist(t(2));
     app.playIndex(0);
@@ -286,8 +286,25 @@ describe("AppState playback control", () => {
     defineMutableCurrentTime(app.audio, 1);
     app.prev();
     expect(app.currentTrack?.id).toBe(1);
-    expect(app.history.length).toBe(0);
+    expect(app.history.map((x) => x.id)).toEqual([1]);
     expect(app.playlist.map((x) => x.id)).toEqual([2]);
+  });
+
+  it("prev within 3s when current already equals history top just rewinds", () => {
+    app.addToPlaylist(t(1));
+    app.addToPlaylist(t(2));
+    app.playIndex(0);
+    app.playIndex(0);
+    defineMutableCurrentTime(app.audio, 1);
+    app.prev();
+    expect(app.currentTrack?.id).toBe(1);
+    expect(app.playlist.map((x) => x.id)).toEqual([2]);
+    defineMutableCurrentTime(app.audio, 1);
+    app.prev();
+    expect(app.currentTrack?.id).toBe(1);
+    expect(app.history.map((x) => x.id)).toEqual([1]);
+    expect(app.playlist.map((x) => x.id)).toEqual([2]);
+    expect(app.audio.currentTime).toBe(0);
   });
 
   it("prev within 3s with empty history just restarts current", () => {
