@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.4.0](https://github.com/Arskah/diodedj/compare/v0.3.1...v0.4.0) (2026-04-27)
+
+
+### Features
+
+* **logging:** adopt electron-log + ffmpeg capture ([2144b5e](https://github.com/Arskah/diodedj/commit/2144b5e4f445669ec58cbdf13d3aca285e56fc2d))
+* **media:** seekable transcode + broader format support ([#41](https://github.com/Arskah/diodedj/issues/41)) ([827b50c](https://github.com/Arskah/diodedj/commit/827b50c9c11d85d94346cb88e273cee3436bf9a2))
+* **renderer:** show track metadata tooltip on hover ([#42](https://github.com/Arskah/diodedj/issues/42)) ([0db40be](https://github.com/Arskah/diodedj/commit/0db40be31740d8e2c5ce810cc41e13d103fee707))
+
+
+### Miscellaneous Chores
+
+* migrate prettier config to prettier.config.mjs ([dba4f11](https://github.com/Arskah/diodedj/commit/dba4f11656f52adb7b2891e0f4b386279c19175e))
+
+
+### Code Refactoring
+
+* **renderer:** convert to Svelte 5 with runes ([#39](https://github.com/Arskah/diodedj/issues/39)) ([9606c2e](https://github.com/Arskah/diodedj/commit/9606c2e8acec0a115b8fb8113f2f061cd175f619))
+
+
+### Tests
+
+* **main:** cover transcodeToWav across all supported formats ([89e6521](https://github.com/Arskah/diodedj/commit/89e6521a9446397e249c0f45b005bb7d685c5621))
+
 ## [0.3.1](https://github.com/Arskah/diodedj/compare/v0.3.0...v0.3.1) (2026-04-26)
 
 
