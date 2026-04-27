@@ -1,4 +1,5 @@
 import { defineConfig } from "electron-vite";
+import { svelte } from "@sveltejs/vite-plugin-svelte";
 import { resolve } from "node:path";
 
 export default defineConfig({
@@ -20,6 +21,7 @@ export default defineConfig({
   },
   renderer: {
     root: resolve(__dirname, "src/renderer"),
+    plugins: [svelte()],
     build: {
       sourcemap: true,
       rollupOptions: {
