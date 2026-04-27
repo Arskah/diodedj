@@ -6,10 +6,8 @@ import * as scanner from "./scanner";
 import * as playlist from "./playlist";
 import { logger } from "./logger";
 
-type Handler = (
-  event: IpcMainInvokeEvent,
-  ...args: unknown[]
-) => unknown | Promise<unknown>;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type Handler = (event: IpcMainInvokeEvent, ...args: any[]) => unknown;
 
 function handle(channel: string, handler: Handler): void {
   ipcMain.handle(channel, async (event, ...args) => {
@@ -24,23 +22,19 @@ function handle(channel: string, handler: Handler): void {
 }
 
 export function register(mainWindow: BrowserWindow): void {
-  handle("search", async (_event, ...args) => {
-    const [query, contentType] = args as [string, ContentType?];
+  handle("search", async (_event, query: string, contentType?: ContentType) => {
     return db.search(query, contentType);
   });
 
-  handle("get-track", async (_event, ...args) => {
-    const [id] = args as [number];
+  handle("get-track", async (_event, id: number) => {
     return db.getTrack(id);
   });
 
-  handle("track-played", async (_event, ...args) => {
-    const [id] = args as [number];
+  handle("track-played", async (_event, id: number) => {
     await db.incrementPlayCount(id);
   });
 
-  handle("generate-playlist", async (_event, ...args) => {
-    const [count] = args as [number];
+  handle("generate-playlist", async (_event, count: number) => {
     return playlist.generate(count);
   });
 
@@ -48,8 +42,7 @@ export function register(mainWindow: BrowserWindow): void {
     return db.getStats();
   });
 
-  handle("get-paths", (_event, ...args) => {
-    const [type] = args as [ContentType];
+  handle("get-paths", (_event, type: ContentType) => {
     return config.getPaths(type);
   });
 
@@ -57,8 +50,7 @@ export function register(mainWindow: BrowserWindow): void {
     return config.getAllPaths();
   });
 
-  handle("add-path", async (_event, ...args) => {
-    const [type] = args as [ContentType];
+  handle("add-path", async (_event, type: ContentType) => {
     const labels: Record<ContentType, string> = {
       music: "Music",
       commercial: "Commercials",
@@ -74,8 +66,7 @@ export function register(mainWindow: BrowserWindow): void {
     return dirPath;
   });
 
-  handle("remove-path", (_event, ...args) => {
-    const [type, dirPath] = args as [ContentType, string];
+  handle("remove-path", (_event, type: ContentType, dirPath: string) => {
     return config.removePath(type, dirPath);
   });
 
