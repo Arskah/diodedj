@@ -174,6 +174,7 @@ export class AppState {
   }
 
   stop(): void {
+    if (this.currentTrack) this.history.push(this.currentTrack);
     this.audio.pause();
     this.audio.removeAttribute("src");
     this.audio.load();

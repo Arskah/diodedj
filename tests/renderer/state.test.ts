@@ -361,7 +361,7 @@ describe("AppState playback control", () => {
     app.duration = 200;
     app.stop();
     expect(app.currentTrack).toBeNull();
-    expect(app.history.map((x) => x.id)).toEqual([5]);
+    expect(app.history.map((x) => x.id)).toEqual([5, 6]);
     expect(app.autoPlaylistActive).toBe(false);
     expect(app.currentTime).toBe(0);
     expect(app.duration).toBe(0);
