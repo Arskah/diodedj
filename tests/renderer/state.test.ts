@@ -150,6 +150,68 @@ describe("AppState playlist mutations", () => {
   });
 });
 
+describe("AppState history view", () => {
+  let app: AppState;
+  beforeEach(() => {
+    resetApi();
+    app = makeApp();
+  });
+
+  it("playlistTab defaults to queue", () => {
+    expect(app.playlistTab).toBe("queue");
+  });
+
+  it("historyDisplay reverses storage order (newest first)", () => {
+    app.history.push(t(1), t(2), t(3));
+    expect(app.historyDisplay.map((x) => x.id)).toEqual([3, 2, 1]);
+  });
+
+  it("history caps at 100 entries, dropping the oldest", () => {
+    for (let i = 0; i < 100; i++) app.history.push(t(i));
+    app.currentTrack = t(500);
+    app.playNow(t(999));
+    expect(app.history.length).toBe(100);
+    expect(app.history[0].id).toBe(1);
+    expect(app.history[99].id).toBe(500);
+  });
+
+  it("removeFromHistory uses display index (newest first)", () => {
+    app.history.push(t(1), t(2), t(3));
+    app.removeFromHistory(0);
+    expect(app.history.map((x) => x.id)).toEqual([1, 2]);
+    app.removeFromHistory(1);
+    expect(app.history.map((x) => x.id)).toEqual([2]);
+  });
+
+  it("removeFromHistory ignores out-of-range indices", () => {
+    app.history.push(t(1));
+    app.removeFromHistory(5);
+    app.removeFromHistory(-1);
+    expect(app.history.length).toBe(1);
+  });
+
+  it("clearHistory empties history without touching playback", () => {
+    app.history.push(t(1), t(2));
+    app.currentTrack = t(99);
+    app.clearHistory();
+    expect(app.history.length).toBe(0);
+    expect(app.currentTrack?.id).toBe(99);
+  });
+
+  it("requeueFromHistory appends the chosen entry to the playlist tail", () => {
+    app.history.push(t(1), t(2), t(3));
+    app.requeueFromHistory(2);
+    expect(app.playlist.map((x) => x.id)).toEqual([1]);
+    expect(app.history.map((x) => x.id)).toEqual([1, 2, 3]);
+  });
+
+  it("requeueFromHistory is a no-op for invalid indices", () => {
+    app.history.push(t(1));
+    app.requeueFromHistory(5);
+    expect(app.playlist.length).toBe(0);
+  });
+});
+
 describe("AppState playback control", () => {
   let app: AppState;
   beforeEach(() => {
@@ -271,7 +333,7 @@ describe("AppState playback control", () => {
     expect(app.autoPlaylistActive).toBe(false);
   });
 
-  it("stop clears currentTrack, history, autoPlaylist flag, time/duration and title", () => {
+  it("stop clears currentTrack, autoPlaylist flag, time/duration and title but preserves history", () => {
     app.addToPlaylist(t(5));
     app.addToPlaylist(t(6));
     app.playIndex(0);
@@ -282,7 +344,7 @@ describe("AppState playback control", () => {
     app.duration = 200;
     app.stop();
     expect(app.currentTrack).toBeNull();
-    expect(app.history.length).toBe(0);
+    expect(app.history.map((x) => x.id)).toEqual([5]);
     expect(app.autoPlaylistActive).toBe(false);
     expect(app.currentTime).toBe(0);
     expect(app.duration).toBe(0);
