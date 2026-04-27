@@ -1,43 +1,64 @@
-import { BrowserWindow, ipcMain, dialog } from "electron";
+import { BrowserWindow, ipcMain, dialog, IpcMainInvokeEvent } from "electron";
 import { ContentType } from "../types";
 import * as db from "./db";
 import * as config from "./config";
 import * as scanner from "./scanner";
 import * as playlist from "./playlist";
+import { logger } from "./logger";
+
+type Handler = (
+  event: IpcMainInvokeEvent,
+  ...args: unknown[]
+) => unknown | Promise<unknown>;
+
+function handle(channel: string, handler: Handler): void {
+  ipcMain.handle(channel, async (event, ...args) => {
+    logger.debug(`ipc:${channel}`, ...args);
+    try {
+      return await handler(event, ...args);
+    } catch (err) {
+      logger.error(`ipc:${channel} failed`, err);
+      throw err;
+    }
+  });
+}
 
 export function register(mainWindow: BrowserWindow): void {
-  ipcMain.handle(
-    "search",
-    async (_event, query: string, contentType?: ContentType) => {
-      return db.search(query, contentType);
-    },
-  );
+  handle("search", async (_event, ...args) => {
+    const [query, contentType] = args as [string, ContentType?];
+    return db.search(query, contentType);
+  });
 
-  ipcMain.handle("get-track", async (_event, id: number) => {
+  handle("get-track", async (_event, ...args) => {
+    const [id] = args as [number];
     return db.getTrack(id);
   });
 
-  ipcMain.handle("track-played", async (_event, id: number) => {
+  handle("track-played", async (_event, ...args) => {
+    const [id] = args as [number];
     await db.incrementPlayCount(id);
   });
 
-  ipcMain.handle("generate-playlist", async (_event, count: number) => {
+  handle("generate-playlist", async (_event, ...args) => {
+    const [count] = args as [number];
     return playlist.generate(count);
   });
 
-  ipcMain.handle("get-stats", async () => {
+  handle("get-stats", async () => {
     return db.getStats();
   });
 
-  ipcMain.handle("get-paths", (_event, type: ContentType) => {
+  handle("get-paths", (_event, ...args) => {
+    const [type] = args as [ContentType];
     return config.getPaths(type);
   });
 
-  ipcMain.handle("get-all-paths", () => {
+  handle("get-all-paths", () => {
     return config.getAllPaths();
   });
 
-  ipcMain.handle("add-path", async (_event, type: ContentType) => {
+  handle("add-path", async (_event, ...args) => {
+    const [type] = args as [ContentType];
     const labels: Record<ContentType, string> = {
       music: "Music",
       commercial: "Commercials",
@@ -53,15 +74,12 @@ export function register(mainWindow: BrowserWindow): void {
     return dirPath;
   });
 
-  ipcMain.handle(
-    "remove-path",
-    (_event, type: ContentType, dirPath: string) => {
-      return config.removePath(type, dirPath);
-    },
-  );
+  handle("remove-path", (_event, ...args) => {
+    const [type, dirPath] = args as [ContentType, string];
+    return config.removePath(type, dirPath);
+  });
 
-  ipcMain.handle("scan-library", async () => {
-    // Prune tracks from removed paths
+  handle("scan-library", async () => {
     const allPaths = config.getAllPathsFlat();
     await db.removeTracksNotInPaths(allPaths);
 
@@ -91,6 +109,9 @@ export function register(mainWindow: BrowserWindow): void {
       }
     }
 
+    logger.info(
+      `scan complete: ${totalResult.added}/${totalResult.total} added across ${types.length} types`,
+    );
     return totalResult;
   });
 }

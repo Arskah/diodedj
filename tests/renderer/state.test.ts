@@ -1,5 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+vi.mock("electron-log/renderer", () => ({
+  default: {
+    error: vi.fn(),
+    warn: vi.fn(),
+    info: vi.fn(),
+    verbose: vi.fn(),
+    debug: vi.fn(),
+    silly: vi.fn(),
+  },
+}));
+
 const { api } = vi.hoisted(() => {
   const api = {
     search: vi.fn(),

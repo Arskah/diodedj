@@ -3,6 +3,7 @@ import { open } from "fs/promises";
 import { Readable } from "stream";
 import ffmpegStatic from "ffmpeg-static";
 import { NATIVE_FORMATS } from "./audio-formats";
+import { bufferProcessStderr, logger } from "./logger";
 
 // Packaged app: ffmpeg binary lives in app.asar.unpacked, not app.asar
 const FFMPEG_PATH =
@@ -104,17 +105,7 @@ function attachFfmpegLogging(
   proc: ReturnType<typeof spawn>,
   filePath: string,
 ): void {
-  proc.stderr!.on("data", (chunk: Buffer) => {
-    process.stderr.write(`[ffmpeg ${filePath}] ${chunk}`);
-  });
-  proc.on("error", (err) => {
-    console.error(`[ffmpeg spawn error] ${filePath}:`, err);
-  });
-  proc.on("exit", (code, signal) => {
-    if (code !== 0 && code !== null) {
-      console.error(`[ffmpeg exit ${code}] ${filePath} signal=${signal}`);
-    }
-  });
+  bufferProcessStderr(proc, `ffmpeg ${filePath}`);
 }
 
 const FFMPEG_QUIET = ["-nostdin", "-hide_banner", "-loglevel", "error"];
@@ -204,7 +195,7 @@ function pcmRangeStream(
       });
       proc.stdout!.on("end", () => finish(controller));
       proc.stdout!.on("error", (err) => {
-        console.error(`[ffmpeg stdout error] ${filePath}:`, err);
+        logger.error(`ffmpeg ${filePath}: stdout error`, err);
         finish(controller);
       });
       proc.on("error", () => finish(controller));

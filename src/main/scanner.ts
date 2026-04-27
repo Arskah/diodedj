@@ -4,6 +4,7 @@ import { ContentType, ScanResult } from "../types";
 import * as db from "./db";
 import { TrackInsert } from "./db/types";
 import { AUDIO_EXTENSIONS } from "./audio-formats";
+import { logger } from "./logger";
 
 export async function scanDirectory(
   dirPath: string,
@@ -38,7 +39,7 @@ export async function scanDirectory(
       await db.insertTrack(track);
       added++;
     } catch (err) {
-      console.error(`scan: failed to parse ${filePath}`, err);
+      logger.error(`scan: failed to parse ${filePath}`, err);
     }
 
     processed++;
@@ -56,7 +57,7 @@ async function findAudioFiles(dirPath: string): Promise<string[]> {
     try {
       entries = await fs.promises.readdir(dir, { withFileTypes: true });
     } catch (err) {
-      console.error(`scan: readdir failed ${dir}`, err);
+      logger.error(`scan: readdir failed ${dir}`, err);
       return;
     }
     for (const entry of entries) {

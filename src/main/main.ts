@@ -11,7 +11,7 @@ import {
 } from "./transcode";
 import { MIME_TYPES } from "./audio-formats";
 import * as ipc from "./ipc";
-import * as logger from "./logger";
+import { logger, init as initLogger, close as closeLogger } from "./logger";
 import { createMainWindow } from "./mainWindow";
 
 protocol.registerSchemesAsPrivileged([
@@ -99,15 +99,22 @@ const mediaHandler = async (request: Request) => {
 };
 
 app.on("ready", async () => {
-  logger.init();
+  initLogger(app.getVersion());
   await db.init();
   config.init();
   protocol.handle("media", mediaHandler);
-  ipc.register(createMainWindow());
+  const win = createMainWindow();
+  logger.info("main window created");
+  ipc.register(win);
 });
 
 app.on("window-all-closed", async () => {
+  logger.info("all windows closed; quitting");
   await db.close();
-  logger.close();
+  closeLogger();
   app.quit();
+});
+
+app.on("before-quit", () => {
+  logger.info("app before-quit");
 });

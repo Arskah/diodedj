@@ -1,4 +1,5 @@
 import type { ContentType, LibraryStats } from "../types";
+import logger from "electron-log/renderer";
 
 export type Track = {
   id: number;
@@ -59,7 +60,7 @@ export class AppState {
     });
     this.audio.addEventListener("error", () => {
       const err = this.audio.error;
-      console.error("Audio error:", {
+      logger.error("Audio error:", {
         code: err?.code,
         message: err?.message,
         src: this.audio.currentSrc,
@@ -150,7 +151,7 @@ export class AppState {
       return;
     }
     if (this.audio.paused) {
-      this.audio.play().catch((err) => console.error("Resume failed:", err));
+      this.audio.play().catch((err) => logger.error("Resume failed:", err));
     } else {
       this.audio.pause();
     }
@@ -211,7 +212,7 @@ export class AppState {
     try {
       this.audio.currentTime = clamped * this.duration;
     } catch (err) {
-      console.error("Seek failed:", err);
+      logger.error("Seek failed:", err);
     }
   }
 
