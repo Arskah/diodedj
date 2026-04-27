@@ -167,6 +167,19 @@ describe("AppState playback control", () => {
     expect(document.title).toBe("Song - Band | DiodeDJ");
   });
 
+  it("playing a new track moves the previous one into history", () => {
+    app.addToPlaylist(t(1));
+    app.addToPlaylist(t(2));
+    app.addToPlaylist(t(3));
+    app.playIndex(0);
+    expect(app.history.length).toBe(0);
+    app.playIndex(0);
+    expect(app.history.map((x) => x.id)).toEqual([1]);
+    app.playNow(t(99));
+    expect(app.history.map((x) => x.id)).toEqual([1, 2]);
+    expect(app.currentTrack?.id).toBe(99);
+  });
+
   it("playIndex out of range is a no-op", () => {
     app.playIndex(0);
     expect(app.currentTrack).toBeNull();
@@ -193,17 +206,41 @@ describe("AppState playback control", () => {
     expect(app.currentTrack?.id).toBe(99);
   });
 
-  it("prev seeks to start of current track", () => {
+  it("prev after 3s seeks to start of current track", () => {
     app.currentTrack = t(1);
     defineMutableCurrentTime(app.audio, 5);
     app.prev();
     expect(app.audio.currentTime).toBe(0);
+    expect(app.currentTrack?.id).toBe(1);
   });
 
-  it("prev is a no-op when no current track", () => {
+  it("prev within 3s pops history and pushes current onto queue head", () => {
+    app.addToPlaylist(t(1));
+    app.addToPlaylist(t(2));
+    app.playIndex(0);
+    app.playIndex(0);
+    expect(app.currentTrack?.id).toBe(2);
+    expect(app.history.map((x) => x.id)).toEqual([1]);
+    defineMutableCurrentTime(app.audio, 1);
+    app.prev();
+    expect(app.currentTrack?.id).toBe(1);
+    expect(app.history.length).toBe(0);
+    expect(app.playlist.map((x) => x.id)).toEqual([2]);
+  });
+
+  it("prev within 3s with empty history just restarts current", () => {
+    app.currentTrack = t(1);
+    defineMutableCurrentTime(app.audio, 1);
+    app.prev();
+    expect(app.audio.currentTime).toBe(0);
+    expect(app.currentTrack?.id).toBe(1);
+  });
+
+  it("prev is a no-op when no current track and empty history", () => {
     defineMutableCurrentTime(app.audio, 5);
     app.prev();
     expect(app.audio.currentTime).toBe(5);
+    expect(app.currentTrack).toBeNull();
   });
 
   it("togglePlay starts head of queue when nothing playing and playlist non-empty", () => {
@@ -234,14 +271,18 @@ describe("AppState playback control", () => {
     expect(app.autoPlaylistActive).toBe(false);
   });
 
-  it("stop clears currentTrack, autoPlaylist flag, time/duration and title", () => {
+  it("stop clears currentTrack, history, autoPlaylist flag, time/duration and title", () => {
     app.addToPlaylist(t(5));
+    app.addToPlaylist(t(6));
     app.playIndex(0);
+    app.playIndex(0);
+    expect(app.history.length).toBe(1);
     app.autoPlaylistActive = true;
     app.currentTime = 12;
     app.duration = 200;
     app.stop();
     expect(app.currentTrack).toBeNull();
+    expect(app.history.length).toBe(0);
     expect(app.autoPlaylistActive).toBe(false);
     expect(app.currentTime).toBe(0);
     expect(app.duration).toBe(0);

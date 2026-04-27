@@ -21,6 +21,7 @@ export class AppState {
   scanTotal = $state(0);
 
   playlist = $state<Track[]>([]);
+  history = $state<Track[]>([]);
   currentTrack = $state<Track | null>(null);
   autoPlaylistActive = $state(false);
   autoAdvance = $state(true);
@@ -117,6 +118,11 @@ export class AppState {
   }
 
   private playTrack(track: Track): void {
+    if (this.currentTrack) this.history.push(this.currentTrack);
+    this.setCurrent(track);
+  }
+
+  private setCurrent(track: Track): void {
     this.currentTrack = track;
     this.audio.src = window.api.getMediaUrl(track.id);
     void this.audio.play();
@@ -142,6 +148,7 @@ export class AppState {
     this.audio.removeAttribute("src");
     this.audio.load();
     this.currentTrack = null;
+    this.history.length = 0;
     this.autoPlaylistActive = false;
     this.currentTime = 0;
     this.duration = 0;
@@ -153,7 +160,17 @@ export class AppState {
   }
 
   prev(): void {
-    if (this.currentTrack) this.audio.currentTime = 0;
+    if (this.currentTrack && this.audio.currentTime > 3) {
+      this.audio.currentTime = 0;
+      return;
+    }
+    const previous = this.history.pop();
+    if (!previous) {
+      if (this.currentTrack) this.audio.currentTime = 0;
+      return;
+    }
+    if (this.currentTrack) this.playlist.unshift(this.currentTrack);
+    this.setCurrent(previous);
   }
 
   toggleMode(): void {
