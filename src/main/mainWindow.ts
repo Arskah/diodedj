@@ -8,7 +8,7 @@ import windowStateKeeper from "electron-window-state";
 
 const TITLEBAR_BG = "#1a1a2e";
 const TITLEBAR_SYMBOL = "#e8e8e8";
-const TITLEBAR_HEIGHT = 50;
+const TITLEBAR_HEIGHT = 38;
 const LINUX_FALLBACK_BG = "#0f0f1a";
 
 export function createMainWindow(): BrowserWindow {
@@ -25,7 +25,7 @@ export function createMainWindow(): BrowserWindow {
     process.platform === "darwin"
       ? {
           titleBarStyle: "hiddenInset",
-          trafficLightPosition: { x: 12, y: 18 },
+          trafficLightPosition: { x: 12, y: 12 },
           vibrancy: "under-window",
           visualEffectState: "active",
         }

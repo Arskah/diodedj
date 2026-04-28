@@ -1,5 +1,7 @@
 import { contextBridge, ipcRenderer } from "electron";
 
+document.documentElement.dataset["platform"] = process.platform;
+
 contextBridge.exposeInMainWorld("api", {
   search: (query: string, contentType?: string) =>
     ipcRenderer.invoke("search", query, contentType),
