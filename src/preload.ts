@@ -1,8 +1,7 @@
 import { contextBridge, ipcRenderer } from "electron";
 
-document.documentElement.dataset["platform"] = process.platform;
-
 contextBridge.exposeInMainWorld("api", {
+  platform: process.platform,
   search: (query: string, contentType?: string) =>
     ipcRenderer.invoke("search", query, contentType),
   getTrack: (id: number) => ipcRenderer.invoke("get-track", id),

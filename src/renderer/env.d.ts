@@ -8,6 +8,7 @@ declare module "*.svelte" {
 type ContentType = "music" | "commercial" | "jingle";
 
 interface ElectronAPI {
+  platform: NodeJS.Platform;
   search(
     query: string,
     contentType?: ContentType,
