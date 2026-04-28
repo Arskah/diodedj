@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.1](https://github.com/Arskah/diodedj/compare/v0.5.0...v0.5.1) (2026-04-28)
+
+
+### Miscellaneous Chores
+
+* consolidate build configs, tighten tsc coverage, fix CI ([#54](https://github.com/Arskah/diodedj/issues/54)) ([67fb41c](https://github.com/Arskah/diodedj/commit/67fb41c0470f98be6ac4830f0436c9adc35f63e2))
+
 ## [0.5.0](https://github.com/Arskah/diodedj/compare/v0.4.0...v0.5.0) (2026-04-28)
 
 
