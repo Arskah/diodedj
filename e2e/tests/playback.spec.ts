@@ -1,5 +1,5 @@
-import { test, expect } from "./test";
-import { clickScan, waitForPlaylistCount, waitForTrackCount } from "./helpers";
+import { test, expect } from "../test";
+import { clickScan, waitForPlaylistCount, waitForTrackCount } from "../helpers";
 
 test.describe("playback", () => {
   test("clicking play on a track loads audio src and starts playing", async ({

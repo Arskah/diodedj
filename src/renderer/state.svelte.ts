@@ -304,7 +304,7 @@ export class AppState {
   }
 
   async loadSession(): Promise<void> {
-    let result;
+    let result: SessionLoadResult;
     try {
       result = await window.api.loadSession();
     } catch (err) {
