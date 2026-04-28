@@ -1,5 +1,35 @@
 # Changelog
 
+## [0.5.0](https://github.com/Arskah/diodedj/compare/v0.4.0...v0.5.0) (2026-04-28)
+
+
+### Features
+
+* **library:** sortable columns in track search ([#34](https://github.com/Arskah/diodedj/issues/34)) ([193782e](https://github.com/Arskah/diodedj/commit/193782e7170e3444a0dd2197dce4c3e63ab8a14c))
+* **library:** sortable columns in track search ([#52](https://github.com/Arskah/diodedj/issues/52)) ([193782e](https://github.com/Arskah/diodedj/commit/193782e7170e3444a0dd2197dce4c3e63ab8a14c))
+* **main:** modern native window chrome ([#50](https://github.com/Arskah/diodedj/issues/50)) ([f64bed6](https://github.com/Arskah/diodedj/commit/f64bed6a985799c4d34a71772fae3215cabca308)), closes [#49](https://github.com/Arskah/diodedj/issues/49)
+* **playlist:** history-aware prev navigation ([#45](https://github.com/Arskah/diodedj/issues/45)) ([0dbf72f](https://github.com/Arskah/diodedj/commit/0dbf72fec0be688c74c79e66046f8353d6b21aa7))
+* **session:** persist playlist and history across restarts ([#53](https://github.com/Arskah/diodedj/issues/53)) ([12e61bd](https://github.com/Arskah/diodedj/commit/12e61bd6862f67f6d8ba9755dc9d6c9a5b7254e6))
+* **ui:** reserve traffic light space, move search to library header ([#51](https://github.com/Arskah/diodedj/issues/51)) ([7d49ce6](https://github.com/Arskah/diodedj/commit/7d49ce609888e1a2c0ce8f48955f25bb51841558))
+
+
+### Bug Fixes
+
+* append history on stop ([94dd403](https://github.com/Arskah/diodedj/commit/94dd4034eed0a97701b0e0bbbfcc9aa93ae0d2be))
+* bigger autoplaylist with distinct threshold for generation ([f23892f](https://github.com/Arskah/diodedj/commit/f23892fab5ddd1aeff0eb317240f8fa83fe38dd7))
+* **ipc:** correct Handler type to accept varied return types ([34e02f6](https://github.com/Arskah/diodedj/commit/34e02f60bbad4d0d20d309897f51f1b982c09cc4))
+
+
+### Code Refactoring
+
+* add appendHistory fn ([14f68a5](https://github.com/Arskah/diodedj/commit/14f68a5cba85726da76d63071508e1ee42469c00))
+* **playlist:** split current track from queue ([#44](https://github.com/Arskah/diodedj/issues/44)) ([982d5ec](https://github.com/Arskah/diodedj/commit/982d5ec46270fc129abf50a6bd118b95496f77ca))
+
+
+### Continuous Integration
+
+* add missing permissions for lint job ([#48](https://github.com/Arskah/diodedj/issues/48)) ([a638918](https://github.com/Arskah/diodedj/commit/a6389181dee0e199bbf4bd25f12f68f42e704fad))
+
 ## [0.4.0](https://github.com/Arskah/diodedj/compare/v0.3.1...v0.4.0) (2026-04-27)
 
 
