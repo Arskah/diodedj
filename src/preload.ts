@@ -9,6 +9,10 @@ contextBridge.exposeInMainWorld("api", {
     sortDir?: string,
   ) => ipcRenderer.invoke("search", query, contentType, sortBy, sortDir),
   getTrack: (id: number) => ipcRenderer.invoke("get-track", id),
+  getTracksByIds: (ids: number[]) =>
+    ipcRenderer.invoke("get-tracks-by-ids", ids),
+  loadSession: () => ipcRenderer.invoke("load-session"),
+  saveSession: (state: unknown) => ipcRenderer.invoke("save-session", state),
   trackPlayed: (id: number) => ipcRenderer.invoke("track-played", id),
   generatePlaylist: (count: number) =>
     ipcRenderer.invoke("generate-playlist", count),
