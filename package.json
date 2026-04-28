@@ -1,6 +1,6 @@
 {
   "name": "diodedj",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "Radio station music player",
   "main": "out/main/main.js",
   "author": {
