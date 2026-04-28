@@ -2,9 +2,8 @@ import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   test: {
-    projects: ["tests/*"],
-    coverage: {
-      include: ["src/**/*.{ts,svelte}"],
-    },
+    name: "main",
+    environment: "node",
+    include: ["**/*.test.ts"],
   },
 });

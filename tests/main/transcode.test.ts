@@ -1,4 +1,3 @@
-// @vitest-environment node
 import { spawnSync } from "child_process";
 import { mkdtempSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
