@@ -1,5 +1,5 @@
 import { BrowserWindow, ipcMain, dialog, IpcMainInvokeEvent } from "electron";
-import { ContentType } from "../types";
+import { ContentType, SortColumn, SortDir } from "../types";
 import * as db from "./db";
 import * as config from "./config";
 import * as scanner from "./scanner";
@@ -22,9 +22,18 @@ function handle(channel: string, handler: Handler): void {
 }
 
 export function register(mainWindow: BrowserWindow): void {
-  handle("search", async (_event, query: string, contentType?: ContentType) => {
-    return db.search(query, contentType);
-  });
+  handle(
+    "search",
+    async (
+      _event,
+      query: string,
+      contentType?: ContentType,
+      sortBy?: SortColumn,
+      sortDir?: SortDir,
+    ) => {
+      return db.search(query, contentType, sortBy, sortDir);
+    },
+  );
 
   handle("get-track", async (_event, id: number) => {
     return db.getTrack(id);

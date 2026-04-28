@@ -6,12 +6,16 @@ declare module "*.svelte" {
 }
 
 type ContentType = "music" | "commercial" | "jingle";
+type SortColumn = "title" | "artist" | "album" | "play_count";
+type SortDir = "asc" | "desc";
 
 interface ElectronAPI {
   platform: NodeJS.Platform;
   search(
     query: string,
     contentType?: ContentType,
+    sortBy?: SortColumn,
+    sortDir?: SortDir,
   ): Promise<import("../types").Track[]>;
   getTrack(id: number): Promise<import("../types").Track>;
   trackPlayed(id: number): Promise<void>;

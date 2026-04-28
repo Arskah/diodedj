@@ -2,7 +2,7 @@ import BetterSqlite3 from "better-sqlite3";
 import path from "path";
 import { app } from "electron";
 import { Kysely, SqliteDialect, Migrator, Migration, sql } from "kysely";
-import { ContentType, LibraryStats } from "../../types";
+import { ContentType, LibraryStats, SortColumn, SortDir } from "../../types";
 import { Database, Track, TrackInsert } from "./types";
 import * as initial from "./migrations/001_initial";
 
@@ -39,41 +39,57 @@ export async function init(): Promise<Kysely<Database>> {
   return db;
 }
 
+const SORT_COLUMNS: Record<SortColumn, string> = {
+  title: "title",
+  artist: "artist",
+  album: "album",
+  play_count: "play_count",
+};
+
+function orderClause(sortBy?: SortColumn, sortDir?: SortDir): string {
+  if (!sortBy || !(sortBy in SORT_COLUMNS)) return "";
+  const col = SORT_COLUMNS[sortBy];
+  const dir = sortDir === "desc" ? "DESC" : "ASC";
+  const collate = sortBy === "play_count" ? "" : "COLLATE NOCASE ";
+  return `${col} ${collate}${dir}`;
+}
+
 export async function search(
   query: string,
   contentType?: ContentType,
+  sortBy?: SortColumn,
+  sortDir?: SortDir,
 ): Promise<Track[]> {
+  const order = orderClause(sortBy, sortDir);
   if (!query?.trim()) {
-    let q = db
-      .selectFrom("tracks")
-      .selectAll()
-      .orderBy("artist")
-      .orderBy("album")
-      .orderBy("title")
-      .limit(200);
-    if (contentType) {
-      q = q.where("content_type", "=", contentType);
+    let q = db.selectFrom("tracks").selectAll();
+    if (contentType) q = q.where("content_type", "=", contentType);
+    if (order) {
+      q = q.orderBy(sql.raw(order));
+    } else {
+      q = q.orderBy("artist").orderBy("album").orderBy("title");
     }
-    return await q.execute();
+    return await q.limit(200).execute();
   }
   const ftsQuery = query
     .trim()
     .split(/\s+/)
     .map((t) => `"${t}"*`)
     .join(" ");
+  const orderSql = order ? sql.raw(order) : sql.raw("rank");
   const result = contentType
     ? await sql<Track>`
         SELECT tracks.* FROM tracks_fts
         JOIN tracks ON tracks.id = tracks_fts.rowid
         WHERE tracks_fts MATCH ${ftsQuery} AND tracks.content_type = ${contentType}
-        ORDER BY rank
+        ORDER BY ${orderSql}
         LIMIT 200
       `.execute(db)
     : await sql<Track>`
         SELECT tracks.* FROM tracks_fts
         JOIN tracks ON tracks.id = tracks_fts.rowid
         WHERE tracks_fts MATCH ${ftsQuery}
-        ORDER BY rank
+        ORDER BY ${orderSql}
         LIMIT 200
       `.execute(db);
   return result.rows;

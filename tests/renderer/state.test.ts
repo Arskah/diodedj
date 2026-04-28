@@ -424,14 +424,33 @@ describe("AppState library + paths", () => {
     app.searchQuery = "foo";
     app.activeTab = "music";
     await app.search();
-    expect(api.search).toHaveBeenCalledWith("foo", "music");
+    expect(api.search).toHaveBeenCalledWith("foo", "music", undefined, "asc");
     expect(app.tracks.length).toBe(2);
   });
 
   it("setTab updates activeTab and triggers a search for it", () => {
     app.setTab("jingle");
     expect(app.activeTab).toBe("jingle");
-    expect(api.search).toHaveBeenCalledWith("", "jingle");
+    expect(api.search).toHaveBeenCalledWith("", "jingle", undefined, "asc");
+  });
+
+  it("toggleSort sets column ascending then flips direction on second click", async () => {
+    await app.toggleSort("title");
+    expect(app.sortBy).toBe("title");
+    expect(app.sortDir).toBe("asc");
+    expect(api.search).toHaveBeenLastCalledWith("", "music", "title", "asc");
+    await app.toggleSort("title");
+    expect(app.sortDir).toBe("desc");
+    expect(api.search).toHaveBeenLastCalledWith("", "music", "title", "desc");
+  });
+
+  it("toggleSort to a different column resets direction to asc", async () => {
+    app.sortBy = "artist";
+    app.sortDir = "desc";
+    await app.toggleSort("album");
+    expect(app.sortBy).toBe("album");
+    expect(app.sortDir).toBe("asc");
+    expect(api.search).toHaveBeenLastCalledWith("", "music", "album", "asc");
   });
 
   it("loadStats stores response", async () => {
