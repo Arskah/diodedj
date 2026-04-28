@@ -20,13 +20,15 @@
     "dev": "electron-vite dev",
     "build": "electron-vite build",
     "preview": "electron-vite preview",
-    "typecheck": "tsc -p tsconfig.node.json && tsc -p tsconfig.web.json && svelte-check --tsconfig tsconfig.web.json && tsc -p e2e/tsconfig.json",
-    "lint": "eslint",
+    "typecheck:node": "tsc -p tsconfig.node.json",
+    "svelte-check": "svelte-check",
+    "typecheck": "pnpm svelte-check && pnpm typecheck:node",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "lint": "eslint",
     "test": "vitest",
-    "test:e2e": "pnpm build && playwright test",
-    "postinstall": "electron-rebuild",
+    "test:e2e": "pnpm build && playwright test --config e2e/playwright.config.ts",
+    "postinstall": "electron-builder install-app-deps",
     "prepare": "husky"
   },
   "lint-staged": {
@@ -50,7 +52,6 @@
     "@commitlint/cli": "20.5.2",
     "@commitlint/config-conventional": "20.5.0",
     "@commitlint/types": "20.5.0",
-    "@electron/rebuild": "4.0.4",
     "@eslint/js": "10.0.1",
     "@playwright/test": "1.59.1",
     "@sveltejs/vite-plugin-svelte": "7.0.0",
@@ -80,64 +81,5 @@
       "esbuild",
       "ffmpeg-static"
     ]
-  },
-  "build": {
-    "appId": "com.diodedj.app",
-    "productName": "DiodeDJ",
-    "files": [
-      "out/**/*",
-      "package.json"
-    ],
-    "asarUnpack": [
-      "node_modules/ffmpeg-static/**",
-      "node_modules/better-sqlite3/**"
-    ],
-    "directories": {
-      "output": "release"
-    },
-    "mac": {
-      "target": [
-        {
-          "target": "dmg",
-          "arch": [
-            "arm64",
-            "x64"
-          ]
-        },
-        {
-          "target": "zip",
-          "arch": [
-            "arm64",
-            "x64"
-          ]
-        }
-      ],
-      "category": "public.app-category.music",
-      "extendInfo": {
-        "NSDesktopFolderUsageDescription": "DiodeDJ scans audio files on your Desktop.",
-        "NSDocumentsFolderUsageDescription": "DiodeDJ scans audio files in Documents.",
-        "NSDownloadsFolderUsageDescription": "DiodeDJ scans audio files in Downloads.",
-        "NSMusicLibraryUsageDescription": "DiodeDJ scans your music library.",
-        "NSRemovableVolumesUsageDescription": "DiodeDJ scans audio on external drives.",
-        "NSNetworkVolumesUsageDescription": "DiodeDJ scans audio on network volumes."
-      }
-    },
-    "win": {
-      "target": [
-        {
-          "target": "nsis",
-          "arch": [
-            "x64"
-          ]
-        }
-      ]
-    },
-    "linux": {
-      "target": [
-        "AppImage",
-        "deb"
-      ],
-      "category": "AudioVideo"
-    }
   }
 }

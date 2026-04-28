@@ -1,5 +1,5 @@
-import { test, expect } from "./test";
-import { clickScan, waitForPlaylistCount, waitForTrackCount } from "./helpers";
+import { test, expect } from "../test";
+import { clickScan, waitForPlaylistCount, waitForTrackCount } from "../helpers";
 
 test.describe("playlist", () => {
   test("double-click adds, remove button removes, clear empties", async ({

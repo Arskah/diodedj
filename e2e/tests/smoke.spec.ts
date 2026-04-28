@@ -1,4 +1,4 @@
-import { test, expect } from "./test";
+import { test, expect } from "../test";
 
 test.describe("smoke", () => {
   test("launches with empty library and renders shell", async ({ launch }) => {

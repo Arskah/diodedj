@@ -1,5 +1,5 @@
-import { test, expect } from "./test";
-import { clickScan, waitForTrackCount } from "./helpers";
+import { test, expect } from "../test";
+import { clickScan, waitForTrackCount } from "../helpers";
 
 test.describe("library", () => {
   test("paths modal lists pre-seeded folders for each content type", async ({
