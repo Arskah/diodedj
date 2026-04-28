@@ -8,6 +8,13 @@
     { type: "jingle", label: "Jingles" },
   ];
 
+  let searchTimeout: number | undefined;
+
+  function onSearchInput(): void {
+    clearTimeout(searchTimeout);
+    searchTimeout = window.setTimeout(() => app.search(), 250);
+  }
+
   function playNow(track: Track, e: MouseEvent): void {
     e.stopPropagation();
     app.playNow(track);
@@ -25,17 +32,27 @@
 </script>
 
 <section id="library-panel">
-  <div id="library-tabs">
-    {#each tabs as { type, label } (type)}
-      <button
-        class="lib-tab"
-        class:active={app.activeTab === type}
-        data-type={type}
-        onclick={() => app.setTab(type)}
-      >
-        {label}
-      </button>
-    {/each}
+  <div id="library-header">
+    <div id="library-tabs">
+      {#each tabs as { type, label } (type)}
+        <button
+          class="lib-tab"
+          class:active={app.activeTab === type}
+          data-type={type}
+          onclick={() => app.setTab(type)}
+        >
+          {label}
+        </button>
+      {/each}
+    </div>
+    <input
+      type="text"
+      id="search-input"
+      placeholder="Search tracks..."
+      autocomplete="off"
+      bind:value={app.searchQuery}
+      oninput={onSearchInput}
+    />
   </div>
   <div id="track-list">
     {#if app.tracks.length === 0}
