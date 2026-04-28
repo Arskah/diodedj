@@ -1,4 +1,10 @@
-import type { ContentType, LibraryStats, Track } from "../types";
+import type {
+  ContentType,
+  LibraryStats,
+  SortColumn,
+  SortDir,
+  Track,
+} from "../types";
 import logger from "electron-log/renderer";
 
 export type { Track };
@@ -15,6 +21,8 @@ export class AppState {
   searchQuery = $state("");
   activeTab = $state<ContentType>("music");
   playlistTab = $state<PlaylistTab>("queue");
+  sortBy = $state<SortColumn | null>(null);
+  sortDir = $state<SortDir>("asc");
   tracks = $state<Track[]>([]);
   stats = $state<LibraryStats | null>(null);
   paths = $state<Record<ContentType, string[]>>({
@@ -88,11 +96,26 @@ export class AppState {
   }
 
   async search(): Promise<void> {
-    this.tracks = await window.api.search(this.searchQuery, this.activeTab);
+    this.tracks = await window.api.search(
+      this.searchQuery,
+      this.activeTab,
+      this.sortBy ?? undefined,
+      this.sortDir,
+    );
   }
 
   setTab(tab: ContentType): void {
     this.activeTab = tab;
+    void this.search();
+  }
+
+  toggleSort(column: SortColumn): void {
+    if (this.sortBy === column) {
+      this.sortDir = this.sortDir === "asc" ? "desc" : "asc";
+    } else {
+      this.sortBy = column;
+      this.sortDir = "asc";
+    }
     void this.search();
   }
 

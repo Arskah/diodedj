@@ -2,8 +2,12 @@ import { contextBridge, ipcRenderer } from "electron";
 
 contextBridge.exposeInMainWorld("api", {
   platform: process.platform,
-  search: (query: string, contentType?: string) =>
-    ipcRenderer.invoke("search", query, contentType),
+  search: (
+    query: string,
+    contentType?: string,
+    sortBy?: string,
+    sortDir?: string,
+  ) => ipcRenderer.invoke("search", query, contentType, sortBy, sortDir),
   getTrack: (id: number) => ipcRenderer.invoke("get-track", id),
   trackPlayed: (id: number) => ipcRenderer.invoke("track-played", id),
   generatePlaylist: (count: number) =>

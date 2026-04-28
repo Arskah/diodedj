@@ -1,12 +1,24 @@
 <script lang="ts">
   import { app, formatTime, type Track } from "../state.svelte";
-  import type { ContentType } from "../../types";
+  import type { ContentType, SortColumn } from "../../types";
 
   const tabs: { type: ContentType; label: string }[] = [
     { type: "music", label: "Music" },
     { type: "commercial", label: "Commercials" },
     { type: "jingle", label: "Jingles" },
   ];
+
+  const sortableCols: { column: SortColumn; label: string; cls: string }[] = [
+    { column: "title", label: "Title", cls: "track-title" },
+    { column: "artist", label: "Artist", cls: "track-artist" },
+    { column: "album", label: "Album", cls: "track-album" },
+    { column: "play_count", label: "Plays", cls: "track-plays" },
+  ];
+
+  function sortIndicator(column: SortColumn): string {
+    if (app.sortBy !== column) return "";
+    return app.sortDir === "asc" ? " \u25B2" : " \u25BC";
+  }
 
   let searchTimeout: number | undefined;
 
@@ -53,6 +65,19 @@
       bind:value={app.searchQuery}
       oninput={onSearchInput}
     />
+  </div>
+  <div id="track-headers">
+    {#each sortableCols as col (col.column)}
+      <button
+        class="track-header {col.cls}"
+        class:active={app.sortBy === col.column}
+        onclick={() => app.toggleSort(col.column)}
+      >
+        {col.label}{sortIndicator(col.column)}
+      </button>
+    {/each}
+    <span class="track-header track-duration">Time</span>
+    <span class="track-header-spacer"></span>
   </div>
   <div id="track-list">
     {#if app.tracks.length === 0}

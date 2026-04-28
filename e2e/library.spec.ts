@@ -98,6 +98,59 @@ test.describe("library", () => {
     await expect(win.locator("#track-list")).toContainText("stinger");
   });
 
+  test("sort by title cycles asc → desc and reorders the list", async ({
+    launch,
+    library,
+  }) => {
+    const fx = await library({
+      music: [{ name: "charlie" }, { name: "alpha" }, { name: "bravo" }],
+    });
+    const { win } = await launch({ musicPaths: [fx.musicDir] });
+
+    await clickScan(win);
+    await waitForTrackCount(win, 3);
+
+    const titleHeader = win.locator("#track-headers .track-header.track-title");
+
+    await titleHeader.click();
+    await expect(titleHeader).toHaveClass(/active/);
+    await expect(titleHeader).toContainText("\u25B2");
+    await expect
+      .poll(() => win.locator("#track-list .track-title").allTextContents())
+      .toEqual(["alpha", "bravo", "charlie"]);
+
+    await titleHeader.click();
+    await expect(titleHeader).toContainText("\u25BC");
+    await expect
+      .poll(() => win.locator("#track-list .track-title").allTextContents())
+      .toEqual(["charlie", "bravo", "alpha"]);
+  });
+
+  test("switching sort column resets direction to ascending", async ({
+    launch,
+    library,
+  }) => {
+    const fx = await library({
+      music: [{ name: "zeta" }, { name: "kilo" }, { name: "alpha" }],
+    });
+    const { win } = await launch({ musicPaths: [fx.musicDir] });
+
+    await clickScan(win);
+    await waitForTrackCount(win, 3);
+
+    const titleHeader = win.locator("#track-headers .track-header.track-title");
+    const playsHeader = win.locator("#track-headers .track-header.track-plays");
+
+    await titleHeader.click();
+    await titleHeader.click();
+    await expect(titleHeader).toContainText("\u25BC");
+
+    await playsHeader.click();
+    await expect(playsHeader).toHaveClass(/active/);
+    await expect(playsHeader).toContainText("\u25B2");
+    await expect(titleHeader).not.toHaveClass(/active/);
+  });
+
   test("scan after removing a path prunes orphaned tracks", async ({
     launch,
     library,

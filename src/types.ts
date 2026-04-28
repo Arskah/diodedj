@@ -1,5 +1,13 @@
 export type ContentType = "music" | "commercial" | "jingle";
 
+export type SortColumn = "title" | "artist" | "album" | "play_count";
+export type SortDir = "asc" | "desc";
+
+export interface SortOption {
+  column: SortColumn;
+  dir: SortDir;
+}
+
 export interface Track {
   id: number;
   title: string;
