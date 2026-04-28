@@ -14,6 +14,7 @@ const AUTO_PLAYLIST_BUFFER = 20;
 // Threshold at which the auto playlist will be refilled. Should be lower than AUTO_PLAYLIST_BUFFER to avoid excessive refilling.
 const AUTO_PLAYLIST_THRESHOLD = 5;
 const HISTORY_CAP = 100;
+const SESSION_SAVE_DEBOUNCE_MS = 750;
 
 export type PlaylistTab = "queue" | "history";
 
@@ -51,6 +52,9 @@ export class AppState {
 
   audio: HTMLAudioElement;
 
+  private saveTimer: ReturnType<typeof setTimeout> | null = null;
+  private sessionLoaded = false;
+
   constructor() {
     this.audio = new Audio();
     this.audio.id = "audio";
@@ -67,6 +71,7 @@ export class AppState {
         isFinite(this.audio.duration) && this.audio.duration > 0
           ? this.audio.duration
           : (this.currentTrack?.duration ?? 0);
+      this.scheduleSave();
     });
     this.audio.addEventListener("ended", () => {
       void this.handleEnded();
@@ -93,6 +98,7 @@ export class AppState {
   setVolume(v: number): void {
     this.volume = v;
     this.audio.volume = v;
+    this.scheduleSave();
   }
 
   async search(): Promise<void> {
@@ -121,6 +127,7 @@ export class AppState {
 
   addToPlaylist(track: Track): void {
     this.playlist.push(track);
+    this.scheduleSave();
   }
 
   playNow(track: Track): void {
@@ -129,16 +136,19 @@ export class AppState {
 
   removeFromPlaylist(index: number): void {
     this.playlist.splice(index, 1);
+    this.scheduleSave();
   }
 
   movePlaylistItem(from: number, to: number): void {
     if (from === to) return;
     const [item] = this.playlist.splice(from, 1);
     this.playlist.splice(to, 0, item);
+    this.scheduleSave();
   }
 
   clearPlaylist(): void {
     this.playlist.length = 0;
+    this.scheduleSave();
   }
 
   playIndex(index: number): void {
@@ -163,16 +173,19 @@ export class AppState {
     if (this.history.length > HISTORY_CAP) {
       this.history.splice(0, this.history.length - HISTORY_CAP);
     }
+    this.scheduleSave();
   }
 
   removeFromHistory(displayIndex: number): void {
     const i = this.history.length - 1 - displayIndex;
     if (i < 0 || i >= this.history.length) return;
     this.history.splice(i, 1);
+    this.scheduleSave();
   }
 
   clearHistory(): void {
     this.history.length = 0;
+    this.scheduleSave();
   }
 
   requeueFromHistory(displayIndex: number): void {
@@ -180,6 +193,7 @@ export class AppState {
     const track = this.history[i];
     if (!track) return;
     this.playlist.push(track);
+    this.scheduleSave();
   }
 
   private setCurrent(track: Track): void {
@@ -189,6 +203,7 @@ export class AppState {
     void window.api.trackPlayed(track.id);
     document.title = `${track.title} - ${track.artist} | DiodeDJ`;
     void this.maybeRefillPlaylist();
+    this.scheduleSave();
   }
 
   togglePlay(): void {
@@ -213,6 +228,7 @@ export class AppState {
     this.currentTime = 0;
     this.duration = 0;
     document.title = "DiodeDJ";
+    this.scheduleSave();
   }
 
   next(): void {
@@ -239,6 +255,7 @@ export class AppState {
 
   toggleMode(): void {
     this.autoAdvance = !this.autoAdvance;
+    this.scheduleSave();
   }
 
   async toggleAutoPlaylist(): Promise<void> {
@@ -249,6 +266,7 @@ export class AppState {
         this.playIndex(0);
       }
     }
+    this.scheduleSave();
   }
 
   async maybeRefillPlaylist(): Promise<void> {
@@ -257,6 +275,7 @@ export class AppState {
       const count = AUTO_PLAYLIST_BUFFER - this.playlist.length;
       const tracks = await window.api.generatePlaylist(count);
       this.playlist.push(...tracks);
+      this.scheduleSave();
     }
   }
 
@@ -282,6 +301,84 @@ export class AppState {
 
   async loadStats(): Promise<void> {
     this.stats = await window.api.getStats();
+  }
+
+  async loadSession(): Promise<void> {
+    let result;
+    try {
+      result = await window.api.loadSession();
+    } catch (err) {
+      logger.error("Session load failed:", err);
+      this.sessionLoaded = true;
+      return;
+    }
+    const { state, tracks } = result;
+    const byId = new Map(tracks.map((t) => [t.id, t]));
+    const resolve = (ids: number[]): Track[] =>
+      ids.map((id) => byId.get(id)).filter((t): t is Track => t !== undefined);
+
+    this.playlist = resolve(state.playlistIds);
+    this.history = resolve(state.historyIds);
+    this.autoPlaylistActive = state.autoPlaylistActive;
+    this.autoAdvance = state.autoAdvance;
+    this.setVolume(state.volume);
+
+    const restored =
+      state.currentTrackId !== null ? byId.get(state.currentTrackId) : null;
+    if (restored) {
+      this.currentTrack = restored;
+      this.audio.src = window.api.getMediaUrl(restored.id);
+      this.duration = restored.duration ?? 0;
+      const seek = state.currentTime;
+      if (seek > 0) {
+        this.currentTime = seek;
+        const onMeta = (): void => {
+          try {
+            this.audio.currentTime = seek;
+          } catch (err) {
+            logger.error("Resume seek failed:", err);
+          }
+          this.audio.removeEventListener("loadedmetadata", onMeta);
+        };
+        this.audio.addEventListener("loadedmetadata", onMeta);
+      }
+      document.title = `${restored.title} - ${restored.artist} | DiodeDJ`;
+    }
+
+    this.sessionLoaded = true;
+  }
+
+  private scheduleSave(): void {
+    if (!this.sessionLoaded) return;
+    if (this.saveTimer) clearTimeout(this.saveTimer);
+    this.saveTimer = setTimeout(() => {
+      this.saveTimer = null;
+      void this.persistSession();
+    }, SESSION_SAVE_DEBOUNCE_MS);
+  }
+
+  flushSave(): void {
+    if (this.saveTimer) {
+      clearTimeout(this.saveTimer);
+      this.saveTimer = null;
+    }
+    void this.persistSession();
+  }
+
+  private async persistSession(): Promise<void> {
+    try {
+      await window.api.saveSession({
+        playlistIds: this.playlist.map((t) => t.id),
+        historyIds: this.history.map((t) => t.id),
+        currentTrackId: this.currentTrack?.id ?? null,
+        currentTime: this.currentTime,
+        autoPlaylistActive: this.autoPlaylistActive,
+        autoAdvance: this.autoAdvance,
+        volume: this.volume,
+      });
+    } catch (err) {
+      logger.error("Session save failed:", err);
+    }
   }
 
   async loadPaths(): Promise<void> {

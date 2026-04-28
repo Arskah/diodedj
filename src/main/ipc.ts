@@ -4,6 +4,7 @@ import * as db from "./db";
 import * as config from "./config";
 import * as scanner from "./scanner";
 import * as playlist from "./playlist";
+import * as session from "./session";
 import { logger } from "./logger";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -37,6 +38,27 @@ export function register(mainWindow: BrowserWindow): void {
 
   handle("get-track", async (_event, id: number) => {
     return db.getTrack(id);
+  });
+
+  handle("get-tracks-by-ids", async (_event, ids: number[]) => {
+    return db.getTracksByIds(ids);
+  });
+
+  handle("load-session", async () => {
+    const state = session.load();
+    const ids = Array.from(
+      new Set([
+        ...state.playlistIds,
+        ...state.historyIds,
+        ...(state.currentTrackId !== null ? [state.currentTrackId] : []),
+      ]),
+    );
+    const tracks = await db.getTracksByIds(ids);
+    return { state, tracks };
+  });
+
+  handle("save-session", (_event, state: session.SessionState) => {
+    session.save(state);
   });
 
   handle("track-played", async (_event, id: number) => {

@@ -103,6 +103,19 @@ export async function getTrack(id: number): Promise<Track | undefined> {
     .executeTakeFirst();
 }
 
+export async function getTracksByIds(ids: number[]): Promise<Track[]> {
+  if (ids.length === 0) return [];
+  const rows = await db
+    .selectFrom("tracks")
+    .selectAll()
+    .where("id", "in", ids)
+    .execute();
+  const byId = new Map(rows.map((r) => [r.id, r]));
+  return ids
+    .map((id) => byId.get(id))
+    .filter((t): t is Track => t !== undefined);
+}
+
 export async function getRandomTracks(
   count: number,
   contentType: ContentType = "music",

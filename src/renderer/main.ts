@@ -9,3 +9,6 @@ mount(App, { target: document.getElementById("app")! });
 
 void app.search();
 void app.loadStats();
+void app.loadSession();
+
+window.addEventListener("beforeunload", () => app.flushSave());

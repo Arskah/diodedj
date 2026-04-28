@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("electron-log/renderer", () => ({
   default: {
@@ -15,6 +15,9 @@ const { api } = vi.hoisted(() => {
   const api = {
     search: vi.fn(),
     getTrack: vi.fn(),
+    getTracksByIds: vi.fn(),
+    loadSession: vi.fn(),
+    saveSession: vi.fn(),
     trackPlayed: vi.fn(),
     generatePlaylist: vi.fn(),
     getStats: vi.fn(),
@@ -65,6 +68,20 @@ function resetApi(): void {
   api.addPath.mockResolvedValue(null);
   api.removePath.mockResolvedValue(true);
   api.scanLibrary.mockResolvedValue({ total: 0, added: 0 });
+  api.getTracksByIds.mockResolvedValue([]);
+  api.loadSession.mockResolvedValue({
+    state: {
+      playlistIds: [],
+      historyIds: [],
+      currentTrackId: null,
+      currentTime: 0,
+      autoPlaylistActive: false,
+      autoAdvance: true,
+      volume: 1,
+    },
+    tracks: [],
+  });
+  api.saveSession.mockResolvedValue(undefined);
 }
 
 function makeApp(): AppState {
@@ -551,5 +568,100 @@ describe("AppState auto-playlist refill", () => {
     initialTracks.forEach((track) => app.addToPlaylist(track));
     await app.maybeRefillPlaylist();
     expect(api.generatePlaylist).not.toHaveBeenCalled();
+  });
+});
+
+describe("AppState session persistence", () => {
+  let app: AppState;
+
+  beforeEach(() => {
+    resetApi();
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("loadSession hydrates playlist, history, current track and flags", async () => {
+    api.loadSession.mockResolvedValueOnce({
+      state: {
+        playlistIds: [2, 3],
+        historyIds: [1],
+        currentTrackId: 2,
+        currentTime: 12.5,
+        autoPlaylistActive: true,
+        autoAdvance: false,
+        volume: 0.6,
+      },
+      tracks: [t(1), t(2), t(3)],
+    });
+
+    app = makeApp();
+    await app.loadSession();
+
+    expect(app.playlist.map((x) => x.id)).toEqual([2, 3]);
+    expect(app.history.map((x) => x.id)).toEqual([1]);
+    expect(app.currentTrack?.id).toBe(2);
+    expect(app.autoPlaylistActive).toBe(true);
+    expect(app.autoAdvance).toBe(false);
+    expect(app.volume).toBe(0.6);
+    expect(app.currentTime).toBe(12.5);
+    expect(app.audio.getAttribute("src")).toBe("media://track/2");
+    expect(document.title).toBe("t2 - a2 | DiodeDJ");
+  });
+
+  it("loadSession drops missing track ids", async () => {
+    api.loadSession.mockResolvedValueOnce({
+      state: {
+        playlistIds: [1, 99, 2],
+        historyIds: [42],
+        currentTrackId: 7,
+        currentTime: 0,
+        autoPlaylistActive: false,
+        autoAdvance: true,
+        volume: 1,
+      },
+      tracks: [t(1), t(2)],
+    });
+
+    app = makeApp();
+    await app.loadSession();
+
+    expect(app.playlist.map((x) => x.id)).toEqual([1, 2]);
+    expect(app.history).toEqual([]);
+    expect(app.currentTrack).toBeNull();
+  });
+
+  it("does not save before session is loaded", () => {
+    app = makeApp();
+    app.addToPlaylist(t(1));
+    vi.runAllTimers();
+    expect(api.saveSession).not.toHaveBeenCalled();
+  });
+
+  it("debounced save fires after mutations once session is loaded", async () => {
+    app = makeApp();
+    await app.loadSession();
+    app.addToPlaylist(t(1));
+    app.addToPlaylist(t(2));
+    expect(api.saveSession).not.toHaveBeenCalled();
+    vi.runAllTimers();
+    expect(api.saveSession).toHaveBeenCalledTimes(1);
+    const arg = api.saveSession.mock.calls[0][0];
+    expect(arg.playlistIds).toEqual([1, 2]);
+    expect(arg.currentTrackId).toBeNull();
+    expect(arg.autoAdvance).toBe(true);
+    expect(arg.volume).toBe(1);
+  });
+
+  it("flushSave persists immediately and cancels pending timer", async () => {
+    app = makeApp();
+    await app.loadSession();
+    app.addToPlaylist(t(5));
+    app.flushSave();
+    expect(api.saveSession).toHaveBeenCalledTimes(1);
+    vi.runAllTimers();
+    expect(api.saveSession).toHaveBeenCalledTimes(1);
   });
 });
