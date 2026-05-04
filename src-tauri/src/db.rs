@@ -60,6 +60,12 @@ pub struct TrackMtimeRow {
     pub mtime: Option<i64>,
 }
 
+pub struct MediaTrack {
+    pub path: String,
+    pub format: String,
+    pub duration: f64,
+}
+
 pub struct Db {
     conn: Mutex<Connection>,
 }
@@ -165,6 +171,22 @@ impl Db {
         let mut stmt = conn.prepare(&sql)?;
         let rows = stmt.query_map(params_from_iter(params.iter()), row_to_track)?;
         rows.collect::<rusqlite::Result<_>>().map_err(Into::into)
+    }
+
+    pub fn get_media_track(&self, id: i64) -> Result<Option<MediaTrack>> {
+        let conn = self.conn.lock();
+        let mut stmt = conn.prepare("SELECT path, format, duration FROM tracks WHERE id = ?")?;
+        let mut rows = stmt.query_map([id], |r| {
+            Ok(MediaTrack {
+                path: r.get(0)?,
+                format: r.get::<_, Option<String>>(1)?.unwrap_or_default(),
+                duration: r.get::<_, Option<f64>>(2)?.unwrap_or(0.0),
+            })
+        })?;
+        match rows.next() {
+            Some(r) => r.map(Some).map_err(Into::into),
+            None => Ok(None),
+        }
     }
 
     pub fn get_track(&self, id: i64) -> Result<Option<Track>> {
