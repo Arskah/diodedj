@@ -5,17 +5,20 @@ import { Kysely, SqliteDialect, Migrator, Migration, sql } from "kysely";
 import { ContentType, LibraryStats, SortColumn, SortDir } from "../../types";
 import { Database, Track, TrackInsert } from "./types";
 import * as initial from "./migrations/001_initial";
+import * as trackMtime from "./migrations/002_track_mtime";
 
 const migrations: Record<string, Migration> = {
   "001_initial": initial,
+  "002_track_mtime": trackMtime,
 };
 
 let db: Kysely<Database>;
 let sqlite: BetterSqlite3.Database;
 
-export async function init(): Promise<Kysely<Database>> {
-  const dbPath = path.join(app.getPath("userData"), "diodedj.db");
-  sqlite = new BetterSqlite3(dbPath);
+export async function init(dbPath?: string): Promise<Kysely<Database>> {
+  const resolvedPath =
+    dbPath ?? path.join(app.getPath("userData"), "diodedj.db");
+  sqlite = new BetterSqlite3(resolvedPath);
   sqlite.pragma("journal_mode = WAL");
 
   db = new Kysely<Database>({
@@ -130,7 +133,34 @@ export async function getRandomTracks(
 }
 
 export async function insertTrack(track: TrackInsert): Promise<void> {
-  await db.replaceInto("tracks").values(track).execute();
+  await db
+    .insertInto("tracks")
+    .values(track)
+    .onConflict((oc) =>
+      oc.column("path").doUpdateSet({
+        content_type: track.content_type,
+        title: track.title,
+        artist: track.artist,
+        album: track.album,
+        genre: track.genre,
+        year: track.year,
+        duration: track.duration,
+        bpm: track.bpm,
+        sample_rate: track.sample_rate,
+        bitrate: track.bitrate,
+        format: track.format,
+        mtime: track.mtime,
+      }),
+    )
+    .execute();
+}
+
+export async function getTrackByPath(p: string): Promise<Track | undefined> {
+  return db
+    .selectFrom("tracks")
+    .selectAll()
+    .where("path", "=", p)
+    .executeTakeFirst();
 }
 
 export async function removeTracksNotInPaths(paths: string[]): Promise<number> {

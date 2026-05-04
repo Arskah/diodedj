@@ -22,6 +22,7 @@ function track(id: number, kind: Kind): Track {
     format: "mp3",
     play_count: 0,
     added_at: "",
+    mtime: null,
   };
 }
 
