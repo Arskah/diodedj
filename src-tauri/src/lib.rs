@@ -6,13 +6,11 @@ use tauri::{AppHandle, Manager, State};
 mod audio_formats;
 mod config;
 mod db;
-mod media;
 mod player;
 mod playlist;
 mod scan_state;
 mod scanner;
 mod session;
-mod transcode;
 
 use config::Config;
 use db::{Db, LibraryStats, Track};
@@ -207,14 +205,6 @@ fn get_scan_status(state: State<'_, AppState>) -> ScanStatus {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
-        .register_asynchronous_uri_scheme_protocol("media", |ctx, request, responder| {
-            let app = ctx.app_handle().clone();
-            std::thread::spawn(move || {
-                let state = app.state::<AppState>();
-                let response = media::handle(&state.db, &request);
-                responder.respond(response);
-            });
-        })
         .setup(|app| {
             let data_dir = app.path().app_data_dir()?;
             std::fs::create_dir_all(&data_dir)?;
