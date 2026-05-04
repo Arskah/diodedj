@@ -12,7 +12,10 @@ const TICK_INTERVAL: Duration = Duration::from_millis(50);
 const TIME_EMIT_INTERVAL: Duration = Duration::from_millis(100);
 
 pub enum Cmd {
-    Load { path: PathBuf, duration: Option<f64> },
+    Load {
+        path: PathBuf,
+        duration: Option<f64>,
+    },
     Play,
     Pause,
     Stop,
@@ -89,13 +92,7 @@ fn run(app: AppHandle, rx: std::sync::mpsc::Receiver<Cmd>) -> Result<()> {
     }
 }
 
-fn apply(
-    app: &AppHandle,
-    stream: &OutputStream,
-    sink: &mut Sink,
-    state: &mut State,
-    cmd: Cmd,
-) {
+fn apply(app: &AppHandle, stream: &OutputStream, sink: &mut Sink, state: &mut State, cmd: Cmd) {
     match cmd {
         Cmd::Load { path, duration } => {
             sink.stop();

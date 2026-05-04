@@ -251,9 +251,7 @@ impl Db {
 
     pub fn get_track_by_path(&self, path: &str) -> Result<Option<TrackMtimeRow>> {
         let conn = self.conn.lock();
-        let mut stmt = conn.prepare(
-            "SELECT content_type, mtime FROM tracks WHERE path = ?",
-        )?;
+        let mut stmt = conn.prepare("SELECT content_type, mtime FROM tracks WHERE path = ?")?;
         let mut rows = stmt.query_map([path], |r| {
             Ok(TrackMtimeRow {
                 content_type: r.get(0)?,
@@ -324,9 +322,8 @@ impl Db {
             return Ok(vec![]);
         }
         let conn = self.conn.lock();
-        let mut stmt = conn.prepare(
-            "SELECT * FROM tracks WHERE content_type = ? ORDER BY RANDOM() LIMIT ?",
-        )?;
+        let mut stmt =
+            conn.prepare("SELECT * FROM tracks WHERE content_type = ? ORDER BY RANDOM() LIMIT ?")?;
         let rows = stmt.query_map(rusqlite::params![content_type, count], row_to_track)?;
         rows.collect::<rusqlite::Result<_>>().map_err(Into::into)
     }
@@ -358,18 +355,15 @@ impl Db {
         let conn = self.conn.lock();
         let (total_tracks, total_artists, total_albums, total_hours): (i64, i64, i64, f64) = conn
             .query_row(
-                "SELECT COUNT(*), COUNT(DISTINCT artist), COUNT(DISTINCT album), \
+            "SELECT COUNT(*), COUNT(DISTINCT artist), COUNT(DISTINCT album), \
                  COALESCE(ROUND(SUM(duration) / 3600.0, 1), 0) FROM tracks",
-                [],
-                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
-            )?;
-        let mut tracks_by_type = TracksByType::default();
-        let mut stmt = conn.prepare(
-            "SELECT content_type, COUNT(*) FROM tracks GROUP BY content_type",
+            [],
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
         )?;
-        let rows = stmt.query_map([], |r| {
-            Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)?))
-        })?;
+        let mut tracks_by_type = TracksByType::default();
+        let mut stmt =
+            conn.prepare("SELECT content_type, COUNT(*) FROM tracks GROUP BY content_type")?;
+        let rows = stmt.query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)?)))?;
         for row in rows {
             let (kind, n) = row?;
             match kind.as_str() {
@@ -474,14 +468,7 @@ mod tests {
     use super::*;
     use rusqlite::params;
 
-    fn insert(
-        db: &Db,
-        path: &str,
-        title: &str,
-        artist: &str,
-        album: &str,
-        content_type: &str,
-    ) {
+    fn insert(db: &Db, path: &str, title: &str, artist: &str, album: &str, content_type: &str) {
         let conn = db.conn.lock();
         conn.execute(
             "INSERT INTO tracks (path, content_type, title, artist, album, duration, play_count) \
@@ -541,7 +528,9 @@ mod tests {
         db.increment_play_count(2).unwrap();
         db.increment_play_count(2).unwrap();
         db.increment_play_count(1).unwrap();
-        let r = db.search("", None, Some("play_count"), Some("desc")).unwrap();
+        let r = db
+            .search("", None, Some("play_count"), Some("desc"))
+            .unwrap();
         assert_eq!(r[0].id, 2);
         assert_eq!(r[1].id, 1);
     }
@@ -580,4 +569,3 @@ mod tests {
         assert_eq!(t.play_count, 2);
     }
 }
-

@@ -89,12 +89,7 @@ impl ScanState {
         let _ = app.emit("scan-state-changed", &next);
     }
 
-    pub fn start(
-        self: Arc<Self>,
-        app: AppHandle,
-        db: Arc<Db>,
-        config: Arc<Config>,
-    ) -> StartResult {
+    pub fn start(self: Arc<Self>, app: AppHandle, db: Arc<Db>, config: Arc<Config>) -> StartResult {
         if self.is_running() {
             return StartResult {
                 already_running: true,

@@ -96,11 +96,13 @@ mod tests {
     fn save_then_reload_round_trips() {
         let dir = tempdir().unwrap();
         let s1 = Session::open(dir.path());
-        let mut state = SessionState::default();
-        state.playlist_ids = vec![1, 2, 3];
-        state.current_track_id = Some(2);
-        state.current_time = 12.5;
-        state.volume = 0.5;
+        let state = SessionState {
+            playlist_ids: vec![1, 2, 3],
+            current_track_id: Some(2),
+            current_time: 12.5,
+            volume: 0.5,
+            ..Default::default()
+        };
         s1.save(state).unwrap();
 
         let s2 = Session::open(dir.path());

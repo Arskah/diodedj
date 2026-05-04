@@ -61,10 +61,7 @@ fn get_track(state: State<'_, AppState>, id: i64) -> Result<Option<Track>, Strin
 }
 
 #[tauri::command(rename_all = "camelCase")]
-fn get_tracks_by_ids(
-    state: State<'_, AppState>,
-    ids: Vec<i64>,
-) -> Result<Vec<Track>, String> {
+fn get_tracks_by_ids(state: State<'_, AppState>, ids: Vec<i64>) -> Result<Vec<Track>, String> {
     state.db.get_tracks_by_ids(&ids).map_err(err)
 }
 
@@ -89,11 +86,7 @@ fn get_all_paths(state: State<'_, AppState>) -> serde_json::Value {
 }
 
 #[tauri::command(rename_all = "camelCase")]
-fn add_path(
-    state: State<'_, AppState>,
-    r#type: String,
-    dir_path: String,
-) -> Result<bool, String> {
+fn add_path(state: State<'_, AppState>, r#type: String, dir_path: String) -> Result<bool, String> {
     state.config.add_path(&r#type, &dir_path).map_err(err)
 }
 
@@ -136,10 +129,7 @@ fn generate_playlist(app: State<'_, AppState>, count: i64) -> Result<Vec<Track>,
 }
 
 #[tauri::command(rename_all = "camelCase")]
-fn pick_filler(
-    app: State<'_, AppState>,
-    content_type: String,
-) -> Result<Option<Track>, String> {
+fn pick_filler(app: State<'_, AppState>, content_type: String) -> Result<Option<Track>, String> {
     playlist::pick_filler(&app.db, &content_type).map_err(err)
 }
 
