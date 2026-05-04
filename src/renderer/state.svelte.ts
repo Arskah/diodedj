@@ -32,9 +32,7 @@ export class AppState {
     jingle: [],
   });
   pathsOpen = $state(false);
-  scanOpen = $state(false);
-  scanProcessed = $state(0);
-  scanTotal = $state(0);
+  scanStatus = $state<ScanStatus>({ status: "idle", lastResult: null });
 
   playlist = $state<Track[]>([]);
   history = $state<Track[]>([]);
@@ -86,8 +84,18 @@ export class AppState {
     });
 
     window.api.onScanProgress(({ processed, total }) => {
-      this.scanProcessed = processed;
-      this.scanTotal = total;
+      if (this.scanStatus.status === "running") {
+        this.scanStatus = { status: "running", processed, total };
+      }
+    });
+
+    window.api.onScanStateChanged((next) => {
+      const wasRunning = this.scanStatus.status === "running";
+      this.scanStatus = next;
+      if (wasRunning && next.status !== "running") {
+        void this.search();
+        void this.loadStats();
+      }
     });
   }
 
@@ -396,13 +404,15 @@ export class AppState {
   }
 
   async scan(): Promise<void> {
-    this.scanOpen = true;
-    this.scanProcessed = 0;
-    this.scanTotal = 0;
     await window.api.scanLibrary();
-    this.scanOpen = false;
-    await this.search();
-    await this.loadStats();
+  }
+
+  async cancelScan(): Promise<void> {
+    await window.api.cancelScan();
+  }
+
+  async hydrateScanStatus(): Promise<void> {
+    this.scanStatus = await window.api.getScanStatus();
   }
 
   private async handleEnded(): Promise<void> {

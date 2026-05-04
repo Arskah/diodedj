@@ -2,7 +2,7 @@ import { BrowserWindow, ipcMain, dialog, IpcMainInvokeEvent } from "electron";
 import { ContentType, SortColumn, SortDir } from "../types";
 import * as db from "./db";
 import * as config from "./config";
-import * as scanner from "./scanner";
+import * as scanState from "./scanState";
 import * as playlist from "./playlist";
 import * as session from "./session";
 import { logger } from "./logger";
@@ -98,42 +98,31 @@ export function register(mainWindow: BrowserWindow): void {
   });
 
   handle("remove-path", (_event, type: ContentType, dirPath: string) => {
+    if (scanState.isRunning()) {
+      throw new Error("Cannot remove path while scan is running");
+    }
     return config.removePath(type, dirPath);
   });
 
-  handle("scan-library", async () => {
-    const allPaths = config.getAllPathsFlat();
-    await db.removeTracksNotInPaths(allPaths);
+  handle("scan-library", () => {
+    return scanState.start();
+  });
 
-    const totalResult = { total: 0, added: 0 };
-    const types: ContentType[] = ["music", "commercial", "jingle"];
+  handle("cancel-scan", async () => {
+    await scanState.cancel();
+  });
 
-    for (const type of types) {
-      const paths = config.getPaths(type);
-      for (const p of paths) {
-        let lastReport = 0;
-        const result = await scanner.scanDirectory(
-          p,
-          type,
-          (processed, total) => {
-            const now = Date.now();
-            if (now - lastReport > 200) {
-              lastReport = now;
-              mainWindow.webContents.send("scan-progress", {
-                processed,
-                total,
-              });
-            }
-          },
-        );
-        totalResult.total += result.total;
-        totalResult.added += result.added;
-      }
-    }
+  handle("get-scan-status", () => {
+    return scanState.getStatus();
+  });
 
-    logger.info(
-      `scan complete: ${totalResult.added}/${totalResult.total} added across ${types.length} types`,
-    );
-    return totalResult;
+  scanState.onChange((s) => {
+    if (mainWindow.isDestroyed()) return;
+    mainWindow.webContents.send("scan-state-changed", s);
+  });
+
+  scanState.onProgress((p) => {
+    if (mainWindow.isDestroyed()) return;
+    mainWindow.webContents.send("scan-progress", p);
   });
 }

@@ -665,54 +665,61 @@ body {
   border-color: var(--accent);
 }
 
-/* --- Scan Overlay --- */
+/* --- Scan Status Bar --- */
 
-#scan-overlay {
+#scan-status-bar {
   position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.7);
+  left: 0;
+  right: 0;
+  bottom: 0;
   display: flex;
   align-items: center;
-  justify-content: center;
-  z-index: 100;
-}
-
-#scan-overlay.hidden {
-  display: none;
-}
-
-#scan-modal {
+  gap: 12px;
+  padding: 8px 16px;
   background: var(--bg-secondary);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 32px 40px;
-  text-align: center;
-  min-width: 300px;
-}
-
-#scan-modal h3 {
-  margin-bottom: 12px;
-  font-size: 16px;
-}
-
-#scan-status {
-  color: var(--text-secondary);
+  border-top: 1px solid var(--border);
   font-size: 13px;
-  margin-bottom: 16px;
+  z-index: 90;
 }
 
-#scan-bar-container {
-  height: 6px;
+#scan-status-bar[data-state="error"] {
+  background: var(--bg-tertiary);
+}
+
+.scan-status-label {
+  color: var(--text-secondary);
+  flex: 0 0 auto;
+}
+
+.scan-status-bar-track {
+  flex: 1 1 auto;
+  height: 4px;
   background: var(--border);
-  border-radius: 3px;
+  border-radius: 2px;
   overflow: hidden;
+  min-width: 80px;
 }
 
-#scan-bar-fill {
+.scan-status-bar-fill {
   height: 100%;
   background: var(--accent);
   width: 0%;
   transition: width 0.2s;
+}
+
+.scan-status-cancel {
+  flex: 0 0 auto;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 4px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.scan-status-cancel:hover {
+  border-color: var(--accent);
 }
 
 /* --- Track Tooltip --- */

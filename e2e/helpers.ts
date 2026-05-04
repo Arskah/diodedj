@@ -94,9 +94,13 @@ export async function waitForPlaylistCount(
 
 export async function clickScan(win: Page): Promise<void> {
   await win.click("#btn-scan");
-  // Scan overlay shows then hides; poll for hidden
+  // Status bar reflects scan state via data-state. Wait until it leaves "running".
   await win.waitForFunction(
-    () => document.getElementById("scan-overlay")?.classList.contains("hidden"),
+    () => {
+      const bar = document.getElementById("scan-status-bar");
+      if (!bar) return true;
+      return bar.getAttribute("data-state") !== "running";
+    },
     null,
     { timeout: 30_000 },
   );

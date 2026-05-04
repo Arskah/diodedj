@@ -26,7 +26,10 @@ const { api } = vi.hoisted(() => {
     addPath: vi.fn(),
     removePath: vi.fn(),
     scanLibrary: vi.fn(),
+    cancelScan: vi.fn(),
+    getScanStatus: vi.fn(),
     onScanProgress: vi.fn(),
+    onScanStateChanged: vi.fn(),
     getMediaUrl: (id: number) => `media://track/${id}`,
   };
   (window as unknown as { api: typeof api }).api = api;
@@ -67,7 +70,9 @@ function resetApi(): void {
   });
   api.addPath.mockResolvedValue(null);
   api.removePath.mockResolvedValue(true);
-  api.scanLibrary.mockResolvedValue({ total: 0, added: 0 });
+  api.scanLibrary.mockResolvedValue({ alreadyRunning: false });
+  api.cancelScan.mockResolvedValue(undefined);
+  api.getScanStatus.mockResolvedValue({ status: "idle", lastResult: null });
   api.getTracksByIds.mockResolvedValue([]);
   api.loadSession.mockResolvedValue({
     state: {
@@ -498,27 +503,45 @@ describe("AppState library + paths", () => {
     expect(api.getAllPaths).toHaveBeenCalled();
   });
 
-  it("scan toggles scanOpen and refreshes search + stats in order", async () => {
-    const calls: string[] = [];
-    api.scanLibrary.mockImplementationOnce(async () => {
-      calls.push("scan");
-      return { total: 0, added: 0 };
-    });
-    api.search.mockImplementationOnce(async () => {
-      calls.push("search");
-      return [];
-    });
-    api.getStats.mockImplementationOnce(async () => {
-      calls.push("stats");
-      return { totalTracks: 0, totalArtists: 0, totalAlbums: 0, totalHours: 0 };
-    });
+  it("scan invokes scanLibrary fire-and-forget without blocking on result", async () => {
+    await app.scan();
+    expect(api.scanLibrary).toHaveBeenCalled();
+  });
 
-    expect(app.scanOpen).toBe(false);
-    const p = app.scan();
-    expect(app.scanOpen).toBe(true);
-    await p;
-    expect(app.scanOpen).toBe(false);
-    expect(calls).toEqual(["scan", "search", "stats"]);
+  it("cancelScan invokes the api", async () => {
+    await app.cancelScan();
+    expect(api.cancelScan).toHaveBeenCalled();
+  });
+
+  it("scan-state-changed transition from running to idle refreshes search + stats", async () => {
+    const cb = api.onScanStateChanged.mock.calls[0]?.[0] as
+      | ((s: ScanStatus) => void)
+      | undefined;
+    expect(cb).toBeDefined();
+    cb!({ status: "running", processed: 0, total: 0 });
+    expect(app.scanStatus.status).toBe("running");
+    api.search.mockClear();
+    api.getStats.mockClear();
+    cb!({ status: "idle", lastResult: { total: 5, added: 5 } });
+    await Promise.resolve();
+    expect(api.search).toHaveBeenCalled();
+    expect(api.getStats).toHaveBeenCalled();
+  });
+
+  it("scan-progress patches running state", () => {
+    const stateCb = api.onScanStateChanged.mock.calls[0]?.[0] as
+      | ((s: ScanStatus) => void)
+      | undefined;
+    const progCb = api.onScanProgress.mock.calls[0]?.[0] as
+      | ((p: { processed: number; total: number }) => void)
+      | undefined;
+    stateCb!({ status: "running", processed: 0, total: 0 });
+    progCb!({ processed: 7, total: 10 });
+    expect(app.scanStatus).toEqual({
+      status: "running",
+      processed: 7,
+      total: 10,
+    });
   });
 });
 

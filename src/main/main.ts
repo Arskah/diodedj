@@ -3,6 +3,7 @@ import fs from "fs";
 import { stat } from "fs/promises";
 import * as db from "./db";
 import * as config from "./config";
+import * as scanState from "./scanState";
 import {
   shouldTranscode,
   transcodeRange,
@@ -110,6 +111,7 @@ app.on("ready", async () => {
 
 app.on("window-all-closed", async () => {
   logger.info("all windows closed; quitting");
+  await scanState.cancel();
   await db.close();
   closeLogger();
   app.quit();
