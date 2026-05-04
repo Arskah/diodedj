@@ -20,9 +20,5 @@ jobs:
   test:
     uses: ./.github/workflows/unit-test.yml
 
-  build:
-    uses: ./.github/workflows/build.yml
-
-  e2e-test:
-    uses: ./.github/workflows/playwright.yml
-    needs: build
+  rust:
+    uses: ./.github/workflows/rust.yml
