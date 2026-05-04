@@ -23,8 +23,12 @@ vi.mock("../../src/main/logger", () => ({
     silly: vi.fn(),
   },
 }));
-const getPathsUnder = vi.fn(async (): Promise<string[]> => []);
-const deleteByPaths = vi.fn(async (): Promise<number> => 0);
+const getPathsUnder = vi.fn<(root: string) => Promise<string[]>>(
+  async () => [],
+);
+const deleteByPaths = vi.fn<(paths: string[]) => Promise<number>>(
+  async () => 0,
+);
 vi.mock("../../src/main/db", () => ({
   removeTracksNotInPaths: vi.fn(async () => 0),
   getPathsUnder: (root: string) => getPathsUnder(root),
