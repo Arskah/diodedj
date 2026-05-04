@@ -1,5 +1,6 @@
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import { open } from "@tauri-apps/plugin-dialog";
 import type {
   ContentType,
   LibraryStats,
@@ -84,8 +85,11 @@ export const api = {
   getAllPaths(): Promise<Record<ContentType, string[]>> {
     return invoke<Record<ContentType, string[]>>("get_all_paths");
   },
-  addPath(type: ContentType): Promise<string | null> {
-    return invoke<string | null>("add_path", { type });
+  async addPath(type: ContentType): Promise<string | null> {
+    const dir = await open({ directory: true, multiple: false });
+    if (typeof dir !== "string") return null;
+    const ok = await invoke<boolean>("add_path", { type, dirPath: dir });
+    return ok ? dir : null;
   },
   removePath(type: ContentType, dirPath: string): Promise<boolean> {
     return invoke<boolean>("remove_path", { type, dirPath });

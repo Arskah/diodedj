@@ -2,12 +2,15 @@ use serde_json::{json, Value};
 use std::sync::Arc;
 use tauri::{Manager, State};
 
+mod config;
 mod db;
 
+use config::Config;
 use db::{Db, LibraryStats, Track};
 
 pub struct AppState {
     db: Arc<Db>,
+    config: Arc<Config>,
 }
 
 fn err<E: std::fmt::Display>(e: E) -> String {
@@ -57,6 +60,34 @@ fn track_played(state: State<'_, AppState>, id: i64) -> Result<(), String> {
 }
 
 #[tauri::command(rename_all = "camelCase")]
+fn get_paths(state: State<'_, AppState>, r#type: String) -> Vec<String> {
+    state.config.get_paths(&r#type)
+}
+
+#[tauri::command(rename_all = "camelCase")]
+fn get_all_paths(state: State<'_, AppState>) -> Value {
+    state.config.get_all_paths()
+}
+
+#[tauri::command(rename_all = "camelCase")]
+fn add_path(
+    state: State<'_, AppState>,
+    r#type: String,
+    dir_path: String,
+) -> Result<bool, String> {
+    state.config.add_path(&r#type, &dir_path).map_err(err)
+}
+
+#[tauri::command(rename_all = "camelCase")]
+fn remove_path(
+    state: State<'_, AppState>,
+    r#type: String,
+    dir_path: String,
+) -> Result<bool, String> {
+    state.config.remove_path(&r#type, &dir_path).map_err(err)
+}
+
+#[tauri::command(rename_all = "camelCase")]
 async fn load_session() -> Value {
     json!({
         "state": {
@@ -90,29 +121,6 @@ async fn pick_filler(content_type: String) -> Option<Value> {
 }
 
 #[tauri::command(rename_all = "camelCase")]
-async fn get_paths(r#type: String) -> Vec<String> {
-    let _ = r#type;
-    vec![]
-}
-
-#[tauri::command(rename_all = "camelCase")]
-async fn get_all_paths() -> Value {
-    json!({ "music": [], "commercial": [], "jingle": [] })
-}
-
-#[tauri::command(rename_all = "camelCase")]
-async fn add_path(r#type: String) -> Option<String> {
-    let _ = r#type;
-    None
-}
-
-#[tauri::command(rename_all = "camelCase")]
-async fn remove_path(r#type: String, dir_path: String) -> bool {
-    let _ = (r#type, dir_path);
-    true
-}
-
-#[tauri::command(rename_all = "camelCase")]
 async fn scan_library() -> Value {
     json!({ "alreadyRunning": false })
 }
@@ -128,11 +136,16 @@ async fn get_scan_status() -> Value {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             let data_dir = app.path().app_data_dir()?;
             std::fs::create_dir_all(&data_dir)?;
             let db = Db::open(&data_dir.join("diodedj.db"))?;
-            app.manage(AppState { db: Arc::new(db) });
+            let config = Config::open(&data_dir)?;
+            app.manage(AppState {
+                db: Arc::new(db),
+                config: Arc::new(config),
+            });
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
