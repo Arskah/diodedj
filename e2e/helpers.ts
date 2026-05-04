@@ -37,14 +37,24 @@ export async function launchApp(
     JSON.stringify(config, null, 2),
   );
 
+  // Default e2e mode = stub backend (no mpv binary or audio device needed
+  // on CI). Set E2E_REAL_PLAYER=1 in the shell to spawn real mpv with
+  // --ao=null instead — useful for verifying the IPC contract end-to-end.
+  const realPlayer = process.env.E2E_REAL_PLAYER === "1";
+  const baseEnv: Record<string, string> = {};
+  for (const [k, v] of Object.entries(process.env)) {
+    if (typeof v === "string") baseEnv[k] = v;
+  }
+  baseEnv.NODE_ENV = "test";
+  baseEnv.DIODEDJ_E2E = "1";
+  if (!realPlayer) {
+    baseEnv.DIODEDJ_E2E_FAKE_PLAYER = "1";
+  }
+
   const app = await electron.launch({
     args: [REPO_ROOT, `--user-data-dir=${userDataDir}`],
     cwd: REPO_ROOT,
-    env: {
-      ...process.env,
-      NODE_ENV: "test",
-      DIODEDJ_E2E_FAKE_PLAYER: "1",
-    },
+    env: baseEnv,
   });
 
   const win = await app.firstWindow();

@@ -52,9 +52,22 @@ jobs:
       - name: Build app
         run: pnpm build
 
-      - name: Fetch mpv (mac/win only)
-        if: matrix.target != 'linux'
-        run: node scripts/fetch-mpv.mjs
+      - name: Install + vendor mpv (mac)
+        if: matrix.target == 'mac'
+        run: |
+          brew install mpv
+          mkdir -p vendor/mpv/darwin
+          cp "$(brew --prefix mpv)/bin/mpv" vendor/mpv/darwin/mpv
+          chmod +x vendor/mpv/darwin/mpv
+
+      - name: Install + vendor mpv (win)
+        if: matrix.target == 'win'
+        shell: pwsh
+        run: |
+          choco install mpv.install -y --no-progress
+          New-Item -ItemType Directory -Force -Path vendor\mpv\win32 | Out-Null
+          $mpv = Get-Command mpv.exe -ErrorAction Stop | Select-Object -ExpandProperty Source
+          Copy-Item $mpv vendor\mpv\win32\mpv.exe
 
       - name: Package (${{ matrix.target }})
         run: pnpm exec electron-builder --${{ matrix.target }} --publish=never

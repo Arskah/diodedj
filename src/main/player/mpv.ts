@@ -157,6 +157,12 @@ export class Mpv {
     if (this.options.exclusive) {
       args.push("--audio-exclusive=yes");
     }
+    // E2E with real mpv: silence audio output without muting the state
+    // machine, so playback timings still reflect file decode but no audio
+    // hits the device (matters on CI runners with no sound card).
+    if (process.env.DIODEDJ_E2E === "1") {
+      args.push("--ao=null");
+    }
     return args;
   }
 

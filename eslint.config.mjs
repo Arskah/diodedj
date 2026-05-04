@@ -1,21 +1,6 @@
 import eslint from "@eslint/js";
 import tseslint from "typescript-eslint";
 
-const ro = /** @type {const} */ ("readonly");
-const nodeGlobals = {
-  process: ro,
-  console: ro,
-  Buffer: ro,
-  __dirname: ro,
-  __filename: ro,
-  setTimeout: ro,
-  clearTimeout: ro,
-  setInterval: ro,
-  clearInterval: ro,
-  setImmediate: ro,
-  clearImmediate: ro,
-};
-
 export default tseslint.config(
   {
     ignores: [
@@ -35,9 +20,5 @@ export default tseslint.config(
         { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
       ],
     },
-  },
-  {
-    files: ["scripts/**/*.{js,mjs,cjs}"],
-    languageOptions: { globals: nodeGlobals },
   },
 );
