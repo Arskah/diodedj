@@ -37,10 +37,19 @@ export async function launchApp(
     JSON.stringify(config, null, 2),
   );
 
+  // Default e2e mode = stub backend (no native audio device or ffmpeg
+  // build needed on CI).
+  const baseEnv: Record<string, string> = {};
+  for (const [k, v] of Object.entries(process.env)) {
+    if (typeof v === "string") baseEnv[k] = v;
+  }
+  baseEnv.NODE_ENV = "test";
+  baseEnv.DIODEDJ_E2E_FAKE_PLAYER = "1";
+
   const app = await electron.launch({
     args: [REPO_ROOT, `--user-data-dir=${userDataDir}`],
     cwd: REPO_ROOT,
-    env: { ...process.env, NODE_ENV: "test" },
+    env: baseEnv,
   });
 
   const win = await app.firstWindow();

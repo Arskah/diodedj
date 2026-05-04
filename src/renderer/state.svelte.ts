@@ -7,7 +7,12 @@ import type {
 } from "../types";
 import logger from "electron-log/renderer";
 import type { PlayerBackend } from "./player/backend";
-import { HtmlAudioBackend } from "./player/htmlAudioBackend";
+import { NativeBackend } from "./player/nativeBackend";
+import { StubBackend } from "./player/stubBackend";
+
+function defaultBackend(): PlayerBackend {
+  return window.api.testMode ? new StubBackend() : new NativeBackend();
+}
 
 export type { Track };
 
@@ -56,7 +61,7 @@ export class AppState {
   private sessionLoaded = false;
 
   constructor(backend?: PlayerBackend) {
-    this.backend = backend ?? new HtmlAudioBackend();
+    this.backend = backend ?? defaultBackend();
 
     this.backend.on((event) => {
       switch (event.type) {
@@ -220,7 +225,7 @@ export class AppState {
 
   private async loadAndPlay(track: Track): Promise<void> {
     try {
-      await this.backend.load(window.api.getMediaUrl(track.id));
+      await this.backend.load(track.id);
       await this.backend.play();
     } catch (err) {
       logger.error("Load/play failed:", err);
@@ -367,7 +372,7 @@ export class AppState {
 
   private async loadWithSeek(track: Track, seek: number): Promise<void> {
     try {
-      await this.backend.load(window.api.getMediaUrl(track.id));
+      await this.backend.load(track.id);
       if (seek > 0) {
         await this.backend.seek(seek);
       }

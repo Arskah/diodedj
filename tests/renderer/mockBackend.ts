@@ -5,7 +5,7 @@ import type {
 } from "../../src/renderer/player/backend";
 
 export class MockBackend implements PlayerBackend {
-  loadedUrls: string[] = [];
+  loadedTrackIds: number[] = [];
   seekCalls: number[] = [];
   volume = 1;
   playCalls = 0;
@@ -18,8 +18,8 @@ export class MockBackend implements PlayerBackend {
 
   private handlers = new Set<PlayerEventHandler>();
 
-  async load(url: string): Promise<void> {
-    this.loadedUrls.push(url);
+  async load(trackId: number): Promise<void> {
+    this.loadedTrackIds.push(trackId);
     if (this.loadShouldReject) throw new Error("load failed");
   }
 
@@ -80,8 +80,8 @@ export class MockBackend implements PlayerBackend {
     this.emit({ type: "error", message });
   }
 
-  get lastLoadedUrl(): string | undefined {
-    return this.loadedUrls[this.loadedUrls.length - 1];
+  get lastLoadedTrackId(): number | undefined {
+    return this.loadedTrackIds[this.loadedTrackIds.length - 1];
   }
 
   get lastSeek(): number | undefined {

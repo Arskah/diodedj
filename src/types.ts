@@ -35,3 +35,12 @@ export interface ScanResult {
   total: number;
   added: number;
 }
+
+export type DeckId = "main";
+
+export type PlayerEvent =
+  | { type: "time"; seconds: number }
+  | { type: "duration"; seconds: number }
+  | { type: "pause-state"; paused: boolean }
+  | { type: "ended" }
+  | { type: "error"; message: string };

@@ -64,7 +64,16 @@ interface ElectronAPI {
     callback: (data: { processed: number; total: number }) => void,
   ): void;
   onScanStateChanged(callback: (data: ScanStatus) => void): void;
-  getMediaUrl(trackId: number): string;
+  testMode: boolean;
+  player: {
+    load(trackId: number): Promise<void>;
+    play(): Promise<void>;
+    pause(): Promise<void>;
+    stop(): Promise<void>;
+    seek(seconds: number): Promise<void>;
+    setVolume(volume: number): Promise<void>;
+    onEvent(callback: (event: import("../types").PlayerEvent) => void): void;
+  };
 }
 
 interface Window {

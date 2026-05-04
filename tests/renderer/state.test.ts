@@ -31,7 +31,16 @@ const { api } = vi.hoisted(() => {
     getScanStatus: vi.fn(),
     onScanProgress: vi.fn(),
     onScanStateChanged: vi.fn(),
-    getMediaUrl: (id: number) => `media://track/${id}`,
+    testMode: false,
+    player: {
+      load: vi.fn().mockResolvedValue(undefined),
+      play: vi.fn().mockResolvedValue(undefined),
+      pause: vi.fn().mockResolvedValue(undefined),
+      stop: vi.fn().mockResolvedValue(undefined),
+      seek: vi.fn().mockResolvedValue(undefined),
+      setVolume: vi.fn().mockResolvedValue(undefined),
+      onEvent: vi.fn(),
+    },
   };
   (window as unknown as { api: typeof api }).api = api;
   return { api };
@@ -244,7 +253,7 @@ describe("AppState playback control", () => {
     app.playIndex(0);
     expect(app.currentTrack?.id).toBe(7);
     expect(app.playlist.length).toBe(0);
-    expect(mock.lastLoadedUrl).toBe("media://track/7");
+    expect(mock.lastLoadedTrackId).toBe(7);
     expect(api.trackPlayed).toHaveBeenCalledWith(7);
     expect(document.title).toBe("Song - Band | DiodeDJ");
   });
@@ -683,7 +692,7 @@ describe("AppState session persistence", () => {
     expect(app.autoAdvance).toBe(false);
     expect(app.volume).toBe(0.6);
     expect(app.currentTime).toBe(12.5);
-    expect(mock.lastLoadedUrl).toBe("media://track/2");
+    expect(mock.lastLoadedTrackId).toBe(2);
     expect(document.title).toBe("t2 - a2 | DiodeDJ");
   });
 
