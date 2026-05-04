@@ -1,20 +1,16 @@
 {
   "$schema": "https://json.schemastore.org/tsconfig",
-  "extends": "./tsconfig.base.json",
+  "extends": "./tsconfig.json",
   "compilerOptions": {
-    "types": ["node", "electron-vite/node"]
+    "lib": ["ESNext"],
+    "types": ["node"]
   },
   "include": [
-    "src/main/**/*",
-    "src/preload.ts",
-    "src/types.ts",
-    "tests/main/**/*",
-    "e2e/",
     "commitlint.config.ts",
-    "electron.vite.config.ts",
     "eslint.config.mjs",
     "prettier.config.mjs",
     "svelte.config.mjs",
+    "vite.config.ts",
     "vitest.config.ts"
   ]
 }

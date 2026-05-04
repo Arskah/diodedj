@@ -21,6 +21,15 @@
     { "type": "ci", "section": "Continuous Integration", "hidden": false }
   ],
   "packages": {
-    ".": {}
+    ".": {
+      "extra-files": [
+        {
+          "type": "json",
+          "path": "src-tauri/tauri.conf.json",
+          "jsonpath": "$.version"
+        },
+        "src-tauri/Cargo.toml"
+      ]
+    }
   }
 }

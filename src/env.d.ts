@@ -1,0 +1,10 @@
+declare module "*.css";
+declare module "*.svelte" {
+  import type { Component } from "svelte";
+  const component: Component;
+  export default component;
+}
+
+type ContentType = "music" | "commercial" | "jingle";
+type SortColumn = "title" | "artist" | "album" | "play_count";
+type SortDir = "asc" | "desc";

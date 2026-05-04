@@ -20,9 +20,13 @@ jobs:
   test:
     uses: ./.github/workflows/unit-test.yml
 
+  rust:
+    uses: ./.github/workflows/rust.yml
+
   build:
     uses: ./.github/workflows/build.yml
-
-  e2e-test:
-    uses: ./.github/workflows/playwright.yml
-    needs: build
+    with:
+      platform: ubuntu-24.04
+      target: x86_64-unknown-linux-gnu
+      args: ""
+      artifact-name: linux-bundle
