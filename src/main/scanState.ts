@@ -113,7 +113,11 @@ async function run(signal: AbortSignal): Promise<void> {
         }
       }
     }
-    logger.info(`scan complete: ${cumulativeAdded}/${cumulativeTotal} added`);
+    logger.info(
+      `scan complete: ${cumulativeTotal} tracks (${
+        cumulativeAdded > 0 ? `${cumulativeAdded} new/updated` : "no changes"
+      })`,
+    );
     setState({
       status: "idle",
       lastResult: { total: cumulativeTotal, added: cumulativeAdded },
