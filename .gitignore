@@ -1,8 +1,11 @@
 coverage/
 node_modules/
 out/
+dist/
 release/
 *.db
 *.tgz
 playwright-report/
 test-results/
+src-tauri/target/
+src-tauri/gen/schemas/

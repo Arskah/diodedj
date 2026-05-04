@@ -1,0 +1,23 @@
+[package]
+name = "diodedj"
+version = "0.6.0"
+description = "Radio station music player"
+authors = ["Aarni Halinen"]
+edition = "2021"
+rust-version = "1.77"
+
+[lib]
+name = "diodedj_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[features]
+default = ["custom-protocol"]
+custom-protocol = ["tauri/custom-protocol"]
