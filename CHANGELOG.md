@@ -1,5 +1,31 @@
 # Changelog
 
+## [0.7.0](https://github.com/Arskah/diodedj/compare/v0.6.0...v0.7.0) (2026-05-04)
+
+
+### ⚠ BREAKING CHANGES
+
+* requires a Rust toolchain (stable) and Tauri CLI to build/run; Electron build artifacts and Playwright e2e are no longer produced.
+
+### Features
+
+* port to Tauri 2 with native rodio audio ([#76](https://github.com/Arskah/diodedj/issues/76)) ([caf4118](https://github.com/Arskah/diodedj/commit/caf4118e4987152b90d7464d6db21ea4bbb91ac2))
+
+
+### Bug Fixes
+
+* **deps:** pin dependencies ([#82](https://github.com/Arskah/diodedj/issues/82)) ([b36f40a](https://github.com/Arskah/diodedj/commit/b36f40a598f2a89d34c3c5f2b28e2873291b8bb6))
+
+
+### Miscellaneous Chores
+
+* only bump major after v1 ([00d8342](https://github.com/Arskah/diodedj/commit/00d834255bcf8909cc2729b434511215f5c13d20))
+
+
+### Code Refactoring
+
+* **player:** introduce PlayerBackend abstraction ([#72](https://github.com/Arskah/diodedj/issues/72)) ([d55dd17](https://github.com/Arskah/diodedj/commit/d55dd175e71d76ac1d4aa301720ce5ec860108e8))
+
 ## [0.6.0](https://github.com/Arskah/diodedj/compare/v0.5.1...v0.6.0) (2026-05-04)
 
 
