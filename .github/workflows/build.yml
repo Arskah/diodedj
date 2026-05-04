@@ -52,7 +52,7 @@ jobs:
         with:
           workspaces: src-tauri
 
-      - uses: tauri-apps/tauri-action@v0
+      - uses: tauri-apps/tauri-action@84b9d35b5fc46c1e45415bdb6144030364f7ebc5 # v0
         id: tauri
         with:
           args: ${{ inputs.args }}
