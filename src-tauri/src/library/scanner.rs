@@ -7,8 +7,8 @@ use std::path::{Path, PathBuf};
 use std::time::UNIX_EPOCH;
 use walkdir::WalkDir;
 
-use crate::audio_formats;
-use crate::db::{Db, TrackInsert};
+use super::db::{Db, TrackInsert};
+use crate::audio::formats;
 
 pub struct ScanRunResult {
     pub total: usize,
@@ -35,7 +35,7 @@ pub fn find_audio_files(dir: &Path) -> Vec<PathBuf> {
             e.path()
                 .extension()
                 .and_then(|x| x.to_str())
-                .map(audio_formats::is_audio_extension)
+                .map(formats::is_audio_extension)
                 .unwrap_or(false)
         })
         .map(|e| e.into_path())

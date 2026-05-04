@@ -3,20 +3,16 @@ use std::collections::HashSet;
 use std::sync::Arc;
 use tauri::{AppHandle, Manager, State};
 
-mod audio_formats;
-mod config;
-mod db;
-mod player;
+mod audio;
+mod library;
+mod persist;
 mod playlist;
-mod scan_state;
-mod scanner;
-mod session;
 
-use config::Config;
-use db::{Db, LibraryStats, Track};
-use player::{Cmd, PlayerHandle};
-use scan_state::{ScanState, ScanStatus, StartResult};
-use session::{Session, SessionState};
+use audio::player::{Cmd, PlayerHandle};
+use library::db::{Db, LibraryStats, Track};
+use library::scan_state::{ScanState, ScanStatus, StartResult};
+use persist::config::Config;
+use persist::session::{Session, SessionState};
 
 pub struct AppState {
     db: Arc<Db>,

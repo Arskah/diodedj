@@ -6,9 +6,9 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter};
 
-use crate::config::Config;
-use crate::db::Db;
-use crate::scanner;
+use super::db::Db;
+use super::scanner;
+use crate::persist::config::Config;
 
 #[derive(Serialize, Clone)]
 #[serde(tag = "status", rename_all = "camelCase")]

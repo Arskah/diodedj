@@ -24,25 +24,21 @@ CI gates Rust with `cargo fmt --check` + `cargo clippy --all-targets -- -D warni
 
 Tauri 2 app. Two process boundaries: a Rust backend and a Svelte 5 / Vite renderer talking over Tauri `invoke` + `emit`/`listen`.
 
-**Rust backend** (`src-tauri/src/`):
+**Rust backend** (`src-tauri/src/`) — grouped by domain:
 
 - `lib.rs` — `tauri::Builder` setup, `AppState`, all `#[tauri::command]` handlers
 - `main.rs` — thin `pub fn main() { diodedj_lib::run() }` binary entry
-- `db.rs` — `rusqlite` with FTS5 full-text search, WAL mode, `parking_lot::Mutex<Connection>`, `user_version` migrations
-- `scanner.rs` + `scan_state.rs` — recursive walkdir scan, `lofty` tag extraction, mtime+content_type delta cache, background worker thread emitting `scan-progress` / `scan-state-changed` events with cancel token
-- `config.rs` — `AppConfig` (camelCase serde) persisted to `{app_data_dir}/config.json`
-- `session.rs` — `SessionState` (camelCase serde, per-field defaults) persisted to `{app_data_dir}/session.json`
+- `audio/` — `formats.rs` (supported extension table), `player.rs` (rodio `Sink` on a worker thread driven by `mpsc::Sender<Cmd>`; symphonia decoders for mp3/flac/vorbis/wav/aac/m4a; emits `player:time` (10 Hz) / `player:duration` / `player:pause-state` / `player:ended` / `player:error`)
+- `library/` — `db.rs` (rusqlite + FTS5, WAL, `parking_lot::Mutex<Connection>`, `user_version` migrations), `scanner.rs` + `scan_state.rs` (recursive walkdir scan, `lofty` tag extraction, mtime+content_type delta cache, background worker thread emitting `scan-progress` / `scan-state-changed` events with cancel token)
+- `persist/` — `config.rs` (`AppConfig` → `{app_data_dir}/config.json`), `session.rs` (`SessionState` per-field defaults → `{app_data_dir}/session.json`)
 - `playlist.rs` — random selection with jingle/commercial interleaving (every-4 / every-8)
-- `player.rs` — rodio `Sink` on a worker thread driven by `mpsc::Sender<Cmd>`; symphonia decoders for mp3/flac/vorbis/wav/aac/m4a; emits `player:time` (10 Hz) / `player:duration` / `player:pause-state` / `player:ended` / `player:error`
-- `audio_formats.rs` — supported extension table
 
-**Renderer** (`src/renderer/`):
+**Frontend** (`src/`) — Vite root + Tauri Svelte template convention:
 
 - `main.ts` — app entry; mounts Svelte, hooks Tauri `onCloseRequested` to await `flushSave()` before `win.destroy()`
-- `App.svelte` + `components/*.svelte` — UI tree
-- `state.svelte.ts` — Svelte 5 `$state` store, talks to backend via the `PlayerBackend` interface
-- `player/backend.ts` — `PlayerBackend` interface, `player/nativeBackend.ts` — Tauri `invoke` + `listen` impl
-- `api.ts` — typed `invoke()` wrapper for every backend command (folder picker via `@tauri-apps/plugin-dialog`)
+- `App.svelte` — top-level UI tree
+- `shared/` — `types.ts`, `api.ts` (typed `invoke()` wrapper, folder picker via `@tauri-apps/plugin-dialog`), `state.svelte.ts` (Svelte 5 `$state` store, talks to backend via `PlayerBackend`), colocated `state.test.ts` + `mockBackend.ts`
+- `features/<feature>/` — one folder per UI feature: `library/`, `playlist/`, `player/` (NowPlaying.svelte + backend.ts + nativeBackend.ts), `scan/`, `paths/`, `toolbar/`, `track/`
 
 ## Key Patterns
 
@@ -54,7 +50,7 @@ Tauri 2 app. Two process boundaries: a Rust backend and a Svelte 5 / Vite render
 
 **Auto-playlist:** Toggle mode that maintains a 5-track lookahead buffer. Refills from random DB selection when running low.
 
-**Seek:** `player.rs` reloads the source on seek and prefers `Source::try_seek` (container-level binary search). Fallback is `skip_duration` (sample iteration). `seek_offset + sink.get_pos()` keeps `player:time` accurate.
+**Seek:** `audio/player.rs` reloads the source on seek and prefers `Source::try_seek` (container-level binary search). Fallback is `skip_duration` (sample iteration). `seek_offset + sink.get_pos()` keeps `player:time` accurate.
 
 ## Gotchas
 
@@ -66,7 +62,7 @@ Tauri 2 app. Two process boundaries: a Rust backend and a Svelte 5 / Vite render
 
 ## Types
 
-Shared TS types in `src/types.ts`: `Track`, `LibraryStats`, `ContentType`, `SortColumn`, `SortDir`, `SortOption`, `ScanResult`. Rust mirrors these with `#[serde(rename_all = "camelCase")]` structs in `db.rs` / `lib.rs` / `scan_state.rs`.
+Shared TS types in `src/shared/types.ts`: `Track`, `LibraryStats`, `ContentType`, `SortColumn`, `SortDir`, `SortOption`, `ScanResult`. Rust mirrors these with `#[serde(rename_all = "camelCase")]` structs in `library/db.rs` / `lib.rs` / `library/scan_state.rs`.
 
 ## Workflows (`.github/workflows/`)
 
