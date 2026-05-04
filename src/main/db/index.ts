@@ -185,7 +185,12 @@ export async function incrementPlayCount(id: number): Promise<void> {
 }
 
 export async function getStats(): Promise<LibraryStats> {
-  const result = await sql<LibraryStats>`
+  const totals = await sql<{
+    totalTracks: number;
+    totalArtists: number;
+    totalAlbums: number;
+    totalHours: number;
+  }>`
     SELECT
       COUNT(*) as totalTracks,
       COUNT(DISTINCT artist) as totalArtists,
@@ -193,7 +198,32 @@ export async function getStats(): Promise<LibraryStats> {
       ROUND(SUM(duration) / 3600.0, 1) as totalHours
     FROM tracks
   `.execute(db);
-  return result.rows[0];
+  const counts = await sql<{ content_type: ContentType; count: number }>`
+    SELECT content_type, COUNT(*) as count
+    FROM tracks
+    GROUP BY content_type
+  `.execute(db);
+  const tracksByType: Record<ContentType, number> = {
+    music: 0,
+    commercial: 0,
+    jingle: 0,
+  };
+  for (const row of counts.rows) tracksByType[row.content_type] = row.count;
+  return { ...totals.rows[0], tracksByType };
+}
+
+export async function getBottomNByPlayCount(
+  contentType: ContentType,
+  n: number,
+): Promise<Track[]> {
+  if (n <= 0) return [];
+  return db
+    .selectFrom("tracks")
+    .selectAll()
+    .where("content_type", "=", contentType)
+    .orderBy("play_count", "asc")
+    .limit(n)
+    .execute();
 }
 
 export async function close(): Promise<void> {

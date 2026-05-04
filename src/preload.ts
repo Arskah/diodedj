@@ -16,6 +16,8 @@ contextBridge.exposeInMainWorld("api", {
   trackPlayed: (id: number) => ipcRenderer.invoke("track-played", id),
   generatePlaylist: (count: number) =>
     ipcRenderer.invoke("generate-playlist", count),
+  pickFiller: (contentType: string) =>
+    ipcRenderer.invoke("pick-filler", contentType),
   getStats: () => ipcRenderer.invoke("get-stats"),
   getPaths: (type: string) => ipcRenderer.invoke("get-paths", type),
   getAllPaths: () => ipcRenderer.invoke("get-all-paths"),

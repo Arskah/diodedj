@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { interleaveEvenly } from "../../src/main/playlist";
+import { describe, expect, it, vi } from "vitest";
+import { interleaveEvenly, pickRandom } from "../../src/main/playlist";
 import type { Track } from "../../src/main/db/types";
 
 type Kind = "m" | "j" | "c";
@@ -115,5 +115,34 @@ describe("interleaveEvenly", () => {
     const jingles = Array.from({ length: 3 }, (_, i) => track(i, "j"));
     const out = interleaveEvenly([], jingles, []);
     expect(out.map((t) => t.id)).toEqual([0, 1, 2]);
+  });
+});
+
+describe("pickRandom", () => {
+  it("returns null for empty input", () => {
+    expect(pickRandom([])).toBeNull();
+  });
+
+  it("returns the only item when input is singleton", () => {
+    const items = [track(1, "j")];
+    expect(pickRandom(items)).toBe(items[0]);
+  });
+
+  it("returns the item at the index produced by Math.random", () => {
+    const items = [track(1, "j"), track(2, "j"), track(3, "j")];
+    const spy = vi.spyOn(Math, "random").mockReturnValue(0.5); // floor(0.5*3) = 1
+    try {
+      expect(pickRandom(items)).toBe(items[1]);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it("only returns items from the input bucket", () => {
+    const items = [track(1, "j"), track(2, "j"), track(3, "j")];
+    for (let i = 0; i < 50; i++) {
+      const picked = pickRandom(items);
+      expect(items).toContain(picked);
+    }
   });
 });

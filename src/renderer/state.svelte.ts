@@ -138,6 +138,13 @@ export class AppState {
     this.scheduleSave();
   }
 
+  async addFiller(contentType: ContentType): Promise<void> {
+    const track = await window.api.pickFiller(contentType);
+    if (!track) return;
+    this.playlist.push(track);
+    this.scheduleSave();
+  }
+
   playNow(track: Track): void {
     this.playTrack(track);
   }

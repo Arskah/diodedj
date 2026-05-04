@@ -28,6 +28,7 @@ export interface LibraryStats {
   totalArtists: number;
   totalAlbums: number;
   totalHours: number;
+  tracksByType: Record<ContentType, number>;
 }
 
 export interface ScanResult {
