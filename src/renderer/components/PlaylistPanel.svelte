@@ -62,11 +62,27 @@
         History <span class="pl-tab-count">({app.history.length})</span>
       </button>
     </div>
-    <button
-      id="btn-clear-playlist"
-      title={app.playlistTab === "queue" ? "Clear queue" : "Clear history"}
-      onclick={onClear}>Clear</button
-    >
+    <div id="playlist-actions">
+      {#if app.playlistTab === "queue"}
+        <button
+          class="btn-filler"
+          title="Add a jingle to the queue"
+          disabled={(app.stats?.tracksByType.jingle ?? 0) === 0}
+          onclick={() => app.addFiller("jingle")}>+ Jingle</button
+        >
+        <button
+          class="btn-filler"
+          title="Add a commercial to the queue"
+          disabled={(app.stats?.tracksByType.commercial ?? 0) === 0}
+          onclick={() => app.addFiller("commercial")}>+ Commercial</button
+        >
+      {/if}
+      <button
+        id="btn-clear-playlist"
+        title={app.playlistTab === "queue" ? "Clear queue" : "Clear history"}
+        onclick={onClear}>Clear</button
+      >
+    </div>
   </div>
 
   {#if app.playlistTab === "queue"}

@@ -69,6 +69,10 @@ export function register(mainWindow: BrowserWindow): void {
     return playlist.generate(count);
   });
 
+  handle("pick-filler", async (_event, contentType: ContentType) => {
+    return playlist.pickFiller(contentType);
+  });
+
   handle("get-stats", async () => {
     return db.getStats();
   });

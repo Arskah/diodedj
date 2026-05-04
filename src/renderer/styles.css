@@ -216,6 +216,12 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+#playlist-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 #btn-clear-playlist {
   padding: 3px 10px;
   background: var(--bg-tertiary);
@@ -229,6 +235,26 @@ body {
 #btn-clear-playlist:hover {
   color: #ff4444;
   border-color: #ff4444;
+}
+
+.btn-filler {
+  padding: 3px 10px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 11px;
+}
+
+.btn-filler:hover:not(:disabled) {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.btn-filler:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 #track-list,

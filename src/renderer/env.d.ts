@@ -49,6 +49,9 @@ interface ElectronAPI {
   saveSession(state: SessionPersistState): Promise<void>;
   trackPlayed(id: number): Promise<void>;
   generatePlaylist(count: number): Promise<import("../types").Track[]>;
+  pickFiller(
+    contentType: ContentType,
+  ): Promise<import("../types").Track | null>;
   getStats(): Promise<import("../types").LibraryStats>;
   getPaths(type: ContentType): Promise<string[]>;
   getAllPaths(): Promise<Record<ContentType, string[]>>;
