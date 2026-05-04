@@ -2,6 +2,7 @@ coverage/
 node_modules/
 out/
 release/
+vendor/
 *.db
 *.tgz
 playwright-report/

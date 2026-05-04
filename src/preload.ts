@@ -1,4 +1,5 @@
 import { contextBridge, ipcRenderer } from "electron";
+import type { PlayerEvent } from "./types";
 
 contextBridge.exposeInMainWorld("api", {
   platform: process.platform,
@@ -35,5 +36,18 @@ contextBridge.exposeInMainWorld("api", {
   onScanStateChanged: (callback: (data: unknown) => void) => {
     ipcRenderer.on("scan-state-changed", (_event, data) => callback(data));
   },
-  getMediaUrl: (trackId: number) => `media://track/${trackId}`,
+  player: {
+    load: (trackId: number) => ipcRenderer.invoke("player:main:load", trackId),
+    play: () => ipcRenderer.invoke("player:main:play"),
+    pause: () => ipcRenderer.invoke("player:main:pause"),
+    stop: () => ipcRenderer.invoke("player:main:stop"),
+    seek: (seconds: number) => ipcRenderer.invoke("player:main:seek", seconds),
+    setVolume: (volume: number) =>
+      ipcRenderer.invoke("player:main:set-volume", volume),
+    onEvent: (callback: (event: PlayerEvent) => void) => {
+      ipcRenderer.on("player:main:event", (_event, data) =>
+        callback(data as PlayerEvent),
+      );
+    },
+  },
 });

@@ -52,6 +52,10 @@ jobs:
       - name: Build app
         run: pnpm build
 
+      - name: Fetch mpv (mac/win only)
+        if: matrix.target != 'linux'
+        run: node scripts/fetch-mpv.mjs
+
       - name: Package (${{ matrix.target }})
         run: pnpm exec electron-builder --${{ matrix.target }} --publish=never
         env:
