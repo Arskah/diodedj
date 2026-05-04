@@ -5,7 +5,11 @@ import { ContentType } from "../types";
 // 1 jingle per ~JINGLE_EVERY tracks, 1 commercial per ~COMMERCIAL_EVERY tracks.
 const JINGLE_EVERY = 4;
 const COMMERCIAL_EVERY = 8;
-const FILLER_BUCKET_SIZE = 3;
+
+// Manual filler selection: jingles are picked purely at random (small library,
+// repetition is fine and expected). Commercials draw from the 5 with the
+// lowest play_count to spread plays more evenly while staying random.
+const COMMERCIAL_BUCKET_SIZE = 5;
 
 export async function generate(count: number = 20): Promise<Track[]> {
   if (count <= 0) return [];
@@ -61,18 +65,26 @@ export function interleaveEvenly(
   return result;
 }
 
-// Picks one filler track from the N tracks with the lowest play_count for the
-// given content_type. Selection is uniform-random within that bucket. Dupes
-// across consecutive calls are intentionally allowed — the bucket evolves as
-// play_count increases when tracks actually play.
+// Picks one filler track. Jingles are chosen uniformly at random across the
+// whole library. Commercials are drawn uniform-random from the bottom
+// COMMERCIAL_BUCKET_SIZE by play_count so heavier-played commercials rotate
+// out as their counts grow. Dupes across consecutive calls are intentionally
+// allowed.
 export async function pickFiller(
   contentType: ContentType,
 ): Promise<Track | null> {
-  const bucket = await db.getBottomNByPlayCount(
-    contentType,
-    FILLER_BUCKET_SIZE,
-  );
-  return pickRandom(bucket);
+  if (contentType === "jingle") {
+    const [track] = await db.getRandomTracks(1, "jingle");
+    return track ?? null;
+  }
+  if (contentType === "commercial") {
+    const bucket = await db.getBottomNByPlayCount(
+      "commercial",
+      COMMERCIAL_BUCKET_SIZE,
+    );
+    return pickRandom(bucket);
+  }
+  return null;
 }
 
 // Pure for testing.
