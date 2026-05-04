@@ -1,4 +1,4 @@
-import { convertFileSrc, invoke } from "@tauri-apps/api/core";
+import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-dialog";
 import type {
@@ -110,9 +110,6 @@ export const api = {
     callback: (data: ScanStatus) => void,
   ): Promise<UnlistenFn> {
     return listen<ScanStatus>("scan-state-changed", (e) => callback(e.payload));
-  },
-  getMediaUrl(trackId: number): string {
-    return convertFileSrc(String(trackId), "media");
   },
 };
 

@@ -8,7 +8,7 @@ export type PlayerEvent =
 export type PlayerEventHandler = (event: PlayerEvent) => void;
 
 export interface PlayerBackend {
-  load(url: string): Promise<void>;
+  load(trackId: number): Promise<void>;
   play(): Promise<void>;
   pause(): Promise<void>;
   stop(): Promise<void>;

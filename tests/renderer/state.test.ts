@@ -22,12 +22,40 @@ const { api } = vi.hoisted(() => {
     getScanStatus: vi.fn(),
     onScanProgress: vi.fn(),
     onScanStateChanged: vi.fn(),
-    getMediaUrl: (id: number) => `media://track/${id}`,
   };
   return { api };
 });
 
 vi.mock("../../src/renderer/api", () => ({ api }));
+
+vi.mock("../../src/renderer/player/nativeBackend", () => ({
+  NativeBackend: class {
+    on(): () => void {
+      return () => {};
+    }
+    load(): Promise<void> {
+      return Promise.resolve();
+    }
+    play(): Promise<void> {
+      return Promise.resolve();
+    }
+    pause(): Promise<void> {
+      return Promise.resolve();
+    }
+    stop(): Promise<void> {
+      return Promise.resolve();
+    }
+    seek(): Promise<void> {
+      return Promise.resolve();
+    }
+    setVolume(): Promise<void> {
+      return Promise.resolve();
+    }
+    dispose(): Promise<void> {
+      return Promise.resolve();
+    }
+  },
+}));
 
 import {
   AppState,
@@ -237,7 +265,7 @@ describe("AppState playback control", () => {
     app.playIndex(0);
     expect(app.currentTrack?.id).toBe(7);
     expect(app.playlist.length).toBe(0);
-    expect(mock.lastLoadedUrl).toBe("media://track/7");
+    expect(mock.lastLoadedId).toBe(7);
     expect(api.trackPlayed).toHaveBeenCalledWith(7);
     expect(document.title).toBe("Song - Band | DiodeDJ");
   });
@@ -676,7 +704,7 @@ describe("AppState session persistence", () => {
     expect(app.autoAdvance).toBe(false);
     expect(app.volume).toBe(0.6);
     expect(app.currentTime).toBe(12.5);
-    expect(mock.lastLoadedUrl).toBe("media://track/2");
+    expect(mock.lastLoadedId).toBe(2);
     expect(document.title).toBe("t2 - a2 | DiodeDJ");
   });
 
