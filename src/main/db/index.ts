@@ -176,6 +176,30 @@ export async function removeTracksNotInPaths(paths: string[]): Promise<number> {
   return Number(result.numDeletedRows);
 }
 
+export async function getPathsUnder(root: string): Promise<string[]> {
+  const rows = await db
+    .selectFrom("tracks")
+    .select("path")
+    .where("path", "like", `${root}%`)
+    .execute();
+  return rows.map((r) => r.path);
+}
+
+export async function deleteByPaths(paths: string[]): Promise<number> {
+  if (paths.length === 0) return 0;
+  const CHUNK = 500;
+  let total = 0;
+  for (let i = 0; i < paths.length; i += CHUNK) {
+    const chunk = paths.slice(i, i + CHUNK);
+    const result = await db
+      .deleteFrom("tracks")
+      .where("path", "in", chunk)
+      .executeTakeFirst();
+    total += Number(result.numDeletedRows);
+  }
+  return total;
+}
+
 export async function incrementPlayCount(id: number): Promise<void> {
   await db
     .updateTable("tracks")

@@ -17,12 +17,14 @@ export function shouldRescan(
   return Math.floor(existing.mtime) !== Math.floor(fileMtimeMs);
 }
 
+export type InternalScanResult = ScanResult & { liveFiles: string[] };
+
 export async function scanDirectory(
   dirPath: string,
   contentType: ContentType = "music",
   onProgress?: (processed: number, total: number) => void,
   signal?: AbortSignal,
-): Promise<ScanResult> {
+): Promise<InternalScanResult> {
   const mm = await import("music-metadata");
   const files = await findAudioFiles(dirPath);
   let processed = 0;
@@ -70,7 +72,7 @@ export async function scanDirectory(
     if (onProgress) onProgress(processed, files.length);
   }
 
-  return { total: files.length, added };
+  return { total: files.length, added, liveFiles: files };
 }
 
 async function findAudioFiles(dirPath: string): Promise<string[]> {

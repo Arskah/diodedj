@@ -69,6 +69,7 @@ async function run(signal: AbortSignal): Promise<void> {
   let cumulativeProcessed = 0;
   let cumulativeTotal = 0;
   let cumulativeAdded = 0;
+  const liveByRoot = new Map<string, Set<string>>();
 
   try {
     const allPaths = config.getAllPathsFlat();
@@ -102,6 +103,7 @@ async function run(signal: AbortSignal): Promise<void> {
         cumulativeProcessed += result.total;
         cumulativeTotal += result.total;
         cumulativeAdded += result.added;
+        liveByRoot.set(p, new Set(result.liveFiles ?? []));
         if (signal.aborted) {
           setState({
             status: "canceled",
@@ -113,6 +115,14 @@ async function run(signal: AbortSignal): Promise<void> {
         }
       }
     }
+
+    let pruned = 0;
+    for (const [root, live] of liveByRoot) {
+      const dbPaths = await db.getPathsUnder(root);
+      const stale = dbPaths.filter((dp) => !live.has(dp));
+      if (stale.length) pruned += await db.deleteByPaths(stale);
+    }
+    if (pruned > 0) logger.info(`scan pruned ${pruned} missing files`);
     logger.info(
       `scan complete: ${cumulativeTotal} tracks (${
         cumulativeAdded > 0 ? `${cumulativeAdded} new/updated` : "no changes"

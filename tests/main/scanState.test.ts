@@ -23,8 +23,12 @@ vi.mock("../../src/main/logger", () => ({
     silly: vi.fn(),
   },
 }));
+const getPathsUnder = vi.fn(async (): Promise<string[]> => []);
+const deleteByPaths = vi.fn(async (): Promise<number> => 0);
 vi.mock("../../src/main/db", () => ({
   removeTracksNotInPaths: vi.fn(async () => 0),
+  getPathsUnder: (root: string) => getPathsUnder(root),
+  deleteByPaths: (paths: string[]) => deleteByPaths(paths),
 }));
 vi.mock("../../src/main/config", () => ({
   getAllPathsFlat: () => ["/lib/music"],
@@ -55,6 +59,10 @@ function abortableMock(
 
 beforeEach(() => {
   scanDirectory.mockReset();
+  getPathsUnder.mockReset();
+  getPathsUnder.mockImplementation(async () => []);
+  deleteByPaths.mockReset();
+  deleteByPaths.mockImplementation(async () => 0);
 });
 
 afterEach(async () => {
@@ -128,6 +136,40 @@ describe("scanState", () => {
     const s = scanState.getStatus();
     expect(s.status).toBe("error");
     if (s.status === "error") expect(s.message).toContain("boom");
+  });
+
+  it("prunes DB paths missing from disk after scan completes", async () => {
+    scanDirectory.mockImplementation(async () => ({
+      total: 1,
+      added: 0,
+      liveFiles: ["/lib/music/keep.mp3"],
+    }));
+    getPathsUnder.mockImplementation(async (root: string) =>
+      root === "/lib/music"
+        ? ["/lib/music/keep.mp3", "/lib/music/gone.mp3"]
+        : [],
+    );
+
+    scanState.start();
+    await scanState.waitForIdle();
+
+    expect(deleteByPaths).toHaveBeenCalledWith(["/lib/music/gone.mp3"]);
+  });
+
+  it("does not prune when scan is canceled", async () => {
+    scanDirectory.mockImplementation(async (_p, _t, _op, signal) => {
+      await new Promise<void>((resolve) => {
+        signal?.addEventListener("abort", () => resolve());
+      });
+      return { total: 0, added: 0, liveFiles: [] };
+    });
+    getPathsUnder.mockImplementation(async () => ["/lib/music/anything.mp3"]);
+
+    scanState.start();
+    await new Promise((r) => setTimeout(r, 10));
+    await scanState.cancel();
+
+    expect(deleteByPaths).not.toHaveBeenCalled();
   });
 
   it("emits progress events from scanner callbacks", async () => {
