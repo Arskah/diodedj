@@ -51,9 +51,6 @@ test.describe("playlist", () => {
 
     await clickScan(win);
     await waitForTrackCount(win, 3);
-    await win.evaluate(() => {
-      (document.getElementById("audio") as HTMLAudioElement).muted = true;
-    });
 
     const trackRows = win.locator("#track-list .track-row");
     await trackRows.nth(0).dblclick();
@@ -101,9 +98,6 @@ test.describe("playlist", () => {
 
     await clickScan(win);
     await waitForTrackCount(win, 8);
-    await win.evaluate(() => {
-      (document.getElementById("audio") as HTMLAudioElement).muted = true;
-    });
 
     await win.click("#btn-generate");
     await waitForPlaylistCount(win, 5);

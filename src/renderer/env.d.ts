@@ -37,6 +37,7 @@ type ScanStatus =
 
 interface ElectronAPI {
   platform: NodeJS.Platform;
+  testMode: boolean;
   search(
     query: string,
     contentType?: ContentType,

@@ -3,6 +3,7 @@ import type { PlayerEvent } from "./types";
 
 contextBridge.exposeInMainWorld("api", {
   platform: process.platform,
+  testMode: process.env.DIODEDJ_E2E_FAKE_PLAYER === "1",
   search: (
     query: string,
     contentType?: string,

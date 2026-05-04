@@ -40,7 +40,11 @@ export async function launchApp(
   const app = await electron.launch({
     args: [REPO_ROOT, `--user-data-dir=${userDataDir}`],
     cwd: REPO_ROOT,
-    env: { ...process.env, NODE_ENV: "test" },
+    env: {
+      ...process.env,
+      NODE_ENV: "test",
+      DIODEDJ_E2E_FAKE_PLAYER: "1",
+    },
   });
 
   const win = await app.firstWindow();

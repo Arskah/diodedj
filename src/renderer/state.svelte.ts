@@ -8,6 +8,11 @@ import type {
 import logger from "electron-log/renderer";
 import type { PlayerBackend } from "./player/backend";
 import { MpvBackend } from "./player/mpvBackend";
+import { StubBackend } from "./player/stubBackend";
+
+function defaultBackend(): PlayerBackend {
+  return window.api.testMode ? new StubBackend() : new MpvBackend();
+}
 
 export type { Track };
 
@@ -56,7 +61,7 @@ export class AppState {
   private sessionLoaded = false;
 
   constructor(backend?: PlayerBackend) {
-    this.backend = backend ?? new MpvBackend();
+    this.backend = backend ?? defaultBackend();
 
     this.backend.on((event) => {
       switch (event.type) {
