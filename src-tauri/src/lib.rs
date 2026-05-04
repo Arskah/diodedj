@@ -1,16 +1,27 @@
+use serde::Serialize;
 use serde_json::{json, Value};
+use std::collections::HashSet;
 use std::sync::Arc;
 use tauri::{Manager, State};
 
 mod config;
 mod db;
+mod session;
 
 use config::Config;
 use db::{Db, LibraryStats, Track};
+use session::{Session, SessionState};
 
 pub struct AppState {
     db: Arc<Db>,
     config: Arc<Config>,
+    session: Arc<Session>,
+}
+
+#[derive(Serialize)]
+struct SessionLoadResult {
+    state: SessionState,
+    tracks: Vec<Track>,
 }
 
 fn err<E: std::fmt::Display>(e: E) -> String {
@@ -88,24 +99,27 @@ fn remove_path(
 }
 
 #[tauri::command(rename_all = "camelCase")]
-async fn load_session() -> Value {
-    json!({
-        "state": {
-            "playlistIds": [],
-            "historyIds": [],
-            "currentTrackId": null,
-            "currentTime": 0,
-            "autoPlaylistActive": false,
-            "autoAdvance": true,
-            "volume": 1
-        },
-        "tracks": []
-    })
+fn load_session(app: State<'_, AppState>) -> Result<SessionLoadResult, String> {
+    let s = app.session.load();
+    let mut ids: Vec<i64> = Vec::new();
+    let mut seen: HashSet<i64> = HashSet::new();
+    for id in s
+        .playlist_ids
+        .iter()
+        .chain(s.history_ids.iter())
+        .chain(s.current_track_id.iter())
+    {
+        if seen.insert(*id) {
+            ids.push(*id);
+        }
+    }
+    let tracks = app.db.get_tracks_by_ids(&ids).map_err(err)?;
+    Ok(SessionLoadResult { state: s, tracks })
 }
 
 #[tauri::command(rename_all = "camelCase")]
-async fn save_session(state: Value) {
-    let _ = state;
+fn save_session(app: State<'_, AppState>, state: SessionState) -> Result<(), String> {
+    app.session.save(state).map_err(err)
 }
 
 #[tauri::command(rename_all = "camelCase")]
@@ -142,9 +156,11 @@ pub fn run() {
             std::fs::create_dir_all(&data_dir)?;
             let db = Db::open(&data_dir.join("diodedj.db"))?;
             let config = Config::open(&data_dir)?;
+            let session = Session::open(&data_dir);
             app.manage(AppState {
                 db: Arc::new(db),
                 config: Arc::new(config),
+                session: Arc::new(session),
             });
             Ok(())
         })
