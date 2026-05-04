@@ -7,6 +7,7 @@ mod audio_formats;
 mod config;
 mod db;
 mod media;
+mod player;
 mod playlist;
 mod scan_state;
 mod scanner;
@@ -15,6 +16,7 @@ mod transcode;
 
 use config::Config;
 use db::{Db, LibraryStats, Track};
+use player::{Cmd, PlayerHandle};
 use scan_state::{ScanState, ScanStatus, StartResult};
 use session::{Session, SessionState};
 
@@ -23,6 +25,7 @@ pub struct AppState {
     config: Arc<Config>,
     session: Arc<Session>,
     scan: Arc<ScanState>,
+    player: Arc<PlayerHandle>,
 }
 
 #[derive(Serialize)]
@@ -143,6 +146,49 @@ fn pick_filler(
 }
 
 #[tauri::command(rename_all = "camelCase")]
+fn player_load(app_state: State<'_, AppState>, id: i64) -> Result<(), String> {
+    let track = app_state
+        .db
+        .get_media_track(id)
+        .map_err(err)?
+        .ok_or_else(|| "track not found".to_string())?;
+    app_state.player.send(Cmd::Load {
+        path: std::path::PathBuf::from(track.path),
+        duration: if track.duration > 0.0 {
+            Some(track.duration)
+        } else {
+            None
+        },
+    });
+    Ok(())
+}
+
+#[tauri::command(rename_all = "camelCase")]
+fn player_play(app_state: State<'_, AppState>) {
+    app_state.player.send(Cmd::Play);
+}
+
+#[tauri::command(rename_all = "camelCase")]
+fn player_pause(app_state: State<'_, AppState>) {
+    app_state.player.send(Cmd::Pause);
+}
+
+#[tauri::command(rename_all = "camelCase")]
+fn player_stop(app_state: State<'_, AppState>) {
+    app_state.player.send(Cmd::Stop);
+}
+
+#[tauri::command(rename_all = "camelCase")]
+fn player_seek(app_state: State<'_, AppState>, seconds: f64) {
+    app_state.player.send(Cmd::Seek(seconds));
+}
+
+#[tauri::command(rename_all = "camelCase")]
+fn player_set_volume(app_state: State<'_, AppState>, volume: f32) {
+    app_state.player.send(Cmd::SetVolume(volume));
+}
+
+#[tauri::command(rename_all = "camelCase")]
 fn scan_library(app: AppHandle, state: State<'_, AppState>) -> StartResult {
     Arc::clone(&state.scan).start(app, Arc::clone(&state.db), Arc::clone(&state.config))
 }
@@ -175,11 +221,13 @@ pub fn run() {
             let db = Db::open(&data_dir.join("diodedj.db"))?;
             let config = Config::open(&data_dir)?;
             let session = Session::open(&data_dir);
+            let player = PlayerHandle::spawn(app.handle().clone());
             app.manage(AppState {
                 db: Arc::new(db),
                 config: Arc::new(config),
                 session: Arc::new(session),
                 scan: Arc::new(ScanState::default()),
+                player: Arc::new(player),
             });
             Ok(())
         })
@@ -200,6 +248,12 @@ pub fn run() {
             scan_library,
             cancel_scan,
             get_scan_status,
+            player_load,
+            player_play,
+            player_pause,
+            player_stop,
+            player_seek,
+            player_set_volume,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

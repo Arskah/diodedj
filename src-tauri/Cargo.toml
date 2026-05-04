@@ -25,6 +25,7 @@ walkdir = "2.5"
 lofty = "0.24"
 tokio = { version = "1", features = ["rt", "sync", "time"] }
 log = "0.4"
+rodio = { version = "0.21", features = ["symphonia-aac", "symphonia-isomp4"] }
 
 [dev-dependencies]
 tempfile = "3"
