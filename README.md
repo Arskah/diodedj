@@ -8,37 +8,41 @@ Desktop music player built for radio stations. Manage music, commercials, and ji
 - **Fast search** — full-text search across title, artist, album, and genre (SQLite FTS5)
 - **Auto playlist** — toggle continuous random playback with automatic queue refill
 - **Playback modes** — AUTO advances through playlist, MANUAL stops after each track
-- **Format support** — MP3, FLAC, WAV, OGG, AAC, M4A, Opus natively; WMA, AIFF and others via ffmpeg transcoding
+- **Native audio** — in-process Rust player (rodio + symphonia) for MP3, FLAC, Vorbis, WAV, AAC, M4A. No browser audio pipeline, no external transcoder
 - **Now playing** — real-time display with seekable progress bar, time, and volume
 
 ## Prerequisites
 
 - [Node.js](https://nodejs.org/) >= 20
 - [pnpm](https://pnpm.io/)
-- [ffmpeg](https://ffmpeg.org/) (for transcoding unsupported audio formats)
-
-## Setup
-
-```bash
-pnpm install
-pnpm build
-pnpm start
-```
+- [Rust toolchain](https://rustup.rs/) (stable)
+- Linux only: `libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev libssl-dev libasound2-dev`
 
 ## Development
 
 ```bash
-pnpm dev
+pnpm install
+pnpm dev          # tauri dev — Vite HMR for renderer, cargo watch for backend
 ```
 
-Runs TypeScript watcher, asset watcher, and Electron with auto-reload. DevTools open automatically.
+## Build
+
+```bash
+pnpm build        # tauri build — produces platform bundles in src-tauri/target/release/bundle/
+```
+
+## Tests
+
+```bash
+pnpm test -- run                                            # 62 vitest renderer tests
+cargo test --manifest-path src-tauri/Cargo.toml             # 24 cargo backend tests
+pnpm typecheck && pnpm lint                                 # tsc + svelte-check + eslint
+```
 
 ## Stack
 
-- Electron + TypeScript
-- better-sqlite3 with FTS5 for metadata indexing
-- music-metadata for tag extraction
-- ffmpeg for format transcoding
+- Tauri 2 + Svelte 5 + Vite (renderer)
+- Rust backend: `rusqlite` (FTS5), `rodio` + `symphonia`, `lofty` for tag metadata, `walkdir` for filesystem scan, `parking_lot` for sync primitives
 - Husky + lint-staged + ESLint + Prettier + Vitest
 
 ## Usage
