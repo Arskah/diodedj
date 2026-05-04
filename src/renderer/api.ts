@@ -36,17 +36,7 @@ export interface ScanProgress {
   total: number;
 }
 
-function detectPlatform(): string {
-  const ua =
-    typeof navigator !== "undefined" ? navigator.userAgent.toLowerCase() : "";
-  if (ua.includes("mac")) return "darwin";
-  if (ua.includes("win")) return "win32";
-  if (ua.includes("linux")) return "linux";
-  return "unknown";
-}
-
 export const api = {
-  platform: detectPlatform(),
   search(
     query: string,
     contentType?: ContentType,
