@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { app, formatTime, type Track } from "../state.svelte";
+  import { app, formatTime, type Track } from "../../shared/state.svelte";
 
   let dragFromIndex = $state(-1);
   let dragOverIndex = $state(-1);

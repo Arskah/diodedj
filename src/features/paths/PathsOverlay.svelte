@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { app } from "../state.svelte";
-  import type { ContentType } from "../../types";
+  import { app } from "../../shared/state.svelte";
+  import type { ContentType } from "../../shared/types";
 
   const sections: { type: ContentType; label: string }[] = [
     { type: "music", label: "Music" },

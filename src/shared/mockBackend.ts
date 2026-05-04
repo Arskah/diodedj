@@ -2,7 +2,7 @@ import type {
   PlayerBackend,
   PlayerEvent,
   PlayerEventHandler,
-} from "../../src/renderer/player/backend";
+} from "../features/player/backend";
 
 export class MockBackend implements PlayerBackend {
   loadedIds: number[] = [];

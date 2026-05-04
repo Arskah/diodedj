@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { app, formatTime } from "../state.svelte";
+  import { app, formatTime } from "../../shared/state.svelte";
 
   const TOOLTIP_WIDTH = 280;
   const GAP = 8;

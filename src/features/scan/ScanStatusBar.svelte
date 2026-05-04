@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { app } from "../state.svelte";
+  import { app } from "../../shared/state.svelte";
 
   const AUTO_HIDE_MS = 5000;
 

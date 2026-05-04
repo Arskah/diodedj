@@ -26,9 +26,9 @@ const { api } = vi.hoisted(() => {
   return { api };
 });
 
-vi.mock("../../src/renderer/api", () => ({ api }));
+vi.mock("./api", () => ({ api }));
 
-vi.mock("../../src/renderer/player/nativeBackend", () => ({
+vi.mock("../features/player/nativeBackend", () => ({
   NativeBackend: class {
     on(): () => void {
       return () => {};
@@ -57,12 +57,8 @@ vi.mock("../../src/renderer/player/nativeBackend", () => ({
   },
 }));
 
-import {
-  AppState,
-  formatTime,
-  type Track,
-} from "../../src/renderer/state.svelte";
-import type { ScanStatus } from "../../src/renderer/api";
+import { AppState, formatTime, type Track } from "./state.svelte";
+import type { ScanStatus } from "./api";
 
 const t = (id: number, extra: Partial<Track> = {}): Track => ({
   id,

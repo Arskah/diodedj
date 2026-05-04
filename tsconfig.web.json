@@ -5,5 +5,5 @@
     "lib": ["ESNext", "DOM", "DOM.Iterable"],
     "types": ["svelte"]
   },
-  "include": ["src/renderer/**/*", "src/types.ts", "tests/renderer/**/*"]
+  "include": ["src/**/*"]
 }

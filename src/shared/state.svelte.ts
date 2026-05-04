@@ -4,10 +4,10 @@ import type {
   SortColumn,
   SortDir,
   Track,
-} from "../types";
+} from "./types";
 import { api, type ScanStatus, type SessionLoadResult } from "./api";
-import type { PlayerBackend } from "./player/backend";
-import { NativeBackend } from "./player/nativeBackend";
+import type { PlayerBackend } from "../features/player/backend";
+import { NativeBackend } from "../features/player/nativeBackend";
 
 const logger = {
   error: (...args: unknown[]) => console.error(...args),

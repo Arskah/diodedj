@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { app, formatTime, type Track } from "../state.svelte";
-  import type { ContentType, SortColumn } from "../../types";
+  import { app, formatTime, type Track } from "../../shared/state.svelte";
+  import type { ContentType, SortColumn } from "../../shared/types";
 
   const tabs: { type: ContentType; label: string }[] = [
     { type: "music", label: "Music" },

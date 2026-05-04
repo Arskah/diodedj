@@ -8,7 +8,7 @@ import type {
   SortColumn,
   SortDir,
   Track,
-} from "../types";
+} from "./types";
 
 export interface SessionPersistState {
   playlistIds: number[];

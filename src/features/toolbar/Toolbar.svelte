@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { app } from "../state.svelte";
+  import { app } from "../../shared/state.svelte";
 
   async function openPaths(): Promise<void> {
     await app.loadPaths();
