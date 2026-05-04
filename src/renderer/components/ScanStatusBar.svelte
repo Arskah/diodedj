@@ -45,13 +45,16 @@
         : "Scanning library…";
     }
     if (s.status === "canceled") {
-      return `Scan canceled — ${s.added} added (${s.processed} / ${s.total})`;
+      const detail = s.added > 0 ? `${s.added} new/updated` : "no changes";
+      return `Scan canceled at ${s.processed} / ${s.total} — ${detail}`;
     }
     if (s.status === "error") {
       return `Scan failed: ${s.message}`;
     }
     if (s.status === "idle" && s.lastResult) {
-      return `Scan complete — ${s.lastResult.added} added of ${s.lastResult.total}`;
+      const { total, added } = s.lastResult;
+      const detail = added > 0 ? `${added} new/updated` : "no changes";
+      return `Scan complete — ${total} tracks (${detail})`;
     }
     return "";
   });
