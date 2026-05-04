@@ -1,4 +1,5 @@
 import { mount } from "svelte";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import App from "./App.svelte";
 import { api } from "./api";
 import { app } from "./state.svelte";
@@ -13,4 +14,15 @@ void app.loadStats();
 void app.loadSession();
 void app.hydrateScanStatus();
 
-window.addEventListener("beforeunload", () => app.flushSave());
+const win = getCurrentWindow();
+let closing = false;
+void win.onCloseRequested(async (event) => {
+  if (closing) return;
+  closing = true;
+  event.preventDefault();
+  try {
+    await app.flushSave();
+  } finally {
+    await win.destroy();
+  }
+});

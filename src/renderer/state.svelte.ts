@@ -389,12 +389,12 @@ export class AppState {
     }, SESSION_SAVE_DEBOUNCE_MS);
   }
 
-  flushSave(): void {
+  async flushSave(): Promise<void> {
     if (this.saveTimer) {
       clearTimeout(this.saveTimer);
       this.saveTimer = null;
     }
-    void this.persistSession();
+    await this.persistSession();
   }
 
   private async persistSession(): Promise<void> {
