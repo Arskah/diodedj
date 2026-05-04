@@ -5,9 +5,13 @@ import type {
   SortDir,
   Track,
 } from "../types";
-import logger from "electron-log/renderer";
+import { api, type ScanStatus, type SessionLoadResult } from "./api";
 import type { PlayerBackend } from "./player/backend";
 import { HtmlAudioBackend } from "./player/htmlAudioBackend";
+
+const logger = {
+  error: (...args: unknown[]) => console.error(...args),
+};
 
 export type { Track };
 
@@ -79,13 +83,13 @@ export class AppState {
       }
     });
 
-    window.api.onScanProgress(({ processed, total }) => {
+    api.onScanProgress(({ processed, total }) => {
       if (this.scanStatus.status === "running") {
         this.scanStatus = { status: "running", processed, total };
       }
     });
 
-    window.api.onScanStateChanged((next) => {
+    api.onScanStateChanged((next) => {
       const wasRunning = this.scanStatus.status === "running";
       this.scanStatus = next;
       if (wasRunning && next.status !== "running") {
@@ -106,7 +110,7 @@ export class AppState {
   }
 
   async search(): Promise<void> {
-    this.tracks = await window.api.search(
+    this.tracks = await api.search(
       this.searchQuery,
       this.activeTab,
       this.sortBy ?? undefined,
@@ -135,7 +139,7 @@ export class AppState {
   }
 
   async addFiller(contentType: ContentType): Promise<void> {
-    const track = await window.api.pickFiller(contentType);
+    const track = await api.pickFiller(contentType);
     if (!track) return;
     this.playlist.push(track);
     this.scheduleSave();
@@ -212,7 +216,7 @@ export class AppState {
     this.duration = track.duration ?? 0;
     this.currentTime = 0;
     void this.loadAndPlay(track);
-    void window.api.trackPlayed(track.id);
+    void api.trackPlayed(track.id);
     document.title = `${track.title} - ${track.artist} | DiodeDJ`;
     void this.maybeRefillPlaylist();
     this.scheduleSave();
@@ -220,7 +224,7 @@ export class AppState {
 
   private async loadAndPlay(track: Track): Promise<void> {
     try {
-      await this.backend.load(window.api.getMediaUrl(track.id));
+      await this.backend.load(api.getMediaUrl(track.id));
       await this.backend.play();
     } catch (err) {
       logger.error("Load/play failed:", err);
@@ -300,7 +304,7 @@ export class AppState {
     if (!this.autoPlaylistActive) return;
     if (this.playlist.length < AUTO_PLAYLIST_THRESHOLD) {
       const count = AUTO_PLAYLIST_BUFFER - this.playlist.length;
-      const tracks = await window.api.generatePlaylist(count);
+      const tracks = await api.generatePlaylist(count);
       this.playlist.push(...tracks);
       this.scheduleSave();
     }
@@ -327,13 +331,13 @@ export class AppState {
   }
 
   async loadStats(): Promise<void> {
-    this.stats = await window.api.getStats();
+    this.stats = await api.getStats();
   }
 
   async loadSession(): Promise<void> {
     let result: SessionLoadResult;
     try {
-      result = await window.api.loadSession();
+      result = await api.loadSession();
     } catch (err) {
       logger.error("Session load failed:", err);
       this.sessionLoaded = true;
@@ -367,7 +371,7 @@ export class AppState {
 
   private async loadWithSeek(track: Track, seek: number): Promise<void> {
     try {
-      await this.backend.load(window.api.getMediaUrl(track.id));
+      await this.backend.load(api.getMediaUrl(track.id));
       if (seek > 0) {
         await this.backend.seek(seek);
       }
@@ -395,7 +399,7 @@ export class AppState {
 
   private async persistSession(): Promise<void> {
     try {
-      await window.api.saveSession({
+      await api.saveSession({
         playlistIds: this.playlist.map((t) => t.id),
         historyIds: this.history.map((t) => t.id),
         currentTrackId: this.currentTrack?.id ?? null,
@@ -410,29 +414,29 @@ export class AppState {
   }
 
   async loadPaths(): Promise<void> {
-    this.paths = await window.api.getAllPaths();
+    this.paths = await api.getAllPaths();
   }
 
   async addPath(type: ContentType): Promise<void> {
-    const added = await window.api.addPath(type);
+    const added = await api.addPath(type);
     if (added) await this.loadPaths();
   }
 
   async removePath(type: ContentType, p: string): Promise<void> {
-    await window.api.removePath(type, p);
+    await api.removePath(type, p);
     await this.loadPaths();
   }
 
   async scan(): Promise<void> {
-    await window.api.scanLibrary();
+    await api.scanLibrary();
   }
 
   async cancelScan(): Promise<void> {
-    await window.api.cancelScan();
+    await api.cancelScan();
   }
 
   async hydrateScanStatus(): Promise<void> {
-    this.scanStatus = await window.api.getScanStatus();
+    this.scanStatus = await api.getScanStatus();
   }
 
   private async handleEnded(): Promise<void> {

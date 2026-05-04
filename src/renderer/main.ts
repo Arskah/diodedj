@@ -1,9 +1,10 @@
 import { mount } from "svelte";
 import App from "./App.svelte";
+import { api } from "./api";
 import { app } from "./state.svelte";
 import "./styles.css";
 
-document.documentElement.dataset["platform"] = window.api.platform;
+document.documentElement.dataset["platform"] = api.platform;
 
 mount(App, { target: document.getElementById("app")! });
 

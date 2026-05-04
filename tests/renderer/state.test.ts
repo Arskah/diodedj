@@ -1,19 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MockBackend } from "./mockBackend";
 
-vi.mock("electron-log/renderer", () => ({
-  default: {
-    error: vi.fn(),
-    warn: vi.fn(),
-    info: vi.fn(),
-    verbose: vi.fn(),
-    debug: vi.fn(),
-    silly: vi.fn(),
-  },
-}));
-
 const { api } = vi.hoisted(() => {
   const api = {
+    platform: "darwin",
     search: vi.fn(),
     getTrack: vi.fn(),
     getTracksByIds: vi.fn(),
@@ -21,6 +11,7 @@ const { api } = vi.hoisted(() => {
     saveSession: vi.fn(),
     trackPlayed: vi.fn(),
     generatePlaylist: vi.fn(),
+    pickFiller: vi.fn(),
     getStats: vi.fn(),
     getPaths: vi.fn(),
     getAllPaths: vi.fn(),
@@ -33,15 +24,17 @@ const { api } = vi.hoisted(() => {
     onScanStateChanged: vi.fn(),
     getMediaUrl: (id: number) => `media://track/${id}`,
   };
-  (window as unknown as { api: typeof api }).api = api;
   return { api };
 });
+
+vi.mock("../../src/renderer/api", () => ({ api }));
 
 import {
   AppState,
   formatTime,
   type Track,
 } from "../../src/renderer/state.svelte";
+import type { ScanStatus } from "../../src/renderer/api";
 
 const t = (id: number, extra: Partial<Track> = {}): Track => ({
   id,
