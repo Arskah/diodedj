@@ -1,26 +1,59 @@
 use serde_json::{json, Value};
+use std::sync::Arc;
+use tauri::{Manager, State};
+
+mod db;
+
+use db::{Db, LibraryStats, Track};
+
+pub struct AppState {
+    db: Arc<Db>,
+}
+
+fn err<E: std::fmt::Display>(e: E) -> String {
+    e.to_string()
+}
 
 #[tauri::command(rename_all = "camelCase")]
-async fn search(
+fn search(
+    state: State<'_, AppState>,
     query: String,
     content_type: Option<String>,
     sort_by: Option<String>,
     sort_dir: Option<String>,
-) -> Vec<Value> {
-    let _ = (query, content_type, sort_by, sort_dir);
-    vec![]
+) -> Result<Vec<Track>, String> {
+    state
+        .db
+        .search(
+            &query,
+            content_type.as_deref(),
+            sort_by.as_deref(),
+            sort_dir.as_deref(),
+        )
+        .map_err(err)
 }
 
 #[tauri::command(rename_all = "camelCase")]
-async fn get_track(id: i64) -> Option<Value> {
-    let _ = id;
-    None
+fn get_track(state: State<'_, AppState>, id: i64) -> Result<Option<Track>, String> {
+    state.db.get_track(id).map_err(err)
 }
 
 #[tauri::command(rename_all = "camelCase")]
-async fn get_tracks_by_ids(ids: Vec<i64>) -> Vec<Value> {
-    let _ = ids;
-    vec![]
+fn get_tracks_by_ids(
+    state: State<'_, AppState>,
+    ids: Vec<i64>,
+) -> Result<Vec<Track>, String> {
+    state.db.get_tracks_by_ids(&ids).map_err(err)
+}
+
+#[tauri::command(rename_all = "camelCase")]
+fn get_stats(state: State<'_, AppState>) -> Result<LibraryStats, String> {
+    state.db.get_stats().map_err(err)
+}
+
+#[tauri::command(rename_all = "camelCase")]
+fn track_played(state: State<'_, AppState>, id: i64) -> Result<(), String> {
+    state.db.increment_play_count(id).map_err(err)
 }
 
 #[tauri::command(rename_all = "camelCase")]
@@ -45,11 +78,6 @@ async fn save_session(state: Value) {
 }
 
 #[tauri::command(rename_all = "camelCase")]
-async fn track_played(id: i64) {
-    let _ = id;
-}
-
-#[tauri::command(rename_all = "camelCase")]
 async fn generate_playlist(count: i64) -> Vec<Value> {
     let _ = count;
     vec![]
@@ -59,17 +87,6 @@ async fn generate_playlist(count: i64) -> Vec<Value> {
 async fn pick_filler(content_type: String) -> Option<Value> {
     let _ = content_type;
     None
-}
-
-#[tauri::command(rename_all = "camelCase")]
-async fn get_stats() -> Value {
-    json!({
-        "totalTracks": 0,
-        "totalArtists": 0,
-        "totalAlbums": 0,
-        "totalHours": 0,
-        "tracksByType": { "music": 0, "commercial": 0, "jingle": 0 }
-    })
 }
 
 #[tauri::command(rename_all = "camelCase")]
@@ -111,6 +128,13 @@ async fn get_scan_status() -> Value {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .setup(|app| {
+            let data_dir = app.path().app_data_dir()?;
+            std::fs::create_dir_all(&data_dir)?;
+            let db = Db::open(&data_dir.join("diodedj.db"))?;
+            app.manage(AppState { db: Arc::new(db) });
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             search,
             get_track,
