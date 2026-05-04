@@ -48,7 +48,6 @@ fn run(app: AppHandle, rx: std::sync::mpsc::Receiver<Cmd>) -> Result<()> {
     let mut last_time_emit = Instant::now()
         .checked_sub(TIME_EMIT_INTERVAL)
         .unwrap_or_else(Instant::now);
-    let mut last_paused = sink.is_paused();
     let mut active = false;
     let mut current_volume: f32 = 1.0;
 
@@ -68,12 +67,6 @@ fn run(app: AppHandle, rx: std::sync::mpsc::Receiver<Cmd>) -> Result<()> {
             }
         }
 
-        let paused_now = sink.is_paused();
-        if paused_now != last_paused {
-            last_paused = paused_now;
-            let _ = app.emit("player:pause-state", paused_now);
-        }
-
         if active && last_time_emit.elapsed() >= TIME_EMIT_INTERVAL {
             last_time_emit = Instant::now();
             let pos = sink.get_pos().as_secs_f64();
@@ -82,6 +75,7 @@ fn run(app: AppHandle, rx: std::sync::mpsc::Receiver<Cmd>) -> Result<()> {
 
         if active && sink.empty() {
             active = false;
+            let _ = app.emit("player:pause-state", true);
             let _ = app.emit("player:ended", ());
         }
 
@@ -111,21 +105,30 @@ fn apply(
                     if let Some(d) = final_duration {
                         let _ = app.emit("player:duration", d);
                     }
+                    let _ = app.emit("player:pause-state", false);
                 }
                 Err(e) => {
                     log::error!("player: decode {} failed: {}", path.display(), e);
                     let _ = app.emit("player:error", format!("decode failed: {}", e));
                     *active = false;
+                    let _ = app.emit("player:pause-state", true);
                 }
             }
         }
-        Cmd::Play => sink.play(),
-        Cmd::Pause => sink.pause(),
+        Cmd::Play => {
+            sink.play();
+            let _ = app.emit("player:pause-state", false);
+        }
+        Cmd::Pause => {
+            sink.pause();
+            let _ = app.emit("player:pause-state", true);
+        }
         Cmd::Stop => {
             sink.stop();
             *sink = Sink::connect_new(stream.mixer());
             sink.set_volume(*volume);
             *active = false;
+            let _ = app.emit("player:pause-state", true);
         }
         Cmd::Seek(s) => {
             if let Err(e) = sink.try_seek(Duration::from_secs_f64(s.max(0.0))) {
