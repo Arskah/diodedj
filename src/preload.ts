@@ -23,10 +23,15 @@ contextBridge.exposeInMainWorld("api", {
   removePath: (type: string, dirPath: string) =>
     ipcRenderer.invoke("remove-path", type, dirPath),
   scanLibrary: () => ipcRenderer.invoke("scan-library"),
+  cancelScan: () => ipcRenderer.invoke("cancel-scan"),
+  getScanStatus: () => ipcRenderer.invoke("get-scan-status"),
   onScanProgress: (
     callback: (data: { processed: number; total: number }) => void,
   ) => {
     ipcRenderer.on("scan-progress", (_event, data) => callback(data));
+  },
+  onScanStateChanged: (callback: (data: unknown) => void) => {
+    ipcRenderer.on("scan-state-changed", (_event, data) => callback(data));
   },
   getMediaUrl: (trackId: number) => `media://track/${trackId}`,
 });

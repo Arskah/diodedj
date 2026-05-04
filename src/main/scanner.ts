@@ -21,6 +21,7 @@ export async function scanDirectory(
   dirPath: string,
   contentType: ContentType = "music",
   onProgress?: (processed: number, total: number) => void,
+  signal?: AbortSignal,
 ): Promise<ScanResult> {
   const mm = await import("music-metadata");
   const files = await findAudioFiles(dirPath);
@@ -28,6 +29,7 @@ export async function scanDirectory(
   let added = 0;
 
   for (const filePath of files) {
+    if (signal?.aborted) break;
     try {
       const stat = await fs.promises.stat(filePath);
       const mtimeMs = Math.floor(stat.mtimeMs);

@@ -10,5 +10,6 @@ mount(App, { target: document.getElementById("app")! });
 void app.search();
 void app.loadStats();
 void app.loadSession();
+void app.hydrateScanStatus();
 
 window.addEventListener("beforeunload", () => app.flushSave());

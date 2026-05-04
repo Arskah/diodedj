@@ -24,6 +24,17 @@ interface SessionLoadResult {
   tracks: import("../types").Track[];
 }
 
+type ScanStatus =
+  | { status: "idle"; lastResult: import("../types").ScanResult | null }
+  | { status: "running"; processed: number; total: number }
+  | {
+      status: "canceled";
+      processed: number;
+      total: number;
+      added: number;
+    }
+  | { status: "error"; message: string };
+
 interface ElectronAPI {
   platform: NodeJS.Platform;
   search(
@@ -43,10 +54,13 @@ interface ElectronAPI {
   getAllPaths(): Promise<Record<ContentType, string[]>>;
   addPath(type: ContentType): Promise<string | null>;
   removePath(type: ContentType, dirPath: string): Promise<boolean>;
-  scanLibrary(): Promise<import("../types").ScanResult>;
+  scanLibrary(): Promise<{ alreadyRunning: boolean }>;
+  cancelScan(): Promise<void>;
+  getScanStatus(): Promise<ScanStatus>;
   onScanProgress(
     callback: (data: { processed: number; total: number }) => void,
   ): void;
+  onScanStateChanged(callback: (data: ScanStatus) => void): void;
   getMediaUrl(trackId: number): string;
 }
 
