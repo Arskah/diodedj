@@ -7,7 +7,6 @@ export default tseslint.config(
       "coverage/**",
       "dist/**",
       "node_modules/**",
-      "out/**",
       "src-tauri/target/**",
     ],
   },

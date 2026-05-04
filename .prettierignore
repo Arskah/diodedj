@@ -1,7 +1,5 @@
 CHANGELOG.md
-.gitattributes
 **/coverage/
-**/out/
 .husky/
 .nvmrc
 pnpm-lock.yaml

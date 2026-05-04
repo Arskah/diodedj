@@ -15,15 +15,5 @@
   "timezone": "Europe/Helsinki",
   "postUpdateOptions": ["pnpmDedupe"],
   "minimumReleaseAge": "3 days",
-  "semanticCommits": "enabled",
-  "packageRules": [
-    {
-      "groupName": "playwright",
-      "groupSlug": "playwright",
-      "matchPackageNames": [
-        "/^mcr.microsoft.com/playwright/",
-        "/@playwright/test/"
-      ]
-    }
-  ]
+  "semanticCommits": "enabled"
 }
