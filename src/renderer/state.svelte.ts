@@ -6,6 +6,8 @@ import type {
   Track,
 } from "../types";
 import logger from "electron-log/renderer";
+import type { PlayerBackend } from "./player/backend";
+import { HtmlAudioBackend } from "./player/htmlAudioBackend";
 
 export type { Track };
 
@@ -48,39 +50,33 @@ export class AppState {
   hoverX = $state(0);
   hoverY = $state(0);
 
-  audio: HTMLAudioElement;
+  backend: PlayerBackend;
 
   private saveTimer: ReturnType<typeof setTimeout> | null = null;
   private sessionLoaded = false;
 
-  constructor() {
-    this.audio = new Audio();
-    this.audio.id = "audio";
-    document.body.appendChild(this.audio);
-    this.audio.addEventListener("play", () => {
-      this.isPlaying = true;
-    });
-    this.audio.addEventListener("pause", () => {
-      this.isPlaying = false;
-    });
-    this.audio.addEventListener("timeupdate", () => {
-      this.currentTime = this.audio.currentTime;
-      this.duration =
-        isFinite(this.audio.duration) && this.audio.duration > 0
-          ? this.audio.duration
-          : (this.currentTrack?.duration ?? 0);
-      this.scheduleSave();
-    });
-    this.audio.addEventListener("ended", () => {
-      void this.handleEnded();
-    });
-    this.audio.addEventListener("error", () => {
-      const err = this.audio.error;
-      logger.error("Audio error:", {
-        code: err?.code,
-        message: err?.message,
-        src: this.audio.currentSrc,
-      });
+  constructor(backend?: PlayerBackend) {
+    this.backend = backend ?? new HtmlAudioBackend();
+
+    this.backend.on((event) => {
+      switch (event.type) {
+        case "pause-state":
+          this.isPlaying = !event.paused;
+          break;
+        case "time":
+          this.currentTime = event.seconds;
+          this.scheduleSave();
+          break;
+        case "duration":
+          this.duration = event.seconds;
+          break;
+        case "ended":
+          void this.handleEnded();
+          break;
+        case "error":
+          logger.error("Audio error:", event.message);
+          break;
+      }
     });
 
     window.api.onScanProgress(({ processed, total }) => {
@@ -105,7 +101,7 @@ export class AppState {
 
   setVolume(v: number): void {
     this.volume = v;
-    this.audio.volume = v;
+    void this.backend.setVolume(v);
     this.scheduleSave();
   }
 
@@ -213,12 +209,22 @@ export class AppState {
 
   private setCurrent(track: Track): void {
     this.currentTrack = track;
-    this.audio.src = window.api.getMediaUrl(track.id);
-    void this.audio.play();
+    this.duration = track.duration ?? 0;
+    this.currentTime = 0;
+    void this.loadAndPlay(track);
     void window.api.trackPlayed(track.id);
     document.title = `${track.title} - ${track.artist} | DiodeDJ`;
     void this.maybeRefillPlaylist();
     this.scheduleSave();
+  }
+
+  private async loadAndPlay(track: Track): Promise<void> {
+    try {
+      await this.backend.load(window.api.getMediaUrl(track.id));
+      await this.backend.play();
+    } catch (err) {
+      logger.error("Load/play failed:", err);
+    }
   }
 
   togglePlay(): void {
@@ -226,22 +232,23 @@ export class AppState {
       if (this.playlist.length > 0) this.playIndex(0);
       return;
     }
-    if (this.audio.paused) {
-      this.audio.play().catch((err) => logger.error("Resume failed:", err));
+    if (this.isPlaying) {
+      void this.backend.pause();
     } else {
-      this.audio.pause();
+      void this.backend
+        .play()
+        .catch((err) => logger.error("Resume failed:", err));
     }
   }
 
   stop(): void {
     if (this.currentTrack) this.appendHistory(this.currentTrack);
-    this.audio.pause();
-    this.audio.removeAttribute("src");
-    this.audio.load();
+    void this.backend.stop();
     this.currentTrack = null;
     this.autoPlaylistActive = false;
     this.currentTime = 0;
     this.duration = 0;
+    this.isPlaying = false;
     document.title = "DiodeDJ";
     this.scheduleSave();
   }
@@ -251,17 +258,22 @@ export class AppState {
   }
 
   prev(): void {
-    if (this.currentTrack && this.audio.currentTime > 3) {
-      this.audio.currentTime = 0;
+    if (this.currentTrack && this.currentTime > 3) {
+      this.currentTime = 0;
+      void this.backend.seek(0);
       return;
     }
     const previous = this.history[this.history.length - 1];
     if (!previous) {
-      if (this.currentTrack) this.audio.currentTime = 0;
+      if (this.currentTrack) {
+        this.currentTime = 0;
+        void this.backend.seek(0);
+      }
       return;
     }
     if (this.currentTrack?.id === previous.id) {
-      this.audio.currentTime = 0;
+      this.currentTime = 0;
+      void this.backend.seek(0);
       return;
     }
     if (this.currentTrack) this.playlist.unshift(this.currentTrack);
@@ -307,11 +319,11 @@ export class AppState {
   seekToPct(pct: number): void {
     if (!this.duration) return;
     const clamped = Math.min(1, Math.max(0, pct));
-    try {
-      this.audio.currentTime = clamped * this.duration;
-    } catch (err) {
+    const seconds = clamped * this.duration;
+    this.currentTime = seconds;
+    void this.backend.seek(seconds).catch((err) => {
       logger.error("Seek failed:", err);
-    }
+    });
   }
 
   async loadStats(): Promise<void> {
@@ -342,25 +354,26 @@ export class AppState {
       state.currentTrackId !== null ? byId.get(state.currentTrackId) : null;
     if (restored) {
       this.currentTrack = restored;
-      this.audio.src = window.api.getMediaUrl(restored.id);
       this.duration = restored.duration ?? 0;
-      const seek = state.currentTime;
-      if (seek > 0) {
-        this.currentTime = seek;
-        const onMeta = (): void => {
-          try {
-            this.audio.currentTime = seek;
-          } catch (err) {
-            logger.error("Resume seek failed:", err);
-          }
-          this.audio.removeEventListener("loadedmetadata", onMeta);
-        };
-        this.audio.addEventListener("loadedmetadata", onMeta);
+      if (state.currentTime > 0) {
+        this.currentTime = state.currentTime;
       }
+      void this.loadWithSeek(restored, state.currentTime);
       document.title = `${restored.title} - ${restored.artist} | DiodeDJ`;
     }
 
     this.sessionLoaded = true;
+  }
+
+  private async loadWithSeek(track: Track, seek: number): Promise<void> {
+    try {
+      await this.backend.load(window.api.getMediaUrl(track.id));
+      if (seek > 0) {
+        await this.backend.seek(seek);
+      }
+    } catch (err) {
+      logger.error("Resume load failed:", err);
+    }
   }
 
   private scheduleSave(): void {
