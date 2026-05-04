@@ -12,7 +12,7 @@ on:
         type: string
         required: true
       args:
-        description: Extra args to `pnpm tauri build` (e.g. --target <triple>)
+        description: Extra args passed to `tauri build` (e.g. --target <triple>)
         type: string
         default: ""
       artifact-name:
@@ -52,14 +52,25 @@ jobs:
         with:
           workspaces: src-tauri
 
-      - name: Build
-        run: pnpm tauri build ${{ inputs.args }}
+      - uses: tauri-apps/tauri-action@v0
+        id: tauri
+        with:
+          args: ${{ inputs.args }}
+          tauriScript: pnpm tauri
+
+      - name: Stage bundles
+        shell: bash
+        env:
+          ARTIFACT_PATHS: ${{ steps.tauri.outputs.artifactPaths }}
+        run: |
+          mkdir -p staging
+          echo "$ARTIFACT_PATHS" | jq -r '.[]' | while read -r p; do
+            cp -r "$p" staging/
+          done
 
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: ${{ inputs.artifact-name }}
-          path: |
-            src-tauri/target/${{ inputs.target }}/release/bundle/**
-            src-tauri/target/release/bundle/**
+          path: staging/**
           if-no-files-found: error
           retention-days: 7
