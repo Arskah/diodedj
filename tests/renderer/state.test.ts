@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { MockBackend } from "./mockBackend";
 
 vi.mock("electron-log/renderer", () => ({
   default: {
@@ -89,25 +90,21 @@ function resetApi(): void {
   api.saveSession.mockResolvedValue(undefined);
 }
 
-function makeApp(): AppState {
-  document.body.innerHTML = "";
-  document.title = "DiodeDJ";
-  const app = new AppState();
-  vi.spyOn(app.audio, "play").mockResolvedValue();
-  vi.spyOn(app.audio, "pause").mockImplementation(() => {});
-  vi.spyOn(app.audio, "load").mockImplementation(() => {});
-  return app;
+interface TestApp {
+  app: AppState;
+  mock: MockBackend;
 }
 
-function defineMutableCurrentTime(
-  audio: HTMLAudioElement,
-  value: number,
-): void {
-  Object.defineProperty(audio, "currentTime", {
-    value,
-    writable: true,
-    configurable: true,
-  });
+function makeApp(): TestApp {
+  document.body.innerHTML = "";
+  document.title = "DiodeDJ";
+  const mock = new MockBackend();
+  const app = new AppState(mock);
+  return { app, mock };
+}
+
+async function flushAsync(): Promise<void> {
+  for (let i = 0; i < 5; i++) await Promise.resolve();
 }
 
 describe("formatTime", () => {
@@ -128,7 +125,7 @@ describe("AppState playlist mutations", () => {
   let app: AppState;
   beforeEach(() => {
     resetApi();
-    app = makeApp();
+    app = makeApp().app;
   });
 
   it("addToPlaylist appends tracks", () => {
@@ -176,7 +173,7 @@ describe("AppState history view", () => {
   let app: AppState;
   beforeEach(() => {
     resetApi();
-    app = makeApp();
+    app = makeApp().app;
   });
 
   it("playlistTab defaults to queue", () => {
@@ -236,9 +233,10 @@ describe("AppState history view", () => {
 
 describe("AppState playback control", () => {
   let app: AppState;
+  let mock: MockBackend;
   beforeEach(() => {
     resetApi();
-    app = makeApp();
+    ({ app, mock } = makeApp());
   });
 
   it("playIndex pulls track out of playlist into currentTrack and plays it", () => {
@@ -246,7 +244,7 @@ describe("AppState playback control", () => {
     app.playIndex(0);
     expect(app.currentTrack?.id).toBe(7);
     expect(app.playlist.length).toBe(0);
-    expect(app.audio.getAttribute("src")).toBe("media://track/7");
+    expect(mock.lastLoadedUrl).toBe("media://track/7");
     expect(api.trackPlayed).toHaveBeenCalledWith(7);
     expect(document.title).toBe("Song - Band | DiodeDJ");
   });
@@ -292,9 +290,10 @@ describe("AppState playback control", () => {
 
   it("prev after 3s seeks to start of current track", () => {
     app.currentTrack = t(1);
-    defineMutableCurrentTime(app.audio, 5);
+    app.currentTime = 5;
     app.prev();
-    expect(app.audio.currentTime).toBe(0);
+    expect(app.currentTime).toBe(0);
+    expect(mock.lastSeek).toBe(0);
     expect(app.currentTrack?.id).toBe(1);
   });
 
@@ -305,7 +304,7 @@ describe("AppState playback control", () => {
     app.playIndex(0);
     expect(app.currentTrack?.id).toBe(2);
     expect(app.history.map((x) => x.id)).toEqual([1]);
-    defineMutableCurrentTime(app.audio, 1);
+    app.currentTime = 1;
     app.prev();
     expect(app.currentTrack?.id).toBe(1);
     expect(app.history.map((x) => x.id)).toEqual([1]);
@@ -317,30 +316,32 @@ describe("AppState playback control", () => {
     app.addToPlaylist(t(2));
     app.playIndex(0);
     app.playIndex(0);
-    defineMutableCurrentTime(app.audio, 1);
+    app.currentTime = 1;
     app.prev();
     expect(app.currentTrack?.id).toBe(1);
     expect(app.playlist.map((x) => x.id)).toEqual([2]);
-    defineMutableCurrentTime(app.audio, 1);
+    app.currentTime = 1;
     app.prev();
     expect(app.currentTrack?.id).toBe(1);
     expect(app.history.map((x) => x.id)).toEqual([1]);
     expect(app.playlist.map((x) => x.id)).toEqual([2]);
-    expect(app.audio.currentTime).toBe(0);
+    expect(app.currentTime).toBe(0);
   });
 
   it("prev within 3s with empty history just restarts current", () => {
     app.currentTrack = t(1);
-    defineMutableCurrentTime(app.audio, 1);
+    app.currentTime = 1;
     app.prev();
-    expect(app.audio.currentTime).toBe(0);
+    expect(app.currentTime).toBe(0);
+    expect(mock.lastSeek).toBe(0);
     expect(app.currentTrack?.id).toBe(1);
   });
 
   it("prev is a no-op when no current track and empty history", () => {
-    defineMutableCurrentTime(app.audio, 5);
+    app.currentTime = 5;
     app.prev();
-    expect(app.audio.currentTime).toBe(5);
+    expect(app.currentTime).toBe(5);
+    expect(mock.seekCalls.length).toBe(0);
     expect(app.currentTrack).toBeNull();
   });
 
@@ -388,30 +389,35 @@ describe("AppState playback control", () => {
     expect(app.currentTime).toBe(0);
     expect(app.duration).toBe(0);
     expect(document.title).toBe("DiodeDJ");
+    expect(mock.stopCalls).toBeGreaterThan(0);
   });
 
-  it("setVolume updates state and audio element", () => {
+  it("setVolume updates state and backend", () => {
     app.setVolume(0.4);
     expect(app.volume).toBe(0.4);
-    expect(app.audio.volume).toBe(0.4);
+    expect(mock.volume).toBe(0.4);
   });
 
-  it("seekToPct clamps and applies to audio.currentTime", () => {
+  it("seekToPct clamps and applies via backend", () => {
     app.duration = 100;
-    defineMutableCurrentTime(app.audio, 0);
+    app.currentTime = 0;
     app.seekToPct(0.5);
-    expect(app.audio.currentTime).toBe(50);
+    expect(app.currentTime).toBe(50);
+    expect(mock.lastSeek).toBe(50);
     app.seekToPct(2);
-    expect(app.audio.currentTime).toBe(100);
+    expect(app.currentTime).toBe(100);
+    expect(mock.lastSeek).toBe(100);
     app.seekToPct(-1);
-    expect(app.audio.currentTime).toBe(0);
+    expect(app.currentTime).toBe(0);
+    expect(mock.lastSeek).toBe(0);
   });
 
   it("seekToPct is a no-op when duration is zero", () => {
     app.duration = 0;
-    defineMutableCurrentTime(app.audio, 7);
+    app.currentTime = 7;
     app.seekToPct(0.5);
-    expect(app.audio.currentTime).toBe(7);
+    expect(app.currentTime).toBe(7);
+    expect(mock.seekCalls.length).toBe(0);
   });
 
   it("progressPct reflects currentTime/duration ratio", () => {
@@ -420,6 +426,52 @@ describe("AppState playback control", () => {
     expect(app.progressPct).toBe(25);
     app.duration = 0;
     expect(app.progressPct).toBe(0);
+  });
+});
+
+describe("AppState backend events", () => {
+  let app: AppState;
+  let mock: MockBackend;
+  beforeEach(() => {
+    resetApi();
+    ({ app, mock } = makeApp());
+  });
+
+  it("time event mirrors to currentTime", () => {
+    mock.emitTime(42);
+    expect(app.currentTime).toBe(42);
+  });
+
+  it("duration event mirrors to duration", () => {
+    mock.emitDuration(180);
+    expect(app.duration).toBe(180);
+  });
+
+  it("pause-state event mirrors to isPlaying (inverse)", () => {
+    mock.emitPauseState(false);
+    expect(app.isPlaying).toBe(true);
+    mock.emitPauseState(true);
+    expect(app.isPlaying).toBe(false);
+  });
+
+  it("ended event triggers auto-advance when enabled", async () => {
+    app.addToPlaylist(t(1));
+    app.addToPlaylist(t(2));
+    app.playIndex(0);
+    expect(app.currentTrack?.id).toBe(1);
+    mock.emitEnded();
+    await flushAsync();
+    expect(app.currentTrack?.id).toBe(2);
+  });
+
+  it("ended event stops playback when autoAdvance is false", async () => {
+    app.addToPlaylist(t(1));
+    app.addToPlaylist(t(2));
+    app.playIndex(0);
+    app.autoAdvance = false;
+    mock.emitEnded();
+    await flushAsync();
+    expect(app.currentTrack).toBeNull();
   });
 });
 
@@ -439,7 +491,7 @@ describe("AppState library + paths", () => {
       commercial: [],
       jingle: [],
     });
-    app = makeApp();
+    app = makeApp().app;
   });
 
   it("search forwards query + tab and stores results", async () => {
@@ -554,7 +606,7 @@ describe("AppState auto-playlist refill", () => {
   beforeEach(() => {
     resetApi();
     api.generatePlaylist.mockResolvedValue(generateTracks(0, bufferSize));
-    app = makeApp();
+    app = makeApp().app;
   });
 
   it("does nothing when auto-playlist is inactive", async () => {
@@ -596,6 +648,7 @@ describe("AppState auto-playlist refill", () => {
 
 describe("AppState session persistence", () => {
   let app: AppState;
+  let mock: MockBackend;
 
   beforeEach(() => {
     resetApi();
@@ -620,7 +673,7 @@ describe("AppState session persistence", () => {
       tracks: [t(1), t(2), t(3)],
     });
 
-    app = makeApp();
+    ({ app, mock } = makeApp());
     await app.loadSession();
 
     expect(app.playlist.map((x) => x.id)).toEqual([2, 3]);
@@ -630,7 +683,7 @@ describe("AppState session persistence", () => {
     expect(app.autoAdvance).toBe(false);
     expect(app.volume).toBe(0.6);
     expect(app.currentTime).toBe(12.5);
-    expect(app.audio.getAttribute("src")).toBe("media://track/2");
+    expect(mock.lastLoadedUrl).toBe("media://track/2");
     expect(document.title).toBe("t2 - a2 | DiodeDJ");
   });
 
@@ -648,7 +701,7 @@ describe("AppState session persistence", () => {
       tracks: [t(1), t(2)],
     });
 
-    app = makeApp();
+    ({ app, mock } = makeApp());
     await app.loadSession();
 
     expect(app.playlist.map((x) => x.id)).toEqual([1, 2]);
@@ -657,14 +710,14 @@ describe("AppState session persistence", () => {
   });
 
   it("does not save before session is loaded", () => {
-    app = makeApp();
+    ({ app, mock } = makeApp());
     app.addToPlaylist(t(1));
     vi.runAllTimers();
     expect(api.saveSession).not.toHaveBeenCalled();
   });
 
   it("debounced save fires after mutations once session is loaded", async () => {
-    app = makeApp();
+    ({ app, mock } = makeApp());
     await app.loadSession();
     app.addToPlaylist(t(1));
     app.addToPlaylist(t(2));
@@ -679,7 +732,7 @@ describe("AppState session persistence", () => {
   });
 
   it("flushSave persists immediately and cancels pending timer", async () => {
-    app = makeApp();
+    ({ app, mock } = makeApp());
     await app.loadSession();
     app.addToPlaylist(t(5));
     app.flushSave();
