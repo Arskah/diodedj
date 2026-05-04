@@ -17,6 +17,7 @@ export interface TracksTable {
   format: string;
   play_count: Generated<number>;
   added_at: Generated<string>;
+  mtime: number | null;
 }
 
 export interface Database {

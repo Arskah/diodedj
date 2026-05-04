@@ -2,9 +2,20 @@ import fs from "fs";
 import path from "path";
 import { ContentType, ScanResult } from "../types";
 import * as db from "./db";
-import { TrackInsert } from "./db/types";
+import { Track, TrackInsert } from "./db/types";
 import { AUDIO_EXTENSIONS } from "./audio-formats";
 import { logger } from "./logger";
+
+export function shouldRescan(
+  existing: Track | undefined,
+  fileMtimeMs: number,
+  contentType: ContentType,
+): boolean {
+  if (!existing) return true;
+  if (existing.mtime == null) return true;
+  if (existing.content_type !== contentType) return true;
+  return Math.floor(existing.mtime) !== Math.floor(fileMtimeMs);
+}
 
 export async function scanDirectory(
   dirPath: string,
@@ -18,6 +29,16 @@ export async function scanDirectory(
 
   for (const filePath of files) {
     try {
+      const stat = await fs.promises.stat(filePath);
+      const mtimeMs = Math.floor(stat.mtimeMs);
+      const existing = await db.getTrackByPath(filePath);
+
+      if (!shouldRescan(existing, mtimeMs, contentType)) {
+        processed++;
+        if (onProgress) onProgress(processed, files.length);
+        continue;
+      }
+
       const metadata = await mm.parseFile(filePath);
       const { common, format } = metadata;
 
@@ -34,6 +55,7 @@ export async function scanDirectory(
         sample_rate: format.sampleRate || null,
         bitrate: format.bitrate || null,
         format: path.extname(filePath).slice(1).toLowerCase(),
+        mtime: mtimeMs,
       };
 
       await db.insertTrack(track);
