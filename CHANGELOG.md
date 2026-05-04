@@ -1,5 +1,31 @@
 # Changelog
 
+## [0.6.0](https://github.com/Arskah/diodedj/compare/v0.5.1...v0.6.0) (2026-05-04)
+
+
+### Features
+
+* **playlist:** manual jingle/commercial buttons ([#16](https://github.com/Arskah/diodedj/issues/16)) ([#69](https://github.com/Arskah/diodedj/issues/69)) ([dc816a4](https://github.com/Arskah/diodedj/commit/dc816a44eb3df43fbeb31e8199e00703d0eddddb))
+* **playlist:** mix jingles and commercials into auto playlist ([#64](https://github.com/Arskah/diodedj/issues/64)) ([ad58e1a](https://github.com/Arskah/diodedj/commit/ad58e1a743352f6a82a8467a2f4aafbd4f086a21)), closes [#17](https://github.com/Arskah/diodedj/issues/17)
+* **scanner:** incremental scan via mtime + preserve play_count ([#65](https://github.com/Arskah/diodedj/issues/65)) ([5d1c567](https://github.com/Arskah/diodedj/commit/5d1c567ea9ebabadbe107e5fa3f79be17058b0b4))
+* **scanner:** run library scan in background ([#66](https://github.com/Arskah/diodedj/issues/66)) ([89b084f](https://github.com/Arskah/diodedj/commit/89b084f0d860139d95618534ad360d293359cf83))
+
+
+### Bug Fixes
+
+* **scanner:** prune DB rows for files deleted inside library roots ([#70](https://github.com/Arskah/diodedj/issues/70)) ([8032f83](https://github.com/Arskah/diodedj/commit/8032f8331ffd4952bb2cb25f940a5fd4eb3de318))
+
+
+### Documentation
+
+* **audio:** design for chromium bypass + cue deck ([a6a6b8a](https://github.com/Arskah/diodedj/commit/a6a6b8a98f90532680b62150453a6455e263f605))
+
+
+### Tests
+
+* add unit test for logger ([9715df0](https://github.com/Arskah/diodedj/commit/9715df036cb4f51dc43e45111c0f8592c8c0ea2d))
+* setup vitest projects ([c4208f3](https://github.com/Arskah/diodedj/commit/c4208f322bd43a7f8124f902a5a7c61dc4c547bd))
+
 ## [0.5.1](https://github.com/Arskah/diodedj/compare/v0.5.0...v0.5.1) (2026-04-28)
 
 
