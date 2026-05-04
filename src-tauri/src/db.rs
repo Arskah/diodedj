@@ -184,6 +184,41 @@ impl Db {
         Ok(())
     }
 
+    pub fn get_random_tracks(&self, content_type: &str, count: i64) -> Result<Vec<Track>> {
+        if count <= 0 {
+            return Ok(vec![]);
+        }
+        let conn = self.conn.lock();
+        let mut stmt = conn.prepare(
+            "SELECT * FROM tracks WHERE content_type = ? ORDER BY RANDOM() LIMIT ?",
+        )?;
+        let rows = stmt.query_map(rusqlite::params![content_type, count], row_to_track)?;
+        rows.collect::<rusqlite::Result<_>>().map_err(Into::into)
+    }
+
+    pub fn pick_random_from_bottom(
+        &self,
+        content_type: &str,
+        bucket_size: i64,
+    ) -> Result<Option<Track>> {
+        if bucket_size <= 0 {
+            return Ok(None);
+        }
+        let conn = self.conn.lock();
+        let mut stmt = conn.prepare(
+            "WITH bucket AS ( \
+                SELECT * FROM tracks WHERE content_type = ? \
+                ORDER BY play_count ASC LIMIT ? \
+            ) SELECT * FROM bucket ORDER BY RANDOM() LIMIT 1",
+        )?;
+        let mut rows =
+            stmt.query_map(rusqlite::params![content_type, bucket_size], row_to_track)?;
+        match rows.next() {
+            Some(r) => r.map(Some).map_err(Into::into),
+            None => Ok(None),
+        }
+    }
+
     pub fn get_stats(&self) -> Result<LibraryStats> {
         let conn = self.conn.lock();
         let (total_tracks, total_artists, total_albums, total_hours): (i64, i64, i64, f64) = conn

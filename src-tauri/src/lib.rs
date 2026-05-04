@@ -6,6 +6,7 @@ use tauri::{Manager, State};
 
 mod config;
 mod db;
+mod playlist;
 mod session;
 
 use config::Config;
@@ -123,15 +124,16 @@ fn save_session(app: State<'_, AppState>, state: SessionState) -> Result<(), Str
 }
 
 #[tauri::command(rename_all = "camelCase")]
-async fn generate_playlist(count: i64) -> Vec<Value> {
-    let _ = count;
-    vec![]
+fn generate_playlist(app: State<'_, AppState>, count: i64) -> Result<Vec<Track>, String> {
+    playlist::generate(&app.db, count).map_err(err)
 }
 
 #[tauri::command(rename_all = "camelCase")]
-async fn pick_filler(content_type: String) -> Option<Value> {
-    let _ = content_type;
-    None
+fn pick_filler(
+    app: State<'_, AppState>,
+    content_type: String,
+) -> Result<Option<Track>, String> {
+    playlist::pick_filler(&app.db, &content_type).map_err(err)
 }
 
 #[tauri::command(rename_all = "camelCase")]
