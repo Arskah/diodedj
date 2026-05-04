@@ -3,7 +3,13 @@ import tseslint from "typescript-eslint";
 
 export default tseslint.config(
   {
-    ignores: ["out/", "playwright-report/", "test-results/", "node_modules/"],
+    ignores: [
+      "coverage/**",
+      "dist/**",
+      "node_modules/**",
+      "out/**",
+      "src-tauri/target/**",
+    ],
   },
   eslint.configs.recommended,
   ...tseslint.configs.recommended,
