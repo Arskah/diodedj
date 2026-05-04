@@ -6,6 +6,8 @@ export class HtmlAudioBackend implements PlayerBackend {
 
   constructor() {
     this.audio = new Audio();
+    this.audio.id = "audio";
+    document.body.appendChild(this.audio);
     this.audio.addEventListener("play", () => {
       this.emit({ type: "pause-state", paused: false });
     });
