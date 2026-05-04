@@ -41,6 +41,14 @@ impl PlayerHandle {
     }
 }
 
+struct State {
+    current_path: Option<PathBuf>,
+    current_duration: Option<f64>,
+    seek_offset: f64,
+    active: bool,
+    volume: f32,
+}
+
 fn run(app: AppHandle, rx: std::sync::mpsc::Receiver<Cmd>) -> Result<()> {
     let stream: OutputStream =
         OutputStreamBuilder::open_default_stream().context("open default audio stream")?;
@@ -48,33 +56,31 @@ fn run(app: AppHandle, rx: std::sync::mpsc::Receiver<Cmd>) -> Result<()> {
     let mut last_time_emit = Instant::now()
         .checked_sub(TIME_EMIT_INTERVAL)
         .unwrap_or_else(Instant::now);
-    let mut active = false;
-    let mut current_volume: f32 = 1.0;
+    let mut state = State {
+        current_path: None,
+        current_duration: None,
+        seek_offset: 0.0,
+        active: false,
+        volume: 1.0,
+    };
 
     loop {
         loop {
             match rx.try_recv() {
-                Ok(cmd) => apply(
-                    &app,
-                    &stream,
-                    &mut sink,
-                    &mut active,
-                    &mut current_volume,
-                    cmd,
-                ),
+                Ok(cmd) => apply(&app, &stream, &mut sink, &mut state, cmd),
                 Err(std::sync::mpsc::TryRecvError::Empty) => break,
                 Err(std::sync::mpsc::TryRecvError::Disconnected) => return Ok(()),
             }
         }
 
-        if active && last_time_emit.elapsed() >= TIME_EMIT_INTERVAL {
+        if state.active && last_time_emit.elapsed() >= TIME_EMIT_INTERVAL {
             last_time_emit = Instant::now();
-            let pos = sink.get_pos().as_secs_f64();
+            let pos = state.seek_offset + sink.get_pos().as_secs_f64();
             let _ = app.emit("player:time", pos);
         }
 
-        if active && sink.empty() {
-            active = false;
+        if state.active && sink.empty() {
+            state.active = false;
             let _ = app.emit("player:pause-state", true);
             let _ = app.emit("player:ended", ());
         }
@@ -87,21 +93,23 @@ fn apply(
     app: &AppHandle,
     stream: &OutputStream,
     sink: &mut Sink,
-    active: &mut bool,
-    volume: &mut f32,
+    state: &mut State,
     cmd: Cmd,
 ) {
     match cmd {
         Cmd::Load { path, duration } => {
             sink.stop();
             *sink = Sink::connect_new(stream.mixer());
-            sink.set_volume(*volume);
+            sink.set_volume(state.volume);
             match decode(&path) {
                 Ok((source, decoded_duration)) => {
                     let final_duration = duration.or(decoded_duration);
                     sink.append(source);
                     sink.play();
-                    *active = true;
+                    state.active = true;
+                    state.current_path = Some(path);
+                    state.current_duration = final_duration;
+                    state.seek_offset = 0.0;
                     if let Some(d) = final_duration {
                         let _ = app.emit("player:duration", d);
                     }
@@ -110,7 +118,10 @@ fn apply(
                 Err(e) => {
                     log::error!("player: decode {} failed: {}", path.display(), e);
                     let _ = app.emit("player:error", format!("decode failed: {}", e));
-                    *active = false;
+                    state.active = false;
+                    state.current_path = None;
+                    state.current_duration = None;
+                    state.seek_offset = 0.0;
                     let _ = app.emit("player:pause-state", true);
                 }
             }
@@ -126,18 +137,63 @@ fn apply(
         Cmd::Stop => {
             sink.stop();
             *sink = Sink::connect_new(stream.mixer());
-            sink.set_volume(*volume);
-            *active = false;
+            sink.set_volume(state.volume);
+            state.active = false;
+            state.current_path = None;
+            state.current_duration = None;
+            state.seek_offset = 0.0;
             let _ = app.emit("player:pause-state", true);
         }
         Cmd::Seek(s) => {
-            if let Err(e) = sink.try_seek(Duration::from_secs_f64(s.max(0.0))) {
-                log::warn!("player: seek failed: {}", e);
+            let target = s.max(0.0);
+            let Some(path) = state.current_path.clone() else {
+                return;
+            };
+            let was_paused = sink.is_paused();
+            sink.stop();
+            *sink = Sink::connect_new(stream.mixer());
+            sink.set_volume(state.volume);
+            match decode(&path) {
+                Ok((mut source, _)) => {
+                    let target_dur = Duration::from_secs_f64(target);
+                    let actual_offset = match source.try_seek(target_dur) {
+                        Ok(()) => target,
+                        Err(e) => {
+                            log::warn!(
+                                "player: container seek failed ({}); skip_duration fallback",
+                                e
+                            );
+                            let skipped = source.skip_duration(target_dur);
+                            sink.append(skipped);
+                            state.seek_offset = target;
+                            state.active = true;
+                            if was_paused {
+                                sink.pause();
+                            } else {
+                                sink.play();
+                            }
+                            return;
+                        }
+                    };
+                    sink.append(source);
+                    state.seek_offset = actual_offset;
+                    state.active = true;
+                    if was_paused {
+                        sink.pause();
+                    } else {
+                        sink.play();
+                    }
+                }
+                Err(e) => {
+                    log::error!("player: reload-on-seek failed: {}", e);
+                    let _ = app.emit("player:error", format!("seek failed: {}", e));
+                    state.active = false;
+                }
             }
         }
         Cmd::SetVolume(v) => {
             let clamped = v.clamp(0.0, 1.0);
-            *volume = clamped;
+            state.volume = clamped;
             sink.set_volume(clamped);
         }
     }
