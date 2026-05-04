@@ -1,22 +1,26 @@
 use serde::Serialize;
-use serde_json::{json, Value};
 use std::collections::HashSet;
 use std::sync::Arc;
-use tauri::{Manager, State};
+use tauri::{AppHandle, Manager, State};
 
+mod audio_formats;
 mod config;
 mod db;
 mod playlist;
+mod scan_state;
+mod scanner;
 mod session;
 
 use config::Config;
 use db::{Db, LibraryStats, Track};
+use scan_state::{ScanState, ScanStatus, StartResult};
 use session::{Session, SessionState};
 
 pub struct AppState {
     db: Arc<Db>,
     config: Arc<Config>,
     session: Arc<Session>,
+    scan: Arc<ScanState>,
 }
 
 #[derive(Serialize)]
@@ -77,7 +81,7 @@ fn get_paths(state: State<'_, AppState>, r#type: String) -> Vec<String> {
 }
 
 #[tauri::command(rename_all = "camelCase")]
-fn get_all_paths(state: State<'_, AppState>) -> Value {
+fn get_all_paths(state: State<'_, AppState>) -> serde_json::Value {
     state.config.get_all_paths()
 }
 
@@ -137,16 +141,18 @@ fn pick_filler(
 }
 
 #[tauri::command(rename_all = "camelCase")]
-async fn scan_library() -> Value {
-    json!({ "alreadyRunning": false })
+fn scan_library(app: AppHandle, state: State<'_, AppState>) -> StartResult {
+    Arc::clone(&state.scan).start(app, Arc::clone(&state.db), Arc::clone(&state.config))
 }
 
 #[tauri::command(rename_all = "camelCase")]
-async fn cancel_scan() {}
+fn cancel_scan(state: State<'_, AppState>) {
+    state.scan.cancel();
+}
 
 #[tauri::command(rename_all = "camelCase")]
-async fn get_scan_status() -> Value {
-    json!({ "status": "idle", "lastResult": null })
+fn get_scan_status(state: State<'_, AppState>) -> ScanStatus {
+    state.scan.status()
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -163,6 +169,7 @@ pub fn run() {
                 db: Arc::new(db),
                 config: Arc::new(config),
                 session: Arc::new(session),
+                scan: Arc::new(ScanState::default()),
             });
             Ok(())
         })

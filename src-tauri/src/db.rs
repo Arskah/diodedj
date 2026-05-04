@@ -1,6 +1,6 @@
 use anyhow::{Context, Result};
 use parking_lot::Mutex;
-use rusqlite::{params_from_iter, Connection, Row};
+use rusqlite::{params, params_from_iter, Connection, Row};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::Path;
@@ -36,6 +36,28 @@ pub struct TracksByType {
     pub music: i64,
     pub commercial: i64,
     pub jingle: i64,
+}
+
+#[derive(Default, Clone)]
+pub struct TrackInsert {
+    pub path: String,
+    pub content_type: String,
+    pub title: Option<String>,
+    pub artist: Option<String>,
+    pub album: Option<String>,
+    pub genre: Option<String>,
+    pub year: Option<i64>,
+    pub duration: Option<f64>,
+    pub bpm: Option<f64>,
+    pub sample_rate: Option<i64>,
+    pub bitrate: Option<i64>,
+    pub format: Option<String>,
+    pub mtime: Option<i64>,
+}
+
+pub struct TrackMtimeRow {
+    pub content_type: String,
+    pub mtime: Option<i64>,
 }
 
 pub struct Db {
@@ -173,6 +195,99 @@ impl Db {
             .map(|t| (t.id, t))
             .collect();
         Ok(ids.iter().filter_map(|i| by_id.get(i).cloned()).collect())
+    }
+
+    pub fn insert_track(&self, t: &TrackInsert) -> Result<()> {
+        let conn = self.conn.lock();
+        conn.execute(
+            "INSERT INTO tracks \
+             (path, content_type, title, artist, album, genre, year, duration, bpm, \
+              sample_rate, bitrate, format, mtime) \
+             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?) \
+             ON CONFLICT(path) DO UPDATE SET \
+                content_type=excluded.content_type, \
+                title=excluded.title, artist=excluded.artist, album=excluded.album, \
+                genre=excluded.genre, year=excluded.year, duration=excluded.duration, \
+                bpm=excluded.bpm, sample_rate=excluded.sample_rate, \
+                bitrate=excluded.bitrate, format=excluded.format, mtime=excluded.mtime",
+            params![
+                t.path,
+                t.content_type,
+                t.title,
+                t.artist,
+                t.album,
+                t.genre,
+                t.year,
+                t.duration,
+                t.bpm,
+                t.sample_rate,
+                t.bitrate,
+                t.format,
+                t.mtime,
+            ],
+        )?;
+        Ok(())
+    }
+
+    pub fn get_track_by_path(&self, path: &str) -> Result<Option<TrackMtimeRow>> {
+        let conn = self.conn.lock();
+        let mut stmt = conn.prepare(
+            "SELECT content_type, mtime FROM tracks WHERE path = ?",
+        )?;
+        let mut rows = stmt.query_map([path], |r| {
+            Ok(TrackMtimeRow {
+                content_type: r.get(0)?,
+                mtime: r.get::<_, Option<i64>>(1)?,
+            })
+        })?;
+        match rows.next() {
+            Some(r) => r.map(Some).map_err(Into::into),
+            None => Ok(None),
+        }
+    }
+
+    pub fn get_paths_under(&self, root: &str) -> Result<Vec<String>> {
+        let conn = self.conn.lock();
+        let pattern = format!("{}%", root);
+        let mut stmt = conn.prepare("SELECT path FROM tracks WHERE path LIKE ?")?;
+        let rows = stmt.query_map([pattern], |r| r.get::<_, String>(0))?;
+        rows.collect::<rusqlite::Result<_>>().map_err(Into::into)
+    }
+
+    pub fn delete_by_paths(&self, paths: &[String]) -> Result<usize> {
+        if paths.is_empty() {
+            return Ok(0);
+        }
+        let mut conn = self.conn.lock();
+        let tx = conn.transaction()?;
+        let mut total = 0usize;
+        for chunk in paths.chunks(500) {
+            let placeholders = std::iter::repeat("?")
+                .take(chunk.len())
+                .collect::<Vec<_>>()
+                .join(",");
+            let sql = format!("DELETE FROM tracks WHERE path IN ({})", placeholders);
+            total += tx.execute(&sql, params_from_iter(chunk.iter()))?;
+        }
+        tx.commit()?;
+        Ok(total)
+    }
+
+    pub fn remove_tracks_not_in_paths(&self, roots: &[String]) -> Result<usize> {
+        let conn = self.conn.lock();
+        if roots.is_empty() {
+            let n = conn.execute("DELETE FROM tracks", [])?;
+            return Ok(n);
+        }
+        let mut where_parts = Vec::new();
+        let mut p: Vec<rusqlite::types::Value> = Vec::new();
+        for r in roots {
+            where_parts.push("path NOT LIKE ?".to_string());
+            p.push(format!("{}%", r).into());
+        }
+        let sql = format!("DELETE FROM tracks WHERE {}", where_parts.join(" AND "));
+        let n = conn.execute(&sql, params_from_iter(p.iter()))?;
+        Ok(n)
     }
 
     pub fn increment_play_count(&self, id: i64) -> Result<()> {
