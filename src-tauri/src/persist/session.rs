@@ -21,6 +21,8 @@ pub struct SessionState {
     pub auto_advance: bool,
     #[serde(default = "default_volume")]
     pub volume: f64,
+    #[serde(default = "default_volume")]
+    pub cue_volume: f64,
 }
 
 fn default_auto_advance() -> bool {
@@ -41,6 +43,7 @@ impl Default for SessionState {
             auto_playlist_active: false,
             auto_advance: true,
             volume: 1.0,
+            cue_volume: 1.0,
         }
     }
 }
@@ -123,5 +126,21 @@ mod tests {
         assert_eq!(s.playlist_ids, vec![7]);
         assert!(s.auto_advance);
         assert_eq!(s.volume, 1.0);
+        assert_eq!(s.cue_volume, 1.0);
+    }
+
+    #[test]
+    fn cue_volume_round_trips() {
+        let dir = tempdir().unwrap();
+        let s1 = Session::open(dir.path());
+        let state = SessionState {
+            cue_volume: 0.4,
+            ..Default::default()
+        };
+        s1.save(state).unwrap();
+
+        let s2 = Session::open(dir.path());
+        let loaded = s2.load();
+        assert_eq!(loaded.cue_volume, 0.4);
     }
 }

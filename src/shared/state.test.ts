@@ -22,6 +22,11 @@ const { api } = vi.hoisted(() => {
     getScanStatus: vi.fn(),
     onScanProgress: vi.fn(),
     onScanStateChanged: vi.fn(),
+    listAudioDevices: vi.fn(),
+    getMainDevice: vi.fn(),
+    setMainDevice: vi.fn(),
+    getCueDevice: vi.fn(),
+    setCueDevice: vi.fn(),
   };
   return { api };
 });
@@ -101,23 +106,31 @@ function resetApi(): void {
       autoPlaylistActive: false,
       autoAdvance: true,
       volume: 1,
+      cueVolume: 1,
     },
     tracks: [],
   });
   api.saveSession.mockResolvedValue(undefined);
+  api.listAudioDevices.mockResolvedValue([]);
+  api.getMainDevice.mockResolvedValue(null);
+  api.getCueDevice.mockResolvedValue(null);
+  api.setMainDevice.mockResolvedValue(undefined);
+  api.setCueDevice.mockResolvedValue(undefined);
 }
 
 interface TestApp {
   app: AppState;
   mock: MockBackend;
+  cueMock: MockBackend;
 }
 
 function makeApp(): TestApp {
   document.body.innerHTML = "";
   document.title = "DiodeDJ";
   const mock = new MockBackend();
-  const app = new AppState(mock);
-  return { app, mock };
+  const cueMock = new MockBackend();
+  const app = new AppState(mock, cueMock);
+  return { app, mock, cueMock };
 }
 
 async function flushAsync(): Promise<void> {
@@ -686,6 +699,7 @@ describe("AppState session persistence", () => {
         autoPlaylistActive: true,
         autoAdvance: false,
         volume: 0.6,
+        cueVolume: 0.3,
       },
       tracks: [t(1), t(2), t(3)],
     });
@@ -714,6 +728,7 @@ describe("AppState session persistence", () => {
         autoPlaylistActive: false,
         autoAdvance: true,
         volume: 1,
+        cueVolume: 1,
       },
       tracks: [t(1), t(2)],
     });
@@ -756,5 +771,230 @@ describe("AppState session persistence", () => {
     expect(api.saveSession).toHaveBeenCalledTimes(1);
     vi.runAllTimers();
     expect(api.saveSession).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("AppState cue deck", () => {
+  let app: AppState;
+  let mock: MockBackend;
+  let cueMock: MockBackend;
+
+  beforeEach(() => {
+    resetApi();
+    ({ app, mock, cueMock } = makeApp());
+  });
+
+  it("cueLoadAndPlay loads + plays on cue backend, leaves main untouched", async () => {
+    app.cueLoadAndPlay(t(7, { title: "Cue", artist: "Band" }));
+    await flushAsync();
+    expect(cueMock.lastLoadedId).toBe(7);
+    expect(cueMock.playCalls).toBeGreaterThan(0);
+    expect(mock.lastLoadedId).toBeUndefined();
+    expect(app.cueTrack?.id).toBe(7);
+    expect(app.cueDuration).toBe(100);
+    expect(app.cueCurrentTime).toBe(0);
+  });
+
+  it("cueTogglePlay pauses then resumes via cue backend", async () => {
+    app.cueLoadAndPlay(t(1));
+    await flushAsync();
+    expect(cueMock.playCalls).toBe(1); // initial load+play
+    cueMock.emitPauseState(false);
+    expect(app.cueIsPlaying).toBe(true);
+    app.cueTogglePlay();
+    expect(cueMock.pauseCalls).toBeGreaterThan(0);
+    cueMock.emitPauseState(true);
+    expect(app.cueIsPlaying).toBe(false);
+    app.cueTogglePlay();
+    expect(cueMock.playCalls).toBe(2);
+  });
+
+  it("cueTogglePlay is a no-op when no cue track loaded", () => {
+    app.cueTogglePlay();
+    expect(cueMock.playCalls).toBe(0);
+    expect(cueMock.pauseCalls).toBe(0);
+  });
+
+  it("cueStop clears cue state and stops backend", () => {
+    app.cueLoadAndPlay(t(1));
+    app.cueDuration = 200;
+    app.cueCurrentTime = 30;
+    app.cueIsPlaying = true;
+    app.cueStop();
+    expect(cueMock.stopCalls).toBeGreaterThan(0);
+    expect(app.cueTrack).toBeNull();
+    expect(app.cueIsPlaying).toBe(false);
+    expect(app.cueCurrentTime).toBe(0);
+    expect(app.cueDuration).toBe(0);
+  });
+
+  it("cueSeekToPct clamps + applies via cue backend", () => {
+    app.cueLoadAndPlay(t(1));
+    app.cueDuration = 100;
+    app.cueSeekToPct(0.25);
+    expect(app.cueCurrentTime).toBe(25);
+    expect(cueMock.lastSeek).toBe(25);
+    app.cueSeekToPct(2);
+    expect(app.cueCurrentTime).toBe(100);
+    expect(cueMock.lastSeek).toBe(100);
+    app.cueSeekToPct(-1);
+    expect(app.cueCurrentTime).toBe(0);
+    expect(cueMock.lastSeek).toBe(0);
+  });
+
+  it("cueSeekToPct is a no-op when cueDuration is zero", () => {
+    app.cueDuration = 0;
+    app.cueCurrentTime = 5;
+    app.cueSeekToPct(0.5);
+    expect(app.cueCurrentTime).toBe(5);
+    expect(cueMock.seekCalls.length).toBe(0);
+  });
+
+  it("setCueVolume updates state and cue backend", () => {
+    app.setCueVolume(0.4);
+    expect(app.cueVolume).toBe(0.4);
+    expect(cueMock.volume).toBe(0.4);
+  });
+
+  it("promoteCueToMain inserts cue track at playlist head; cue keeps playing", () => {
+    app.addToPlaylist(t(1));
+    app.addToPlaylist(t(2));
+    app.cueLoadAndPlay(t(99, { title: "promoted" }));
+    app.promoteCueToMain();
+    expect(app.playlist.map((x) => x.id)).toEqual([99, 1, 2]);
+    expect(app.cueTrack?.id).toBe(99);
+    expect(cueMock.stopCalls).toBe(0);
+  });
+
+  it("promoteCueToMain is a no-op when no cue track loaded", () => {
+    app.addToPlaylist(t(1));
+    app.promoteCueToMain();
+    expect(app.playlist.map((x) => x.id)).toEqual([1]);
+  });
+
+  it("cue backend time/duration/pause-state events mirror to cue state", () => {
+    cueMock.emitTime(7);
+    expect(app.cueCurrentTime).toBe(7);
+    cueMock.emitDuration(180);
+    expect(app.cueDuration).toBe(180);
+    cueMock.emitPauseState(false);
+    expect(app.cueIsPlaying).toBe(true);
+    cueMock.emitPauseState(true);
+    expect(app.cueIsPlaying).toBe(false);
+  });
+
+  it("cue backend ended event resets cue playing/time without touching main", () => {
+    app.cueLoadAndPlay(t(1));
+    app.cueIsPlaying = true;
+    app.cueCurrentTime = 50;
+    app.currentTrack = t(2);
+    cueMock.emitEnded();
+    expect(app.cueIsPlaying).toBe(false);
+    expect(app.cueCurrentTime).toBe(0);
+    expect(app.currentTrack?.id).toBe(2);
+  });
+
+  it("cueProgressPct reflects cueCurrentTime/cueDuration", () => {
+    app.cueDuration = 200;
+    app.cueCurrentTime = 50;
+    expect(app.cueProgressPct).toBe(25);
+    app.cueDuration = 0;
+    expect(app.cueProgressPct).toBe(0);
+  });
+});
+
+describe("AppState audio device config", () => {
+  let app: AppState;
+
+  beforeEach(() => {
+    resetApi();
+    api.listAudioDevices.mockResolvedValue([
+      { name: "default-out", description: "Built-in", isDefault: true },
+      { name: "hw:USB,0", description: "USB Headphones", isDefault: false },
+    ]);
+    api.getMainDevice.mockResolvedValue(null);
+    api.getCueDevice.mockResolvedValue({
+      name: "hw:USB,0",
+      description: "USB Headphones",
+    });
+    app = makeApp().app;
+  });
+
+  it("loadAudioConfig populates devices, mainDevice, cueDevice", async () => {
+    await app.loadAudioConfig();
+    expect(app.audioDevices.length).toBe(2);
+    expect(app.mainDevice).toBeNull();
+    expect(app.cueDevice?.name).toBe("hw:USB,0");
+  });
+
+  it("setMainDeviceConfig persists + updates state", async () => {
+    await app.setMainDeviceConfig({ name: "x", description: "X" });
+    expect(api.setMainDevice).toHaveBeenCalledWith({
+      name: "x",
+      description: "X",
+    });
+    expect(app.mainDevice?.name).toBe("x");
+  });
+
+  it("setCueDeviceConfig with null disables cue + clears cue state", async () => {
+    await app.loadAudioConfig();
+    app.cueLoadAndPlay(t(1));
+    app.cueDuration = 100;
+
+    await app.setCueDeviceConfig(null);
+
+    expect(api.setCueDevice).toHaveBeenCalledWith(null);
+    expect(app.cueDevice).toBeNull();
+    expect(app.cueTrack).toBeNull();
+    expect(app.cueDuration).toBe(0);
+  });
+
+  it("setCueDeviceConfig with a device persists and stores", async () => {
+    const ref = { name: "hw:USB,0", description: "USB Headphones" };
+    await app.setCueDeviceConfig(ref);
+    expect(api.setCueDevice).toHaveBeenCalledWith(ref);
+    expect(app.cueDevice).toEqual(ref);
+  });
+});
+
+describe("AppState session persistence with cue volume", () => {
+  let app: AppState;
+
+  beforeEach(() => {
+    resetApi();
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("loadSession restores cueVolume", async () => {
+    api.loadSession.mockResolvedValueOnce({
+      state: {
+        playlistIds: [],
+        historyIds: [],
+        currentTrackId: null,
+        currentTime: 0,
+        autoPlaylistActive: false,
+        autoAdvance: true,
+        volume: 1,
+        cueVolume: 0.25,
+      },
+      tracks: [],
+    });
+    ({ app } = makeApp());
+    await app.loadSession();
+    expect(app.cueVolume).toBe(0.25);
+  });
+
+  it("persistSession writes cueVolume", async () => {
+    ({ app } = makeApp());
+    await app.loadSession();
+    app.setCueVolume(0.7);
+    vi.runAllTimers();
+    expect(api.saveSession).toHaveBeenCalled();
+    const arg = api.saveSession.mock.calls[0][0];
+    expect(arg.cueVolume).toBe(0.7);
   });
 });

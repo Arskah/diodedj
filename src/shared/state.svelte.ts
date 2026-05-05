@@ -1,5 +1,7 @@
 import type {
   ContentType,
+  DeviceInfo,
+  DeviceRef,
   LibraryStats,
   SortColumn,
   SortDir,
@@ -37,7 +39,7 @@ export class AppState {
     commercial: [],
     jingle: [],
   });
-  pathsOpen = $state(false);
+  settingsOpen = $state(false);
   scanStatus = $state<ScanStatus>({ status: "idle", lastResult: null });
 
   playlist = $state<Track[]>([]);
@@ -50,17 +52,32 @@ export class AppState {
   currentTime = $state(0);
   duration = $state(0);
 
+  // Cue deck (independent transport on a separate audio device)
+  cueTrack = $state<Track | null>(null);
+  cueIsPlaying = $state(false);
+  cueCurrentTime = $state(0);
+  cueDuration = $state(0);
+  cueVolume = $state(1);
+  cueError = $state<string | null>(null);
+
+  // Audio device config
+  audioDevices = $state<DeviceInfo[]>([]);
+  mainDevice = $state<DeviceRef | null>(null);
+  cueDevice = $state<DeviceRef | null>(null);
+
   hoveredTrack = $state<Track | null>(null);
   hoverX = $state(0);
   hoverY = $state(0);
 
   backend: PlayerBackend;
+  cueBackend: PlayerBackend;
 
   private saveTimer: ReturnType<typeof setTimeout> | null = null;
   private sessionLoaded = false;
 
-  constructor(backend?: PlayerBackend) {
-    this.backend = backend ?? new NativeBackend();
+  constructor(backend?: PlayerBackend, cueBackend?: PlayerBackend) {
+    this.backend = backend ?? new NativeBackend("player");
+    this.cueBackend = cueBackend ?? new NativeBackend("cue");
 
     this.backend.on((event) => {
       switch (event.type) {
@@ -83,6 +100,28 @@ export class AppState {
       }
     });
 
+    this.cueBackend.on((event) => {
+      switch (event.type) {
+        case "pause-state":
+          this.cueIsPlaying = !event.paused;
+          break;
+        case "time":
+          this.cueCurrentTime = event.seconds;
+          break;
+        case "duration":
+          this.cueDuration = event.seconds;
+          break;
+        case "ended":
+          this.cueIsPlaying = false;
+          this.cueCurrentTime = 0;
+          break;
+        case "error":
+          logger.error("Cue audio error:", event.message);
+          this.cueError = event.message;
+          break;
+      }
+    });
+
     api.onScanProgress(({ processed, total }) => {
       if (this.scanStatus.status === "running") {
         this.scanStatus = { status: "running", processed, total };
@@ -101,6 +140,12 @@ export class AppState {
 
   get progressPct(): number {
     return this.duration ? (this.currentTime / this.duration) * 100 : 0;
+  }
+
+  get cueProgressPct(): number {
+    return this.cueDuration
+      ? (this.cueCurrentTime / this.cueDuration) * 100
+      : 0;
   }
 
   setVolume(v: number): void {
@@ -330,6 +375,94 @@ export class AppState {
     });
   }
 
+  // ----- Cue deck transport -----
+
+  cueLoadAndPlay(track: Track): void {
+    this.cueError = null;
+    this.cueTrack = track;
+    this.cueDuration = track.duration ?? 0;
+    this.cueCurrentTime = 0;
+    void this.cueBackend
+      .load(track.id)
+      .then(() => this.cueBackend.play())
+      .catch((err) => {
+        logger.error("Cue load/play failed:", err);
+        this.cueError = err instanceof Error ? err.message : String(err);
+      });
+  }
+
+  cueTogglePlay(): void {
+    if (!this.cueTrack) return;
+    if (this.cueIsPlaying) {
+      void this.cueBackend.pause();
+    } else {
+      void this.cueBackend
+        .play()
+        .catch((err) => logger.error("Cue resume failed:", err));
+    }
+  }
+
+  cueStop(): void {
+    void this.cueBackend.stop();
+    this.cueTrack = null;
+    this.cueIsPlaying = false;
+    this.cueCurrentTime = 0;
+    this.cueDuration = 0;
+  }
+
+  cueSeekToPct(pct: number): void {
+    if (!this.cueDuration) return;
+    const clamped = Math.min(1, Math.max(0, pct));
+    const seconds = clamped * this.cueDuration;
+    this.cueCurrentTime = seconds;
+    void this.cueBackend.seek(seconds).catch((err) => {
+      logger.error("Cue seek failed:", err);
+    });
+  }
+
+  setCueVolume(v: number): void {
+    this.cueVolume = v;
+    void this.cueBackend.setVolume(v);
+    this.scheduleSave();
+  }
+
+  /**
+   * Insert the cue track at the head of the main playlist as next-up.
+   * Cue keeps playing — independent transport.
+   */
+  promoteCueToMain(): void {
+    if (!this.cueTrack) return;
+    this.playlist.unshift(this.cueTrack);
+    this.scheduleSave();
+  }
+
+  // ----- Audio device config -----
+
+  async loadAudioConfig(): Promise<void> {
+    const [devices, main, cue] = await Promise.all([
+      api.listAudioDevices(),
+      api.getMainDevice(),
+      api.getCueDevice(),
+    ]);
+    this.audioDevices = devices;
+    this.mainDevice = main;
+    this.cueDevice = cue;
+  }
+
+  async setMainDeviceConfig(device: DeviceRef | null): Promise<void> {
+    await api.setMainDevice(device);
+    this.mainDevice = device;
+  }
+
+  async setCueDeviceConfig(device: DeviceRef | null): Promise<void> {
+    await api.setCueDevice(device);
+    this.cueDevice = device;
+    if (device === null) {
+      // Cue disabled — clear local cue state.
+      this.cueStop();
+    }
+  }
+
   async loadStats(): Promise<void> {
     this.stats = await api.getStats();
   }
@@ -353,6 +486,7 @@ export class AppState {
     this.autoPlaylistActive = state.autoPlaylistActive;
     this.autoAdvance = state.autoAdvance;
     this.setVolume(state.volume);
+    this.setCueVolume(state.cueVolume);
 
     const restored =
       state.currentTrackId !== null ? byId.get(state.currentTrackId) : null;
@@ -407,6 +541,7 @@ export class AppState {
         autoPlaylistActive: this.autoPlaylistActive,
         autoAdvance: this.autoAdvance,
         volume: this.volume,
+        cueVolume: this.cueVolume,
       });
     } catch (err) {
       logger.error("Session save failed:", err);

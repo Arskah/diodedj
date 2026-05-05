@@ -20,6 +20,7 @@ export interface SessionPersistState {
   autoPlaylistActive: boolean;
   autoAdvance: boolean;
   volume: number;
+  cueVolume: number;
 }
 
 export interface SessionLoadResult {
