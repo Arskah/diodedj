@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.8.1](https://github.com/Arskah/diodedj/compare/v0.8.0...v0.8.1) (2026-05-05)
+
+
+### Bug Fixes
+
+* **deps:** update dependency @tauri-apps/plugin-dialog to v2.7.1 ([#96](https://github.com/Arskah/diodedj/issues/96)) ([0f5db32](https://github.com/Arskah/diodedj/commit/0f5db3288a0495f5f637350e5b723dfbc58b5b16))
+* increase cpal buffer size ([3ced281](https://github.com/Arskah/diodedj/commit/3ced2813c0a05cc9103532e14f59b7baab0e1dd3))
+* replace debounced save with throttled ([339e342](https://github.com/Arskah/diodedj/commit/339e342eaad08e88e8dc4f101f967bf17c551295))
+
+
+### Miscellaneous Chores
+
+* add extension recommendations ([8e60a9d](https://github.com/Arskah/diodedj/commit/8e60a9df9f667fb9b9fb1e1fe84e76fcce3b5a37))
+* **deps:** update pnpm to v10.33.3 ([#100](https://github.com/Arskah/diodedj/issues/100)) ([5675294](https://github.com/Arskah/diodedj/commit/5675294d186658eead7c8dd5e76f9a9e263795c2))
+* **deps:** update pnpm/action-setup action to v6.0.5 ([#98](https://github.com/Arskah/diodedj/issues/98)) ([214521d](https://github.com/Arskah/diodedj/commit/214521d7db92da4a903ba051d26133546f4694b3))
+* setup .tool-versions ([461f91f](https://github.com/Arskah/diodedj/commit/461f91f684c8f5bc270c0ad74742b6e55b757323))
+
 ## [0.8.0](https://github.com/Arskah/diodedj/compare/v0.7.2...v0.8.0) (2026-05-05)
 
 
