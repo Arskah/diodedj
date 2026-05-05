@@ -3,6 +3,8 @@ import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-dialog";
 import type {
   ContentType,
+  DeviceInfo,
+  DeviceRef,
   LibraryStats,
   ScanResult,
   SortColumn,
@@ -100,6 +102,21 @@ export const api = {
     callback: (data: ScanStatus) => void,
   ): Promise<UnlistenFn> {
     return listen<ScanStatus>("scan-state-changed", (e) => callback(e.payload));
+  },
+  listAudioDevices(): Promise<DeviceInfo[]> {
+    return invoke<DeviceInfo[]>("audio_list_devices");
+  },
+  getMainDevice(): Promise<DeviceRef | null> {
+    return invoke<DeviceRef | null>("get_main_device");
+  },
+  setMainDevice(device: DeviceRef | null): Promise<void> {
+    return invoke<void>("set_main_device", { device });
+  },
+  getCueDevice(): Promise<DeviceRef | null> {
+    return invoke<DeviceRef | null>("get_cue_device");
+  },
+  setCueDevice(device: DeviceRef | null): Promise<void> {
+    return invoke<void>("set_cue_device", { device });
   },
 };
 

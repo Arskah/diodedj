@@ -4,6 +4,13 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
 
+#[derive(Serialize, Deserialize, Default, Clone, Debug, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct DeviceRef {
+    pub name: String,
+    pub description: String,
+}
+
 #[derive(Serialize, Deserialize, Default, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct AppConfig {
@@ -13,6 +20,10 @@ pub struct AppConfig {
     pub commercial_paths: Vec<String>,
     #[serde(default)]
     pub jingle_paths: Vec<String>,
+    #[serde(default)]
+    pub main_device: Option<DeviceRef>,
+    #[serde(default)]
+    pub cue_device: Option<DeviceRef>,
 }
 
 pub struct Config {
@@ -93,6 +104,26 @@ impl Config {
         Ok(true)
     }
 
+    pub fn get_main_device(&self) -> Option<DeviceRef> {
+        self.inner.lock().main_device.clone()
+    }
+
+    pub fn set_main_device(&self, device: Option<DeviceRef>) -> Result<()> {
+        let mut cfg = self.inner.lock();
+        cfg.main_device = device;
+        self.save_locked(&cfg)
+    }
+
+    pub fn get_cue_device(&self) -> Option<DeviceRef> {
+        self.inner.lock().cue_device.clone()
+    }
+
+    pub fn set_cue_device(&self, device: Option<DeviceRef>) -> Result<()> {
+        let mut cfg = self.inner.lock();
+        cfg.cue_device = device;
+        self.save_locked(&cfg)
+    }
+
     pub fn remove_path(&self, kind: &str, dir_path: &str) -> Result<bool> {
         let resolved = canonicalize_lossy(dir_path);
         let mut cfg = self.inner.lock();
@@ -166,5 +197,35 @@ mod tests {
         let cfg = Config::open(dir.path()).unwrap();
         assert!(!cfg.add_path("bogus", "/x").unwrap());
         assert!(cfg.get_paths("bogus").is_empty());
+    }
+
+    #[test]
+    fn missing_device_fields_default_to_none() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("config.json");
+        fs::write(&path, r#"{"musicPaths": ["/a"]}"#).unwrap();
+        let cfg = Config::open(dir.path()).unwrap();
+        assert!(cfg.get_main_device().is_none());
+        assert!(cfg.get_cue_device().is_none());
+    }
+
+    #[test]
+    fn device_set_get_round_trips_to_disk() {
+        let dir = tempdir().unwrap();
+        let cfg = Config::open(dir.path()).unwrap();
+        let device = DeviceRef {
+            name: "hw:USB,0".to_string(),
+            description: "Headphones".to_string(),
+        };
+        cfg.set_main_device(Some(device.clone())).unwrap();
+        cfg.set_cue_device(Some(device.clone())).unwrap();
+
+        drop(cfg);
+        let cfg2 = Config::open(dir.path()).unwrap();
+        assert_eq!(cfg2.get_main_device(), Some(device.clone()));
+        assert_eq!(cfg2.get_cue_device(), Some(device));
+
+        cfg2.set_main_device(None).unwrap();
+        assert!(cfg2.get_main_device().is_none());
     }
 }
