@@ -5,7 +5,12 @@ use crate::library::db::{Db, Track};
 
 const JINGLE_EVERY: i64 = 4;
 const COMMERCIAL_EVERY: i64 = 8;
-const COMMERCIAL_BUCKET_SIZE: i64 = 5;
+const COMMERCIAL_BUCKET_MULTIPLIER: i64 = 3;
+const COMMERCIAL_BUCKET_MIN: i64 = 10;
+
+fn commercial_bucket_size(count: i64) -> i64 {
+    (count * COMMERCIAL_BUCKET_MULTIPLIER).max(COMMERCIAL_BUCKET_MIN)
+}
 
 pub fn generate(db: &Db, count: i64) -> Result<Vec<Track>> {
     if count <= 0 {
@@ -17,7 +22,11 @@ pub fn generate(db: &Db, count: i64) -> Result<Vec<Track>> {
 
     let music = db.get_random_tracks("music", music_count)?;
     let jingles = db.get_random_tracks("jingle", jingle_count)?;
-    let commercials = db.get_random_tracks("commercial", commercial_count)?;
+    let commercials = db.pick_random_from_bottom(
+        "commercial",
+        commercial_count,
+        commercial_bucket_size(commercial_count),
+    )?;
 
     Ok(interleave_evenly(music, jingles, commercials))
 }
@@ -25,7 +34,9 @@ pub fn generate(db: &Db, count: i64) -> Result<Vec<Track>> {
 pub fn pick_filler(db: &Db, content_type: &str) -> Result<Option<Track>> {
     match content_type {
         "jingle" => Ok(db.get_random_tracks("jingle", 1)?.pop()),
-        "commercial" => db.pick_random_from_bottom("commercial", COMMERCIAL_BUCKET_SIZE),
+        "commercial" => Ok(db
+            .pick_random_from_bottom("commercial", 1, commercial_bucket_size(1))?
+            .pop()),
         _ => Ok(None),
     }
 }
