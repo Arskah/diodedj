@@ -10,6 +10,7 @@ import type {
 import { api, type ScanStatus, type SessionLoadResult } from "./api";
 import type { PlayerBackend } from "../features/player/backend";
 import { NativeBackend } from "../features/player/nativeBackend";
+import { throttle, type Throttled } from "./throttle";
 
 const logger = {
   error: (...args: unknown[]) => console.error(...args),
@@ -22,7 +23,7 @@ const AUTO_PLAYLIST_BUFFER = 20;
 // Threshold at which the auto playlist will be refilled. Should be lower than AUTO_PLAYLIST_BUFFER to avoid excessive refilling.
 const AUTO_PLAYLIST_THRESHOLD = 5;
 const HISTORY_CAP = 100;
-const SESSION_SAVE_DEBOUNCE_MS = 750;
+const SESSION_SAVE_THROTTLE_MS = 500;
 
 export type PlaylistTab = "queue" | "history";
 
@@ -72,12 +73,16 @@ export class AppState {
   backend: PlayerBackend;
   cueBackend: PlayerBackend;
 
-  private saveTimer: ReturnType<typeof setTimeout> | null = null;
+  private throttledSave: Throttled;
   private sessionLoaded = false;
 
   constructor(backend?: PlayerBackend, cueBackend?: PlayerBackend) {
     this.backend = backend ?? new NativeBackend("player");
     this.cueBackend = cueBackend ?? new NativeBackend("cue");
+    this.throttledSave = throttle(
+      () => void this.persistSession(),
+      SESSION_SAVE_THROTTLE_MS,
+    );
 
     this.backend.on((event) => {
       switch (event.type) {
@@ -516,24 +521,17 @@ export class AppState {
 
   private scheduleSave(): void {
     if (!this.sessionLoaded) return;
-    if (this.saveTimer) clearTimeout(this.saveTimer);
-    this.saveTimer = setTimeout(() => {
-      this.saveTimer = null;
-      void this.persistSession();
-    }, SESSION_SAVE_DEBOUNCE_MS);
+    this.throttledSave();
   }
 
   async flushSave(): Promise<void> {
-    if (this.saveTimer) {
-      clearTimeout(this.saveTimer);
-      this.saveTimer = null;
-    }
+    this.throttledSave.cancel();
     await this.persistSession();
   }
 
   private async persistSession(): Promise<void> {
-    try {
-      await api.saveSession({
+    await api
+      .saveSession({
         playlistIds: this.playlist.map((t) => t.id),
         historyIds: this.history.map((t) => t.id),
         currentTrackId: this.currentTrack?.id ?? null,
@@ -542,10 +540,10 @@ export class AppState {
         autoAdvance: this.autoAdvance,
         volume: this.volume,
         cueVolume: this.cueVolume,
+      })
+      .catch((err) => {
+        logger.error("Session save failed:", err);
       });
-    } catch (err) {
-      logger.error("Session save failed:", err);
-    }
   }
 
   async loadPaths(): Promise<void> {
@@ -588,7 +586,7 @@ export class AppState {
 export const app = new AppState();
 
 export function formatTime(seconds: number): string {
-  if (!seconds || !isFinite(seconds)) return "0:00";
+  if (!isFinite(seconds)) return "0:00";
   const m = Math.floor(seconds / 60);
   const s = Math.floor(seconds % 60);
   return `${m}:${s.toString().padStart(2, "0")}`;
