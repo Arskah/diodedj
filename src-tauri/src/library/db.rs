@@ -341,7 +341,7 @@ impl Db {
         let mut stmt = conn.prepare(
             "WITH bucket AS ( \
                 SELECT * FROM tracks WHERE content_type = ? \
-                ORDER BY play_count ASC LIMIT ? \
+                ORDER BY play_count ASC, RANDOM() LIMIT ? \
             ) SELECT * FROM bucket ORDER BY RANDOM() LIMIT ?",
         )?;
         let rows = stmt.query_map(
