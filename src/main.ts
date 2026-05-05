@@ -10,6 +10,7 @@ void app.search();
 void app.loadStats();
 void app.loadSession();
 void app.hydrateScanStatus();
+void app.loadAudioConfig();
 
 const win = getCurrentWindow();
 let closing = false;

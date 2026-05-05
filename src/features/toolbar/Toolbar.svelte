@@ -1,9 +1,9 @@
 <script lang="ts">
   import { app } from "../../shared/state.svelte";
 
-  async function openPaths(): Promise<void> {
+  async function openSettings(): Promise<void> {
     await app.loadPaths();
-    app.pathsOpen = true;
+    app.settingsOpen = true;
   }
 </script>
 
@@ -16,13 +16,11 @@
           .stats.totalHours}h
       {/if}
     </span>
-    <button id="btn-paths" title="Manage library paths" onclick={openPaths}
-      >Paths</button
-    >
     <button
-      id="btn-scan"
-      title="Rescan all library paths"
-      onclick={() => app.scan()}>Scan</button
+      id="btn-settings"
+      title="Settings — library paths, audio devices, scan"
+      aria-label="Settings"
+      onclick={openSettings}>&#9881;</button
     >
     <button
       id="btn-generate"

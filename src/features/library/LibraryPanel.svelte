@@ -37,6 +37,11 @@
     app.addToPlaylist(track);
   }
 
+  function cue(track: Track, e: MouseEvent): void {
+    e.stopPropagation();
+    app.cueLoadAndPlay(track);
+  }
+
   function onEnter(track: Track, e: MouseEvent): void {
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     app.setHover(track, rect);
@@ -107,6 +112,14 @@
             title="Add to playlist"
             onclick={(e) => add(track, e)}>+</button
           >
+          {#if app.cueDevice !== null}
+            <button
+              class="btn-cue"
+              title="Preview on cue deck"
+              aria-label="Cue track"
+              onclick={(e) => cue(track, e)}>&#127911;</button
+            >
+          {/if}
         </div>
       {/each}
     {/if}
