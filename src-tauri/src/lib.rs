@@ -8,10 +8,11 @@ mod library;
 mod persist;
 mod playlist;
 
+use audio::devices::{list_output_devices, DeviceInfo};
 use audio::player::{Cmd, PlayerHandle};
 use library::db::{Db, LibraryStats, Track};
 use library::scan_state::{ScanState, ScanStatus, StartResult};
-use persist::config::Config;
+use persist::config::{Config, DeviceRef};
 use persist::session::{Session, SessionState};
 
 pub struct AppState {
@@ -173,6 +174,31 @@ fn player_set_volume(app_state: State<'_, AppState>, volume: f32) {
 }
 
 #[tauri::command(rename_all = "camelCase")]
+fn audio_list_devices() -> Vec<DeviceInfo> {
+    list_output_devices()
+}
+
+#[tauri::command(rename_all = "camelCase")]
+fn get_main_device(state: State<'_, AppState>) -> Option<DeviceRef> {
+    state.config.get_main_device()
+}
+
+#[tauri::command(rename_all = "camelCase")]
+fn set_main_device(state: State<'_, AppState>, device: Option<DeviceRef>) -> Result<(), String> {
+    state.config.set_main_device(device).map_err(err)
+}
+
+#[tauri::command(rename_all = "camelCase")]
+fn get_cue_device(state: State<'_, AppState>) -> Option<DeviceRef> {
+    state.config.get_cue_device()
+}
+
+#[tauri::command(rename_all = "camelCase")]
+fn set_cue_device(state: State<'_, AppState>, device: Option<DeviceRef>) -> Result<(), String> {
+    state.config.set_cue_device(device).map_err(err)
+}
+
+#[tauri::command(rename_all = "camelCase")]
 fn scan_library(app: AppHandle, state: State<'_, AppState>) -> StartResult {
     Arc::clone(&state.scan).start(app, Arc::clone(&state.db), Arc::clone(&state.config))
 }
@@ -224,6 +250,11 @@ pub fn run() {
             scan_library,
             cancel_scan,
             get_scan_status,
+            audio_list_devices,
+            get_main_device,
+            set_main_device,
+            get_cue_device,
+            set_cue_device,
             player_load,
             player_play,
             player_pause,

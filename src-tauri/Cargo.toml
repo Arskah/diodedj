@@ -26,6 +26,7 @@ lofty = "=0.24.0"
 tokio = { version = "=1.52.2", features = ["rt", "sync", "time"] }
 log = "=0.4.29"
 rodio = { version = "=0.21.1", features = ["symphonia-aac", "symphonia-isomp4"] }
+cpal = "=0.16.0"
 
 [dev-dependencies]
 tempfile = "=3.27.0"

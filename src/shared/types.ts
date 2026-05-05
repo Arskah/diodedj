@@ -35,3 +35,14 @@ export interface ScanResult {
   total: number;
   added: number;
 }
+
+export interface DeviceRef {
+  name: string;
+  description: string;
+}
+
+export interface DeviceInfo {
+  name: string;
+  description: string;
+  isDefault: boolean;
+}

@@ -625,6 +625,7 @@ name = "diodedj"
 version = "0.7.2"
 dependencies = [
  "anyhow",
+ "cpal",
  "lofty",
  "log",
  "parking_lot",
