@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.2](https://github.com/Arskah/diodedj/compare/v0.7.1...v0.7.2) (2026-05-05)
+
+
+### Bug Fixes
+
+* **ci:** strip CR from jq output in Windows Stage bundles step ([3f4c284](https://github.com/Arskah/diodedj/commit/3f4c284f0bd9b11d0fe76cc3deec4c0e82eccedd))
+
 ## [0.7.1](https://github.com/Arskah/diodedj/compare/v0.7.0...v0.7.1) (2026-05-05)
 
 
