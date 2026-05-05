@@ -38,7 +38,7 @@ rodio = { version = "0.21", features = ["symphonia-mp3", "symphonia-flac",
                                          "symphonia-aac", "symphonia-isomp4"] }
 ```
 
-No `--audio-exclusive` analogue today; exclusive output mode is a cpal-level concern tracked under #81.
+No `--audio-exclusive` analogue today; exclusive output mode is a cpal-level concern tracked under #81 — see [Exclusive output — investigation](#exclusive-output--investigation) below.
 
 `DIODEDJ_LOG=debug` (via `tauri-plugin-log`, #79) will gate verbose backend logging once that plugin lands. For now `RUST_LOG=debug` works at dev time.
 
@@ -126,7 +126,7 @@ Cue child hidden when `cueDeviceId === null`. Main expands full width when cue h
 
 ### Settings overlay (S2)
 
-- Rename `PathsOverlay.svelte` → `SettingsOverlay.svelte`. Sections: Library (existing paths UI), Audio (device pickers + exclusive toggle), Scan (rescan button moves here from toolbar).
+- Rename `PathsOverlay.svelte` → `SettingsOverlay.svelte`. Sections: Library (existing paths UI), Audio (device pickers — exclusive toggle deferred, see [Exclusive output — investigation](#exclusive-output--investigation)), Scan (rescan button moves here from toolbar).
 - Toolbar: replace `Paths` and `Scan` buttons with a single gear icon button that opens `SettingsOverlay`. `Auto Playlist` button stays in toolbar.
 
 ### Library row (C2 + C3)
@@ -200,4 +200,59 @@ Net delta: ~80MB saved across platform installs **plus** Electron itself (~150MB
 
 - **PR-1 — backend abstraction.** ✅ Shipped pre-Tauri: `PlayerBackend` interface + `HtmlAudioBackend`, `state.svelte.ts` refactored to talk to a backend instance. Pure refactor.
 - **PR-2 — chromium bypass (closes #43).** ✅ Shipped as **PR #76 (Tauri port)**. Implementation diverged from the original plan: instead of `MpvBackend` on Electron, the renderer calls `NativeBackend` over Tauri invokes that drive `src-tauri/src/player.rs` (rodio + symphonia). `HtmlAudioBackend`, `transcode.ts`, `media://`, `audio-formats.ts`, and `ffmpeg-static` were all dropped in the same PR.
-- **PR-3 — cue deck.** ⏳ Tracked as [#81](https://github.com/Arskah/diodedj/issues/81). Reframed against rodio + cpal: second `PlayerHandle` instance, cpal-based device enumeration via `audio_list_devices` Tauri command, settings overlay refactor (`PathsOverlay` → `SettingsOverlay`), cue panel (W2), promote-to-main, hotkeys (K3), library headphones button, error UX (E5), cue device config. Companion audio-polish work (ReplayGain + LAME-tag gapless trim) on [#80](https://github.com/Arskah/diodedj/issues/80).
+- **PR-3 — cue deck.** ⏳ Tracked as [#81](https://github.com/Arskah/diodedj/issues/81). Stacked PR series:
+  - Step 1 (#89, `feat/audio-devices`): cpal device enumeration, `DeviceRef` config plumbing, 5 Tauri commands (`audio_list_devices`, `get/set_main_device`, `get/set_cue_device`).
+  - Step 2 (#90, `feat/cue-deck-backend`): second `PlayerHandle` parameterised on event prefix + cpal device, lazy spawn on first `cue_*` command, 6 cue Tauri commands + `cue:*` events, `NativeBackend` parameterised on `DeckId`.
+  - Step 3 (#91, `feat/cue-deck-ui`): renderer cue state + transport, `PathsOverlay` → `SettingsOverlay` (Library + Audio tabs), `CueDeck.svelte`, library 🎧 button, `#deck-row` flexbox layout, `SessionState.cue_volume` persisted.
+  - Step 4 (this PR): exclusive output — see [Exclusive output — investigation](#exclusive-output--investigation). Hotkeys (K3) deferred — not strictly required by #81 and easy to add post-merge. Companion audio-polish work (ReplayGain + LAME-tag gapless trim) tracked on [#80](https://github.com/Arskah/diodedj/issues/80).
+
+## Exclusive output — investigation
+
+**Status (2026-05-05):** **Deferred.** No code change in step 4. cpal 0.16 (current direct dep, transitive via rodio 0.21) does not expose any exclusive-mode toggle on any platform. Adding a UI toggle today would mislead operators into thinking they have exclusivity when the audio path is still going through the OS shared mixer.
+
+### What "exclusive" means per platform
+
+| Platform | API       | Mechanism                                                                                                                                                                                  |
+| -------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Windows  | WASAPI    | `IAudioClient::Initialize` with `AUDCLNT_SHAREMODE_EXCLUSIVE`. Mixer bypassed; other apps lose audio while engaged. Sample format must match what the device's hardware supports — no SRC. |
+| macOS    | CoreAudio | `kAudioDevicePropertyHogMode` set to caller PID via `AudioObjectSetPropertyData`. Other apps lose audio while engaged.                                                                     |
+| Linux    | ALSA      | Open device by raw name (`hw:N,M` rather than `default` or `pulse`/`pipewire`) — bypasses dmix. Other apps fail to acquire the device until released.                                      |
+
+### What cpal 0.16 actually does
+
+- WASAPI: `host/wasapi/device.rs` hardcodes `AUDCLNT_SHAREMODE_SHARED` at lines 166, 568, 677. No code path can request `_EXCLUSIVE`.
+- CoreAudio: `host/coreaudio/macos/*` — no reference to `kAudioDevicePropertyHogMode` anywhere in the crate.
+- ALSA: `host/alsa/*` — opens whatever device name `host.output_devices()` enumerates. The user could already pick `hw:N,M` from the Settings → Audio dropdown if cpal lists it; that's the closest to exclusive we get without forking.
+
+### Paths forward (not implemented in step 4)
+
+Three options to actually engage exclusive mode, ranked by effort:
+
+1. **Wait for upstream cpal.** RustAudio/cpal#598 + #743 (and predecessors) track exclusive-mode work. Newer 0.17+ may land share-mode toggling. Cheapest if upstream gets there first.
+2. **Bypass cpal at the OS layer per-deck.** Skip rodio's `OutputStreamBuilder` for an exclusive deck and write a thin platform-specific adapter that feeds rodio's `Source` chain into:
+   - Windows: `windows-rs` `IAudioClient::Initialize(AUDCLNT_SHAREMODE_EXCLUSIVE)` (already pulled by tauri).
+   - macOS: `objc2-core-audio` HOG mode + a CoreAudio output AudioUnit (or AVAudioEngine, but simpler at the HAL level).
+   - Linux: `alsa-rs` direct `hw:N,M` open with `SND_PCM_NONBLOCK`. Already-decoded samples push via `pcm.writei()`.
+
+   ~300 LOC per platform plus a buffer-format-negotiation helper. Decoupled from cpal so future upgrades stay easy.
+
+3. **Vendor cpal.** Apply a local patch to expose a `share_mode` enum on `OutputStreamBuilder`; submit upstream. Faster than (2) for Windows but doesn't get macOS HOG (cpal doesn't model it at all).
+
+Recommendation when prioritised: option (1) — defer until upstream offers a stable surface. The cue deck is useful without exclusive mode; broadcasters who need bit-exact output can pick a dedicated USB interface and accept shared-mode mixing in v1.
+
+### Tradeoffs operators should know (regardless of implementation path)
+
+- **Exclusive engaged**: other apps' audio (Slack, browser, system sounds) cannot use the device. macOS Slack-call notifications, Windows Discord pings, Linux desktop alerts all silently drop while DiodeDJ holds the device.
+- **Exclusive on cue device only**: main keeps system audio routing intact. Cue going to a USB interface that nothing else uses is the sweet spot.
+- **Format mismatch**: exclusive mode requires the device's raw mix format (often 44.1 kHz / 24-bit on a USB interface, 48 kHz / 32-bit float on most onboard DACs). DiodeDJ's symphonia decoder produces f32; rodio's mixer resamples. Going exclusive removes the OS resampler — if symphonia output sample rate ≠ device rate, we'd need to add an SRC step. Not free.
+- **Hot-unplug**: in shared mode cpal can recover via the OS reroute; in exclusive mode the stream must be explicitly torn down + reopened against a new device.
+
+### What ships in step 4
+
+This PR is documentation only:
+
+- This investigation section.
+- Updated cross-references in §Backend (rodio config) and §Settings overlay.
+- Issue #81 status comment summarising the above.
+
+No backend changes, no UI changes, no config schema changes. The cue deck merged in steps 1–3 is shippable. The "exclusive output" toggle stays deferred until a cleaner cpal-level surface exists or one of the bypass paths is funded.
