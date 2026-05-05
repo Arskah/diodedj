@@ -17,7 +17,7 @@ pub fn generate(db: &Db, count: i64) -> Result<Vec<Track>> {
 
     let music = db.get_random_tracks("music", music_count)?;
     let jingles = db.get_random_tracks("jingle", jingle_count)?;
-    let commercials = db.get_random_tracks("commercial", commercial_count)?;
+    let commercials = db.pick_random_from_bottom("commercial", commercial_count, COMMERCIAL_BUCKET_SIZE)?;
 
     Ok(interleave_evenly(music, jingles, commercials))
 }
@@ -25,7 +25,7 @@ pub fn generate(db: &Db, count: i64) -> Result<Vec<Track>> {
 pub fn pick_filler(db: &Db, content_type: &str) -> Result<Option<Track>> {
     match content_type {
         "jingle" => Ok(db.get_random_tracks("jingle", 1)?.pop()),
-        "commercial" => db.pick_random_from_bottom("commercial", COMMERCIAL_BUCKET_SIZE),
+        "commercial" => Ok(db.pick_random_from_bottom("commercial", 1, COMMERCIAL_BUCKET_SIZE)?.pop()),
         _ => Ok(None),
     }
 }
