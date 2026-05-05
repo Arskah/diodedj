@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.7.1](https://github.com/Arskah/diodedj/compare/v0.7.0...v0.7.1) (2026-05-05)
+
+
+### Bug Fixes
+
+* **build:** add icon.ico + icon.icns for Windows/macOS bundles ([#85](https://github.com/Arskah/diodedj/issues/85)) ([3c71b36](https://github.com/Arskah/diodedj/commit/3c71b3633474109fa80df13362d50d9e58fcdc62))
+* **build:** generate icon.ico + icon.icns for Windows/macOS bundles ([3c71b36](https://github.com/Arskah/diodedj/commit/3c71b3633474109fa80df13362d50d9e58fcdc62))
+
+
+### Miscellaneous Chores
+
+* fix release versioning ([7d0b345](https://github.com/Arskah/diodedj/commit/7d0b34546ab60f1731e14b57c6f5bc003985c94a))
+
 ## [0.7.0](https://github.com/Arskah/diodedj/compare/v0.6.0...v0.7.0) (2026-05-04)
 
 
