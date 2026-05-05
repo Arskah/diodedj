@@ -478,6 +478,16 @@ mod tests {
         .unwrap();
     }
 
+    fn insert_with_play_count(db: &Db, path: &str, content_type: &str, play_count: i64) {
+        let conn = db.conn.lock();
+        conn.execute(
+            "INSERT INTO tracks (path, content_type, title, artist, album, duration, play_count) \
+             VALUES (?, ?, 't', 'a', 'al', 100.0, ?)",
+            params![path, content_type, play_count],
+        )
+        .unwrap();
+    }
+
     #[test]
     fn migrate_sets_user_version() {
         let db = Db::open_in_memory().unwrap();
@@ -557,6 +567,49 @@ mod tests {
         assert_eq!(r.len(), 2);
         assert_eq!(r[0].id, 2);
         assert_eq!(r[1].id, 1);
+    }
+
+    #[test]
+    fn pick_random_from_bottom_only_returns_low_play_count_rows() {
+        let db = Db::open_in_memory().unwrap();
+        // 3 hot, 5 cold commercials. Bucket = 5 → only cold should ever be picked.
+        for i in 0..3 {
+            insert_with_play_count(&db, &format!("/hot{i}.mp3"), "commercial", 100);
+        }
+        for i in 0..5 {
+            insert_with_play_count(&db, &format!("/cold{i}.mp3"), "commercial", 0);
+        }
+        for _ in 0..50 {
+            let picked = db.pick_random_from_bottom("commercial", 2, 5).unwrap();
+            assert_eq!(picked.len(), 2);
+            for t in picked {
+                assert_eq!(t.play_count, 0, "hot track leaked into bottom-N pick");
+            }
+        }
+    }
+
+    #[test]
+    fn pick_random_from_bottom_breaks_ties_randomly() {
+        // All 8 rows tied at play_count = 0. Bucket = 4. Over many picks we
+        // should observe more than just the first 4 rows by ROWID — i.e. tie
+        // ordering is not deterministic.
+        let db = Db::open_in_memory().unwrap();
+        for i in 0..8 {
+            insert_with_play_count(&db, &format!("/c{i}.mp3"), "commercial", 0);
+        }
+        let mut seen = std::collections::HashSet::new();
+        for _ in 0..200 {
+            let picked = db.pick_random_from_bottom("commercial", 1, 4).unwrap();
+            seen.insert(picked[0].id);
+            if seen.len() > 4 {
+                break;
+            }
+        }
+        assert!(
+            seen.len() > 4,
+            "tie ordering deterministic: only saw ids {:?}",
+            seen
+        );
     }
 
     #[test]
