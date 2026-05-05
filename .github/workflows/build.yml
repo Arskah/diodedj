@@ -64,7 +64,7 @@ jobs:
           ARTIFACT_PATHS: ${{ steps.tauri.outputs.artifactPaths }}
         run: |
           mkdir -p staging
-          echo "$ARTIFACT_PATHS" | jq -r '.[]' | while read -r p; do
+          echo "$ARTIFACT_PATHS" | jq -r '.[]' | tr -d '\r' | while read -r p; do
             cp -r "$p" staging/
           done
 
