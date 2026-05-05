@@ -73,14 +73,18 @@ struct State {
     volume: f32,
 }
 
+const AUDIO_BUFFER_FRAMES: u32 = 4096;
+const DECODE_BUFREADER_CAPACITY: usize = 64 * 1024;
+
 fn open_stream(device: Option<cpal::Device>) -> Result<OutputStream> {
-    match device {
-        Some(d) => OutputStreamBuilder::from_device(d)
-            .context("from_device")?
-            .open_stream()
-            .context("open_stream"),
-        None => OutputStreamBuilder::open_default_stream().context("open default audio stream"),
-    }
+    let builder = match device {
+        Some(d) => OutputStreamBuilder::from_device(d).context("from_device")?,
+        None => OutputStreamBuilder::from_default_device().context("from_default_device")?,
+    };
+    builder
+        .with_buffer_size(cpal::BufferSize::Fixed(AUDIO_BUFFER_FRAMES))
+        .open_stream()
+        .context("open_stream")
 }
 
 fn run(
@@ -240,7 +244,8 @@ fn apply(
 
 fn decode(path: &PathBuf) -> Result<(Decoder<BufReader<File>>, Option<f64>)> {
     let file = File::open(path).with_context(|| format!("open {}", path.display()))?;
-    let decoder = Decoder::new(BufReader::new(file)).context("decoder")?;
+    let decoder = Decoder::new(BufReader::with_capacity(DECODE_BUFREADER_CAPACITY, file))
+        .context("decoder")?;
     let total = decoder.total_duration().map(|d| d.as_secs_f64());
     Ok((decoder, total))
 }
