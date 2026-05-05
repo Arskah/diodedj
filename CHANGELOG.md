@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.8.0](https://github.com/Arskah/diodedj/compare/v0.7.2...v0.8.0) (2026-05-05)
+
+
+### Features
+
+* **audio:** add device enumeration + per-deck device config ([a305ba4](https://github.com/Arskah/diodedj/commit/a305ba44d03d0de21d024bbf31256f148fe2885e))
+* **audio:** cue deck backend ([#90](https://github.com/Arskah/diodedj/issues/90)) ([97dda0d](https://github.com/Arskah/diodedj/commit/97dda0def8461394cc85dd01a37a74d95eed5337))
+* **audio:** cue deck backend (commands, events, lazy spawn) ([97dda0d](https://github.com/Arskah/diodedj/commit/97dda0def8461394cc85dd01a37a74d95eed5337))
+* **audio:** cue deck UI + audio device settings ([#91](https://github.com/Arskah/diodedj/issues/91)) ([cd02131](https://github.com/Arskah/diodedj/commit/cd02131f8bf5655079d46fabc5a5149dd17cbb96))
+* **audio:** device enumeration + per-deck device config ([#89](https://github.com/Arskah/diodedj/issues/89)) ([a305ba4](https://github.com/Arskah/diodedj/commit/a305ba44d03d0de21d024bbf31256f148fe2885e))
+
+
+### Miscellaneous Chores
+
+* **deps:** lock file maintenance ([#61](https://github.com/Arskah/diodedj/issues/61)) ([353fd54](https://github.com/Arskah/diodedj/commit/353fd54ac12181e3027f69b53409c59f9c2332fb))
+* **deps:** update commitlint monorepo to v20.5.3 ([#59](https://github.com/Arskah/diodedj/issues/59)) ([61604c2](https://github.com/Arskah/diodedj/commit/61604c22fa12c12139626e5a2618faad46f99edc))
+* **deps:** update pnpm/action-setup action to v6.0.4 ([#60](https://github.com/Arskah/diodedj/issues/60)) ([5c5daf1](https://github.com/Arskah/diodedj/commit/5c5daf159f8921b498bfc51d52b20f9b0735bb0d))
+
+
+### Documentation
+
+* **audio:** document exclusive output investigation, defer step 4 ([e2169df](https://github.com/Arskah/diodedj/commit/e2169dfb56580d1c24bbfe88e9ee4410475b992d))
+* **audio:** exclusive output investigation ([#94](https://github.com/Arskah/diodedj/issues/94)) ([e2169df](https://github.com/Arskah/diodedj/commit/e2169dfb56580d1c24bbfe88e9ee4410475b992d))
+
 ## [0.7.2](https://github.com/Arskah/diodedj/compare/v0.7.1...v0.7.2) (2026-05-05)
 
 
