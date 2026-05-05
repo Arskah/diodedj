@@ -23,17 +23,38 @@ pub enum Cmd {
     SetVolume(f32),
 }
 
+struct Topics {
+    time: String,
+    duration: String,
+    pause_state: String,
+    ended: String,
+    error: String,
+}
+
+impl Topics {
+    fn new(prefix: &str) -> Self {
+        Self {
+            time: format!("{prefix}:time"),
+            duration: format!("{prefix}:duration"),
+            pause_state: format!("{prefix}:pause-state"),
+            ended: format!("{prefix}:ended"),
+            error: format!("{prefix}:error"),
+        }
+    }
+}
+
 pub struct PlayerHandle {
     tx: Sender<Cmd>,
 }
 
 impl PlayerHandle {
-    pub fn spawn(app: AppHandle) -> Self {
+    pub fn spawn(app: AppHandle, device: Option<cpal::Device>, event_prefix: &'static str) -> Self {
         let (tx, rx) = channel();
+        let topics = Topics::new(event_prefix);
         thread::spawn(move || {
-            if let Err(e) = run(app.clone(), rx) {
-                log::error!("player thread exited: {}", e);
-                let _ = app.emit("player:error", e.to_string());
+            if let Err(e) = run(app.clone(), rx, device, &topics) {
+                log::error!("[{}] player thread exited: {}", event_prefix, e);
+                let _ = app.emit(&topics.error, e.to_string());
             }
         });
         Self { tx }
@@ -52,9 +73,23 @@ struct State {
     volume: f32,
 }
 
-fn run(app: AppHandle, rx: std::sync::mpsc::Receiver<Cmd>) -> Result<()> {
-    let stream: OutputStream =
-        OutputStreamBuilder::open_default_stream().context("open default audio stream")?;
+fn open_stream(device: Option<cpal::Device>) -> Result<OutputStream> {
+    match device {
+        Some(d) => OutputStreamBuilder::from_device(d)
+            .context("from_device")?
+            .open_stream()
+            .context("open_stream"),
+        None => OutputStreamBuilder::open_default_stream().context("open default audio stream"),
+    }
+}
+
+fn run(
+    app: AppHandle,
+    rx: std::sync::mpsc::Receiver<Cmd>,
+    device: Option<cpal::Device>,
+    topics: &Topics,
+) -> Result<()> {
+    let stream = open_stream(device)?;
     let mut sink = Sink::connect_new(stream.mixer());
     let mut last_time_emit = Instant::now()
         .checked_sub(TIME_EMIT_INTERVAL)
@@ -70,7 +105,7 @@ fn run(app: AppHandle, rx: std::sync::mpsc::Receiver<Cmd>) -> Result<()> {
     loop {
         loop {
             match rx.try_recv() {
-                Ok(cmd) => apply(&app, &stream, &mut sink, &mut state, cmd),
+                Ok(cmd) => apply(&app, &stream, &mut sink, &mut state, topics, cmd),
                 Err(std::sync::mpsc::TryRecvError::Empty) => break,
                 Err(std::sync::mpsc::TryRecvError::Disconnected) => return Ok(()),
             }
@@ -79,20 +114,27 @@ fn run(app: AppHandle, rx: std::sync::mpsc::Receiver<Cmd>) -> Result<()> {
         if state.active && last_time_emit.elapsed() >= TIME_EMIT_INTERVAL {
             last_time_emit = Instant::now();
             let pos = state.seek_offset + sink.get_pos().as_secs_f64();
-            let _ = app.emit("player:time", pos);
+            let _ = app.emit(&topics.time, pos);
         }
 
         if state.active && sink.empty() {
             state.active = false;
-            let _ = app.emit("player:pause-state", true);
-            let _ = app.emit("player:ended", ());
+            let _ = app.emit(&topics.pause_state, true);
+            let _ = app.emit(&topics.ended, ());
         }
 
         thread::sleep(TICK_INTERVAL);
     }
 }
 
-fn apply(app: &AppHandle, stream: &OutputStream, sink: &mut Sink, state: &mut State, cmd: Cmd) {
+fn apply(
+    app: &AppHandle,
+    stream: &OutputStream,
+    sink: &mut Sink,
+    state: &mut State,
+    topics: &Topics,
+    cmd: Cmd,
+) {
     match cmd {
         Cmd::Load { path, duration } => {
             sink.stop();
@@ -108,28 +150,28 @@ fn apply(app: &AppHandle, stream: &OutputStream, sink: &mut Sink, state: &mut St
                     state.current_duration = final_duration;
                     state.seek_offset = 0.0;
                     if let Some(d) = final_duration {
-                        let _ = app.emit("player:duration", d);
+                        let _ = app.emit(&topics.duration, d);
                     }
-                    let _ = app.emit("player:pause-state", false);
+                    let _ = app.emit(&topics.pause_state, false);
                 }
                 Err(e) => {
                     log::error!("player: decode {} failed: {}", path.display(), e);
-                    let _ = app.emit("player:error", format!("decode failed: {}", e));
+                    let _ = app.emit(&topics.error, format!("decode failed: {}", e));
                     state.active = false;
                     state.current_path = None;
                     state.current_duration = None;
                     state.seek_offset = 0.0;
-                    let _ = app.emit("player:pause-state", true);
+                    let _ = app.emit(&topics.pause_state, true);
                 }
             }
         }
         Cmd::Play => {
             sink.play();
-            let _ = app.emit("player:pause-state", false);
+            let _ = app.emit(&topics.pause_state, false);
         }
         Cmd::Pause => {
             sink.pause();
-            let _ = app.emit("player:pause-state", true);
+            let _ = app.emit(&topics.pause_state, true);
         }
         Cmd::Stop => {
             sink.stop();
@@ -139,7 +181,7 @@ fn apply(app: &AppHandle, stream: &OutputStream, sink: &mut Sink, state: &mut St
             state.current_path = None;
             state.current_duration = None;
             state.seek_offset = 0.0;
-            let _ = app.emit("player:pause-state", true);
+            let _ = app.emit(&topics.pause_state, true);
         }
         Cmd::Seek(s) => {
             let target = s.max(0.0);
@@ -183,7 +225,7 @@ fn apply(app: &AppHandle, stream: &OutputStream, sink: &mut Sink, state: &mut St
                 }
                 Err(e) => {
                     log::error!("player: reload-on-seek failed: {}", e);
-                    let _ = app.emit("player:error", format!("seek failed: {}", e));
+                    let _ = app.emit(&topics.error, format!("seek failed: {}", e));
                     state.active = false;
                 }
             }
