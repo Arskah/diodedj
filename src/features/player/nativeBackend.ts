@@ -2,28 +2,36 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import type { PlayerBackend, PlayerEvent, PlayerEventHandler } from "./backend";
 
+/**
+ * Identifier shared by Tauri command names and event topics for a given deck.
+ * Main deck uses `player` (`player_load`, `player:time`, ...), cue deck uses
+ * `cue` (`cue_load`, `cue:time`, ...).
+ */
+export type DeckId = "player" | "cue";
+
 export class NativeBackend implements PlayerBackend {
   private handlers = new Set<PlayerEventHandler>();
   private unlisteners: UnlistenFn[] = [];
   private ready: Promise<void>;
 
-  constructor() {
+  constructor(private deckId: DeckId = "player") {
     this.ready = this.subscribe();
   }
 
   private async subscribe(): Promise<void> {
+    const p = this.deckId;
     const subs = await Promise.all([
-      listen<number>("player:time", (e) =>
+      listen<number>(`${p}:time`, (e) =>
         this.emit({ type: "time", seconds: e.payload }),
       ),
-      listen<number>("player:duration", (e) =>
+      listen<number>(`${p}:duration`, (e) =>
         this.emit({ type: "duration", seconds: e.payload }),
       ),
-      listen<boolean>("player:pause-state", (e) =>
+      listen<boolean>(`${p}:pause-state`, (e) =>
         this.emit({ type: "pause-state", paused: e.payload }),
       ),
-      listen<null>("player:ended", () => this.emit({ type: "ended" })),
-      listen<string>("player:error", (e) =>
+      listen<null>(`${p}:ended`, () => this.emit({ type: "ended" })),
+      listen<string>(`${p}:error`, (e) =>
         this.emit({ type: "error", message: e.payload }),
       ),
     ]);
@@ -32,27 +40,27 @@ export class NativeBackend implements PlayerBackend {
 
   async load(trackId: number): Promise<void> {
     await this.ready;
-    await invoke<void>("player_load", { id: trackId });
+    await invoke<void>(`${this.deckId}_load`, { id: trackId });
   }
 
   play(): Promise<void> {
-    return invoke<void>("player_play");
+    return invoke<void>(`${this.deckId}_play`);
   }
 
   pause(): Promise<void> {
-    return invoke<void>("player_pause");
+    return invoke<void>(`${this.deckId}_pause`);
   }
 
   stop(): Promise<void> {
-    return invoke<void>("player_stop");
+    return invoke<void>(`${this.deckId}_stop`);
   }
 
   seek(seconds: number): Promise<void> {
-    return invoke<void>("player_seek", { seconds });
+    return invoke<void>(`${this.deckId}_seek`, { seconds });
   }
 
   setVolume(volume: number): Promise<void> {
-    return invoke<void>("player_set_volume", { volume });
+    return invoke<void>(`${this.deckId}_set_volume`, { volume });
   }
 
   on(handler: PlayerEventHandler): () => void {

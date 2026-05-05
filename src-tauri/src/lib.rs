@@ -1,3 +1,4 @@
+use parking_lot::Mutex;
 use serde::Serialize;
 use std::collections::HashSet;
 use std::sync::Arc;
@@ -8,7 +9,7 @@ mod library;
 mod persist;
 mod playlist;
 
-use audio::devices::{list_output_devices, DeviceInfo};
+use audio::devices::{list_output_devices, resolve_device, resolve_main_device, DeviceInfo};
 use audio::player::{Cmd, PlayerHandle};
 use library::db::{Db, LibraryStats, Track};
 use library::scan_state::{ScanState, ScanStatus, StartResult};
@@ -21,6 +22,8 @@ pub struct AppState {
     session: Arc<Session>,
     scan: Arc<ScanState>,
     player: Arc<PlayerHandle>,
+    cue: Arc<Mutex<Option<PlayerHandle>>>,
+    app_handle: AppHandle,
 }
 
 #[derive(Serialize)]
@@ -185,7 +188,9 @@ fn get_main_device(state: State<'_, AppState>) -> Option<DeviceRef> {
 
 #[tauri::command(rename_all = "camelCase")]
 fn set_main_device(state: State<'_, AppState>, device: Option<DeviceRef>) -> Result<(), String> {
-    state.config.set_main_device(device).map_err(err)
+    state.config.set_main_device(device).map_err(err)?;
+    log::info!("main device updated; restart required to apply");
+    Ok(())
 }
 
 #[tauri::command(rename_all = "camelCase")]
@@ -195,7 +200,86 @@ fn get_cue_device(state: State<'_, AppState>) -> Option<DeviceRef> {
 
 #[tauri::command(rename_all = "camelCase")]
 fn set_cue_device(state: State<'_, AppState>, device: Option<DeviceRef>) -> Result<(), String> {
-    state.config.set_cue_device(device).map_err(err)
+    state.config.set_cue_device(device).map_err(err)?;
+    // Invalidate cached cue handle so the next cue_* command spawns
+    // against the new device. Dropping the Sender stops the worker thread.
+    *state.cue.lock() = None;
+    Ok(())
+}
+
+/// Ensure a cue `PlayerHandle` exists for the configured cue device.
+/// Lazy-spawned on first cue command. Errors if no cue device is set
+/// or the saved device cannot be resolved.
+fn with_cue<F>(state: &State<'_, AppState>, f: F) -> Result<(), String>
+where
+    F: FnOnce(&PlayerHandle),
+{
+    let mut guard = state.cue.lock();
+    if guard.is_none() {
+        let cue_ref = state
+            .config
+            .get_cue_device()
+            .ok_or_else(|| "no cue device configured; pick one in Settings → Audio".to_string())?;
+        let device = resolve_device(&cue_ref).ok_or_else(|| {
+            format!(
+                "cue device '{}' not found among current outputs",
+                cue_ref.description
+            )
+        })?;
+        *guard = Some(PlayerHandle::spawn(
+            state.app_handle.clone(),
+            Some(device),
+            "cue",
+        ));
+    }
+    if let Some(handle) = guard.as_ref() {
+        f(handle);
+    }
+    Ok(())
+}
+
+#[tauri::command(rename_all = "camelCase")]
+fn cue_load(state: State<'_, AppState>, id: i64) -> Result<(), String> {
+    let track = state
+        .db
+        .get_media_track(id)
+        .map_err(err)?
+        .ok_or_else(|| "track not found".to_string())?;
+    with_cue(&state, |h| {
+        h.send(Cmd::Load {
+            path: std::path::PathBuf::from(track.path),
+            duration: if track.duration > 0.0 {
+                Some(track.duration)
+            } else {
+                None
+            },
+        });
+    })
+}
+
+#[tauri::command(rename_all = "camelCase")]
+fn cue_play(state: State<'_, AppState>) -> Result<(), String> {
+    with_cue(&state, |h| h.send(Cmd::Play))
+}
+
+#[tauri::command(rename_all = "camelCase")]
+fn cue_pause(state: State<'_, AppState>) -> Result<(), String> {
+    with_cue(&state, |h| h.send(Cmd::Pause))
+}
+
+#[tauri::command(rename_all = "camelCase")]
+fn cue_stop(state: State<'_, AppState>) -> Result<(), String> {
+    with_cue(&state, |h| h.send(Cmd::Stop))
+}
+
+#[tauri::command(rename_all = "camelCase")]
+fn cue_seek(state: State<'_, AppState>, seconds: f64) -> Result<(), String> {
+    with_cue(&state, |h| h.send(Cmd::Seek(seconds)))
+}
+
+#[tauri::command(rename_all = "camelCase")]
+fn cue_set_volume(state: State<'_, AppState>, volume: f32) -> Result<(), String> {
+    with_cue(&state, |h| h.send(Cmd::SetVolume(volume)))
 }
 
 #[tauri::command(rename_all = "camelCase")]
@@ -223,13 +307,16 @@ pub fn run() {
             let db = Db::open(&data_dir.join("diodedj.db"))?;
             let config = Config::open(&data_dir)?;
             let session = Session::open(&data_dir);
-            let player = PlayerHandle::spawn(app.handle().clone());
+            let main_device = resolve_main_device(config.get_main_device().as_ref());
+            let player = PlayerHandle::spawn(app.handle().clone(), main_device, "player");
             app.manage(AppState {
                 db: Arc::new(db),
                 config: Arc::new(config),
                 session: Arc::new(session),
                 scan: Arc::new(ScanState::default()),
                 player: Arc::new(player),
+                cue: Arc::new(Mutex::new(None)),
+                app_handle: app.handle().clone(),
             });
             Ok(())
         })
@@ -255,6 +342,12 @@ pub fn run() {
             set_main_device,
             get_cue_device,
             set_cue_device,
+            cue_load,
+            cue_play,
+            cue_pause,
+            cue_stop,
+            cue_seek,
+            cue_set_volume,
             player_load,
             player_play,
             player_pause,
