@@ -39,6 +39,16 @@ cargo test --manifest-path src-tauri/Cargo.toml             # 24 cargo backend t
 pnpm typecheck && pnpm lint                                 # tsc + svelte-check + eslint
 ```
 
+## Logs
+
+DiodeDJ writes a rotating log file (`DiodeDJ.log`, 1 MB max, one prior file kept).
+
+- macOS: `~/Library/Logs/com.diodedj.app/DiodeDJ.log`
+- Linux: `~/.local/share/com.diodedj.app/logs/DiodeDJ.log` (or `$XDG_DATA_HOME/com.diodedj.app/logs/`)
+- Windows: `%LOCALAPPDATA%\com.diodedj.app\logs\DiodeDJ.log`
+
+Set `RUST_LOG=debug` (or `trace`) before launching to raise verbosity. Default is `info` (release) or `debug` (dev).
+
 ## Stack
 
 - Tauri 2 + Svelte 5 + Vite (renderer)
