@@ -64,6 +64,10 @@ vi.mock("../features/player/nativeBackend", () => ({
 
 import { AppState, formatTime, type Track } from "./state.svelte";
 import type { ScanStatus } from "./api";
+import { isTrackItem, type PlaylistItem } from "./types";
+
+const pid = (i: PlaylistItem): number | "STOP" =>
+  isTrackItem(i) ? i.track.id : "STOP";
 
 const t = (id: number, extra: Partial<Track> = {}): Track => ({
   id,
@@ -100,6 +104,7 @@ function resetApi(): void {
   api.loadSession.mockResolvedValue({
     state: {
       playlistIds: [],
+      playlistItems: [],
       historyIds: [],
       currentTrackId: null,
       currentTime: 0,
@@ -162,7 +167,7 @@ describe("AppState playlist mutations", () => {
     app.addToPlaylist(t(1));
     app.addToPlaylist(t(2));
     expect(app.playlist.length).toBe(2);
-    expect(app.playlist[1].id).toBe(2);
+    expect(pid(app.playlist[1])).toBe(2);
   });
 
   it("removeFromPlaylist splices the entry without touching currentTrack", () => {
@@ -171,7 +176,7 @@ describe("AppState playlist mutations", () => {
     app.addToPlaylist(t(3));
     app.currentTrack = t(99);
     app.removeFromPlaylist(0);
-    expect(app.playlist.map((x) => x.id)).toEqual([2, 3]);
+    expect(app.playlist.map(pid)).toEqual([2, 3]);
     expect(app.currentTrack?.id).toBe(99);
   });
 
@@ -188,14 +193,14 @@ describe("AppState playlist mutations", () => {
     app.addToPlaylist(t(2));
     app.addToPlaylist(t(3));
     app.movePlaylistItem(0, 2);
-    expect(app.playlist.map((x) => x.id)).toEqual([2, 3, 1]);
+    expect(app.playlist.map(pid)).toEqual([2, 3, 1]);
   });
 
   it("movePlaylistItem is a no-op when from === to", () => {
     app.addToPlaylist(t(1));
     app.addToPlaylist(t(2));
     app.movePlaylistItem(0, 0);
-    expect(app.playlist.map((x) => x.id)).toEqual([1, 2]);
+    expect(app.playlist.map(pid)).toEqual([1, 2]);
   });
 });
 
@@ -250,7 +255,7 @@ describe("AppState history view", () => {
   it("requeueFromHistory appends the chosen entry to the playlist tail", () => {
     app.history.push(t(1), t(2), t(3));
     app.requeueFromHistory(2);
-    expect(app.playlist.map((x) => x.id)).toEqual([1]);
+    expect(app.playlist.map(pid)).toEqual([1]);
     expect(app.history.map((x) => x.id)).toEqual([1, 2, 3]);
   });
 
@@ -309,7 +314,7 @@ describe("AppState playback control", () => {
     app.addToPlaylist(t(2));
     app.next();
     expect(app.currentTrack?.id).toBe(1);
-    expect(app.playlist.map((x) => x.id)).toEqual([2]);
+    expect(app.playlist.map(pid)).toEqual([2]);
   });
 
   it("next is a no-op when playlist empty", () => {
@@ -338,7 +343,7 @@ describe("AppState playback control", () => {
     app.prev();
     expect(app.currentTrack?.id).toBe(1);
     expect(app.history.map((x) => x.id)).toEqual([1]);
-    expect(app.playlist.map((x) => x.id)).toEqual([2]);
+    expect(app.playlist.map(pid)).toEqual([2]);
   });
 
   it("prev within 3s when current already equals history top just rewinds", () => {
@@ -349,12 +354,12 @@ describe("AppState playback control", () => {
     app.currentTime = 1;
     app.prev();
     expect(app.currentTrack?.id).toBe(1);
-    expect(app.playlist.map((x) => x.id)).toEqual([2]);
+    expect(app.playlist.map(pid)).toEqual([2]);
     app.currentTime = 1;
     app.prev();
     expect(app.currentTrack?.id).toBe(1);
     expect(app.history.map((x) => x.id)).toEqual([1]);
-    expect(app.playlist.map((x) => x.id)).toEqual([2]);
+    expect(app.playlist.map(pid)).toEqual([2]);
     expect(app.currentTime).toBe(0);
   });
 
@@ -693,6 +698,7 @@ describe("AppState session persistence", () => {
     api.loadSession.mockResolvedValueOnce({
       state: {
         playlistIds: [2, 3],
+        playlistItems: [],
         historyIds: [1],
         currentTrackId: 2,
         currentTime: 12.5,
@@ -707,7 +713,7 @@ describe("AppState session persistence", () => {
     ({ app, mock } = makeApp());
     await app.loadSession();
 
-    expect(app.playlist.map((x) => x.id)).toEqual([2, 3]);
+    expect(app.playlist.map(pid)).toEqual([2, 3]);
     expect(app.history.map((x) => x.id)).toEqual([1]);
     expect(app.currentTrack?.id).toBe(2);
     expect(app.autoPlaylistActive).toBe(true);
@@ -722,6 +728,7 @@ describe("AppState session persistence", () => {
     api.loadSession.mockResolvedValueOnce({
       state: {
         playlistIds: [1, 99, 2],
+        playlistItems: [],
         historyIds: [42],
         currentTrackId: 7,
         currentTime: 0,
@@ -736,7 +743,7 @@ describe("AppState session persistence", () => {
     ({ app, mock } = makeApp());
     await app.loadSession();
 
-    expect(app.playlist.map((x) => x.id)).toEqual([1, 2]);
+    expect(app.playlist.map(pid)).toEqual([1, 2]);
     expect(app.history).toEqual([]);
     expect(app.currentTrack).toBeNull();
   });
@@ -861,7 +868,7 @@ describe("AppState cue deck", () => {
     app.addToPlaylist(t(2));
     app.cueLoadAndPlay(t(99, { title: "promoted" }));
     app.promoteCueToMain();
-    expect(app.playlist.map((x) => x.id)).toEqual([99, 1, 2]);
+    expect(app.playlist.map(pid)).toEqual([99, 1, 2]);
     expect(app.cueTrack?.id).toBe(99);
     expect(cueMock.stopCalls).toBe(0);
   });
@@ -869,7 +876,7 @@ describe("AppState cue deck", () => {
   it("promoteCueToMain is a no-op when no cue track loaded", () => {
     app.addToPlaylist(t(1));
     app.promoteCueToMain();
-    expect(app.playlist.map((x) => x.id)).toEqual([1]);
+    expect(app.playlist.map(pid)).toEqual([1]);
   });
 
   it("cue backend time/duration/pause-state events mirror to cue state", () => {
@@ -973,6 +980,7 @@ describe("AppState session persistence with cue volume", () => {
     api.loadSession.mockResolvedValueOnce({
       state: {
         playlistIds: [],
+        playlistItems: [],
         historyIds: [],
         currentTrackId: null,
         currentTime: 0,
@@ -996,5 +1004,157 @@ describe("AppState session persistence with cue volume", () => {
     expect(api.saveSession).toHaveBeenCalled();
     const arg = api.saveSession.mock.calls[0][0];
     expect(arg.cueVolume).toBe(0.7);
+  });
+});
+
+describe("AppState stop marker", () => {
+  let app: AppState;
+  let mock: MockBackend;
+  beforeEach(() => {
+    resetApi();
+    ({ app, mock } = makeApp());
+  });
+
+  it("addStopMarker appends a stop sentinel", () => {
+    app.addStopMarker();
+    expect(app.playlist.length).toBe(1);
+    expect(pid(app.playlist[0])).toBe("STOP");
+  });
+
+  it("playIndex on a stop marker stops playback and consumes the marker", () => {
+    app.addToPlaylist(t(1));
+    app.playIndex(0);
+    expect(app.currentTrack?.id).toBe(1);
+    app.addStopMarker();
+    app.autoPlaylistActive = true;
+    app.playIndex(0);
+    expect(app.currentTrack).toBeNull();
+    expect(app.playlist.length).toBe(0);
+    expect(app.autoPlaylistActive).toBe(false);
+    expect(mock.stopCalls).toBeGreaterThan(0);
+    expect(app.history.map((x) => x.id)).toEqual([1]);
+  });
+
+  it("ended event onto a stop marker halts auto-advance", async () => {
+    app.addToPlaylist(t(1));
+    app.addStopMarker();
+    app.addToPlaylist(t(2));
+    app.autoPlaylistActive = true;
+    app.playIndex(0);
+    expect(app.currentTrack?.id).toBe(1);
+    mock.emitEnded();
+    await flushAsync();
+    expect(app.currentTrack).toBeNull();
+    expect(app.playlist.map(pid)).toEqual([2]);
+    expect(app.autoPlaylistActive).toBe(false);
+  });
+
+  it("togglePlay from idle with stop marker at front consumes it without playing", () => {
+    app.addStopMarker();
+    app.addToPlaylist(t(7));
+    app.togglePlay();
+    expect(app.currentTrack).toBeNull();
+    expect(app.playlist.map(pid)).toEqual([7]);
+    app.togglePlay();
+    expect(app.currentTrack?.id).toBe(7);
+  });
+
+  it("next() advancing onto a stop marker halts", () => {
+    app.addStopMarker();
+    app.addToPlaylist(t(5));
+    app.currentTrack = t(99);
+    app.next();
+    expect(app.currentTrack).toBeNull();
+    expect(app.playlist.map(pid)).toEqual([5]);
+  });
+
+  it("maybeRefillPlaylist skips when any stop marker present", async () => {
+    api.generatePlaylist.mockResolvedValue([t(99)]);
+    app.autoPlaylistActive = true;
+    app.addStopMarker();
+    await app.maybeRefillPlaylist();
+    expect(api.generatePlaylist).not.toHaveBeenCalled();
+    expect(app.playlist.map(pid)).toEqual(["STOP"]);
+  });
+
+  it("history never contains stop markers", () => {
+    app.addToPlaylist(t(1));
+    app.addStopMarker();
+    app.playIndex(0);
+    app.playIndex(0);
+    expect(app.history.map((x) => x.id)).toEqual([1]);
+  });
+});
+
+describe("AppState session persistence (stop markers)", () => {
+  let app: AppState;
+
+  beforeEach(() => {
+    resetApi();
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("persistSession writes playlistItems with mixed track and stop entries", async () => {
+    ({ app } = makeApp());
+    await app.loadSession();
+    app.addToPlaylist(t(1));
+    app.addStopMarker();
+    app.addToPlaylist(t(2));
+    vi.runAllTimers();
+    const arg = api.saveSession.mock.calls[0][0];
+    expect(arg.playlistItems).toEqual([
+      { kind: "track", id: 1 },
+      { kind: "stop" },
+      { kind: "track", id: 2 },
+    ]);
+    expect(arg.playlistIds).toEqual([1, 2]);
+  });
+
+  it("loadSession rebuilds playlist from playlistItems including stops", async () => {
+    api.loadSession.mockResolvedValueOnce({
+      state: {
+        playlistIds: [],
+        playlistItems: [
+          { kind: "track", id: 1 },
+          { kind: "stop" },
+          { kind: "track", id: 2 },
+        ],
+        historyIds: [],
+        currentTrackId: null,
+        currentTime: 0,
+        autoPlaylistActive: false,
+        autoAdvance: true,
+        volume: 1,
+        cueVolume: 1,
+      },
+      tracks: [t(1), t(2)],
+    });
+    ({ app } = makeApp());
+    await app.loadSession();
+    expect(app.playlist.map(pid)).toEqual([1, "STOP", 2]);
+  });
+
+  it("loadSession falls back to legacy playlistIds when playlistItems empty", async () => {
+    api.loadSession.mockResolvedValueOnce({
+      state: {
+        playlistIds: [3, 4],
+        playlistItems: [],
+        historyIds: [],
+        currentTrackId: null,
+        currentTime: 0,
+        autoPlaylistActive: false,
+        autoAdvance: true,
+        volume: 1,
+        cueVolume: 1,
+      },
+      tracks: [t(3), t(4)],
+    });
+    ({ app } = makeApp());
+    await app.loadSession();
+    expect(app.playlist.map(pid)).toEqual([3, 4]);
   });
 });

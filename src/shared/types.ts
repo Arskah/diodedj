@@ -23,6 +23,20 @@ export interface Track {
   format?: string;
 }
 
+export type PlaylistTrackItem = { kind: "track"; track: Track };
+export type StopMarker = { kind: "stop" };
+export type PlaylistItem = PlaylistTrackItem | StopMarker;
+
+export const trackItem = (track: Track): PlaylistTrackItem => ({
+  kind: "track",
+  track,
+});
+export const stopMarker = (): StopMarker => ({ kind: "stop" });
+export const isTrackItem = (i: PlaylistItem): i is PlaylistTrackItem =>
+  i.kind === "track";
+export const isStopMarker = (i: PlaylistItem): i is StopMarker =>
+  i.kind === "stop";
+
 export interface LibraryStats {
   totalTracks: number;
   totalArtists: number;

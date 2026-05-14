@@ -12,8 +12,13 @@ import type {
   Track,
 } from "./types";
 
+export type PersistedPlaylistItem =
+  | { kind: "track"; id: number }
+  | { kind: "stop" };
+
 export interface SessionPersistState {
   playlistIds: number[];
+  playlistItems: PersistedPlaylistItem[];
   historyIds: number[];
   currentTrackId: number | null;
   currentTime: number;
