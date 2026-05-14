@@ -2,36 +2,65 @@
   import { app, formatTime, type Track } from "../../shared/state.svelte";
 
   let dragFromIndex = $state(-1);
-  let dragOverIndex = $state(-1);
+  let dropTarget = $state(-1);
 
   function onEnter(track: Track, e: MouseEvent): void {
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     app.setHover(track, rect);
   }
 
-  function onDragStart(i: number): void {
+  function onDragStart(e: DragEvent, i: number): void {
     dragFromIndex = i;
+    if (e.dataTransfer) {
+      e.dataTransfer.effectAllowed = "move";
+      e.dataTransfer.setData("text/plain", String(i));
+    }
   }
 
   function onDragEnd(): void {
     dragFromIndex = -1;
-    dragOverIndex = -1;
+    dropTarget = -1;
   }
 
-  function onDragOver(e: DragEvent, i: number): void {
+  function rowDropTarget(e: DragEvent, i: number): number {
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    return e.clientY < rect.top + rect.height / 2 ? i : i + 1;
+  }
+
+  function onRowDragOver(e: DragEvent, i: number): void {
     e.preventDefault();
-    dragOverIndex = i;
+    if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
+    dropTarget = rowDropTarget(e, i);
   }
 
-  function onDragLeave(i: number): void {
-    if (dragOverIndex === i) dragOverIndex = -1;
-  }
-
-  function onDrop(e: DragEvent, i: number): void {
+  function onRowDrop(e: DragEvent, i: number): void {
     e.preventDefault();
-    dragOverIndex = -1;
-    if (dragFromIndex === -1 || dragFromIndex === i) return;
-    app.movePlaylistItem(dragFromIndex, i);
+    const target = rowDropTarget(e, i);
+    const from = dragFromIndex;
+    dropTarget = -1;
+    dragFromIndex = -1;
+    if (from === -1) return;
+    const insertAt = target > from ? target - 1 : target;
+    if (insertAt === from) return;
+    app.movePlaylistItem(from, insertAt);
+  }
+
+  function onListDragOver(e: DragEvent): void {
+    e.preventDefault();
+    if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
+    if (dropTarget === -1) dropTarget = app.playlist.length;
+  }
+
+  function onListDrop(e: DragEvent): void {
+    e.preventDefault();
+    const from = dragFromIndex;
+    const target = dropTarget === -1 ? app.playlist.length : dropTarget;
+    dropTarget = -1;
+    dragFromIndex = -1;
+    if (from === -1) return;
+    const insertAt = target > from ? target - 1 : target;
+    if (insertAt === from) return;
+    app.movePlaylistItem(from, insertAt);
   }
 
   function onClear(): void {
@@ -86,7 +115,12 @@
   </div>
 
   {#if app.playlistTab === "queue"}
-    <div id="playlist">
+    <div
+      id="playlist"
+      ondragover={onListDragOver}
+      ondrop={onListDrop}
+      role="list"
+    >
       {#if app.playlist.length === 0}
         <div class="empty">Playlist empty</div>
       {:else}
@@ -94,15 +128,17 @@
           <div
             class="playlist-row"
             class:dragging={i === dragFromIndex}
-            class:drag-over={i === dragOverIndex && i !== dragFromIndex}
+            class:drop-before={dragFromIndex !== -1 && dropTarget === i}
+            class:drop-after={dragFromIndex !== -1 &&
+              dropTarget === i + 1 &&
+              i === app.playlist.length - 1}
             draggable="true"
             data-index={i}
             ondblclick={() => app.playIndex(i)}
-            ondragstart={() => onDragStart(i)}
+            ondragstart={(e) => onDragStart(e, i)}
             ondragend={onDragEnd}
-            ondragover={(e) => onDragOver(e, i)}
-            ondragleave={() => onDragLeave(i)}
-            ondrop={(e) => onDrop(e, i)}
+            ondragover={(e) => onRowDragOver(e, i)}
+            ondrop={(e) => onRowDrop(e, i)}
             onmouseenter={(e) => onEnter(track, e)}
             onmouseleave={() => app.clearHover()}
             role="listitem"
