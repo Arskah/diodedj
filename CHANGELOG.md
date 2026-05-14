@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.1](https://github.com/Arskah/diodedj/compare/v0.9.0...v0.9.1) (2026-05-14)
+
+
+### Bug Fixes
+
+* **playlist:** restore drag-and-drop reorder ([#124](https://github.com/Arskah/diodedj/issues/124)) ([6a762b5](https://github.com/Arskah/diodedj/commit/6a762b56c551b4d64dc3ab7f8fb74c5d9e84c88a))
+
 ## [0.9.0](https://github.com/Arskah/diodedj/compare/v0.8.1...v0.9.0) (2026-05-14)
 
 
