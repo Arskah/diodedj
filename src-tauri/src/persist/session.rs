@@ -4,11 +4,20 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
 
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+pub enum PlaylistItem {
+    Track { id: i64 },
+    Stop,
+}
+
 #[derive(Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct SessionState {
     #[serde(default)]
     pub playlist_ids: Vec<i64>,
+    #[serde(default)]
+    pub playlist_items: Vec<PlaylistItem>,
     #[serde(default)]
     pub history_ids: Vec<i64>,
     #[serde(default)]
@@ -37,6 +46,7 @@ impl Default for SessionState {
     fn default() -> Self {
         Self {
             playlist_ids: vec![],
+            playlist_items: vec![],
             history_ids: vec![],
             current_track_id: None,
             current_time: 0.0,
@@ -127,6 +137,53 @@ mod tests {
         assert!(s.auto_advance);
         assert_eq!(s.volume, 1.0);
         assert_eq!(s.cue_volume, 1.0);
+    }
+
+    #[test]
+    fn playlist_items_round_trip() {
+        let dir = tempdir().unwrap();
+        let s1 = Session::open(dir.path());
+        let state = SessionState {
+            playlist_items: vec![
+                PlaylistItem::Track { id: 7 },
+                PlaylistItem::Stop,
+                PlaylistItem::Track { id: 9 },
+            ],
+            ..Default::default()
+        };
+        s1.save(state).unwrap();
+
+        let s2 = Session::open(dir.path());
+        let loaded = s2.load();
+        assert_eq!(
+            loaded.playlist_items,
+            vec![
+                PlaylistItem::Track { id: 7 },
+                PlaylistItem::Stop,
+                PlaylistItem::Track { id: 9 },
+            ]
+        );
+    }
+
+    #[test]
+    fn legacy_playlist_ids_load_with_empty_items() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("session.json");
+        fs::write(&path, r#"{"playlistIds":[7,8]}"#).unwrap();
+        let session = Session::open(dir.path());
+        let s = session.load();
+        assert_eq!(s.playlist_ids, vec![7, 8]);
+        assert!(s.playlist_items.is_empty());
+    }
+
+    #[test]
+    fn playlist_items_json_shape() {
+        let raw = r#"{"playlistItems":[{"kind":"track","id":7},{"kind":"stop"}]}"#;
+        let s: SessionState = serde_json::from_str(raw).unwrap();
+        assert_eq!(
+            s.playlist_items,
+            vec![PlaylistItem::Track { id: 7 }, PlaylistItem::Stop]
+        );
     }
 
     #[test]

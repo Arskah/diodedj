@@ -3,11 +3,18 @@ import type {
   DeviceInfo,
   DeviceRef,
   LibraryStats,
+  PlaylistItem,
   SortColumn,
   SortDir,
   Track,
 } from "./types";
-import { api, type ScanStatus, type SessionLoadResult } from "./api";
+import { isStopMarker, isTrackItem, stopMarker, trackItem } from "./types";
+import {
+  api,
+  type PersistedPlaylistItem,
+  type ScanStatus,
+  type SessionLoadResult,
+} from "./api";
 import type { PlayerBackend } from "../features/player/backend";
 import { NativeBackend } from "../features/player/nativeBackend";
 import { throttle, type Throttled } from "./throttle";
@@ -43,7 +50,7 @@ export class AppState {
   settingsOpen = $state(false);
   scanStatus = $state<ScanStatus>({ status: "idle", lastResult: null });
 
-  playlist = $state<Track[]>([]);
+  playlist = $state<PlaylistItem[]>([]);
   history = $state<Track[]>([]);
   currentTrack = $state<Track | null>(null);
   autoPlaylistActive = $state(false);
@@ -184,14 +191,19 @@ export class AppState {
   }
 
   addToPlaylist(track: Track): void {
-    this.playlist.push(track);
+    this.playlist.push(trackItem(track));
+    this.scheduleSave();
+  }
+
+  addStopMarker(): void {
+    this.playlist.push(stopMarker());
     this.scheduleSave();
   }
 
   async addFiller(contentType: ContentType): Promise<void> {
     const track = await api.pickFiller(contentType);
     if (!track) return;
-    this.playlist.push(track);
+    this.playlist.push(trackItem(track));
     this.scheduleSave();
   }
 
@@ -218,8 +230,12 @@ export class AppState {
 
   playIndex(index: number): void {
     if (index < 0 || index >= this.playlist.length) return;
-    const [track] = this.playlist.splice(index, 1);
-    this.playTrack(track);
+    const [item] = this.playlist.splice(index, 1);
+    if (isStopMarker(item)) {
+      this.stop();
+      return;
+    }
+    this.playTrack(item.track);
   }
 
   private playTrack(track: Track): void {
@@ -257,7 +273,7 @@ export class AppState {
     const i = this.history.length - 1 - displayIndex;
     const track = this.history[i];
     if (!track) return;
-    this.playlist.push(track);
+    this.playlist.push(trackItem(track));
     this.scheduleSave();
   }
 
@@ -330,7 +346,7 @@ export class AppState {
       void this.backend.seek(0);
       return;
     }
-    if (this.currentTrack) this.playlist.unshift(this.currentTrack);
+    if (this.currentTrack) this.playlist.unshift(trackItem(this.currentTrack));
     this.setCurrent(previous);
   }
 
@@ -352,10 +368,11 @@ export class AppState {
 
   async maybeRefillPlaylist(): Promise<void> {
     if (!this.autoPlaylistActive) return;
+    if (this.playlist.some(isStopMarker)) return;
     if (this.playlist.length < AUTO_PLAYLIST_THRESHOLD) {
       const count = AUTO_PLAYLIST_BUFFER - this.playlist.length;
       const tracks = await api.generatePlaylist(count);
-      this.playlist.push(...tracks);
+      this.playlist.push(...tracks.map(trackItem));
       this.scheduleSave();
     }
   }
@@ -437,7 +454,7 @@ export class AppState {
    */
   promoteCueToMain(): void {
     if (!this.cueTrack) return;
-    this.playlist.unshift(this.cueTrack);
+    this.playlist.unshift(trackItem(this.cueTrack));
     this.scheduleSave();
   }
 
@@ -486,7 +503,11 @@ export class AppState {
     const resolve = (ids: number[]): Track[] =>
       ids.map((id) => byId.get(id)).filter((t): t is Track => t !== undefined);
 
-    this.playlist = resolve(state.playlistIds);
+    this.playlist = this.rebuildPlaylist(
+      state.playlistItems,
+      byId,
+      state.playlistIds,
+    );
     this.history = resolve(state.historyIds);
     this.autoPlaylistActive = state.autoPlaylistActive;
     this.autoAdvance = state.autoAdvance;
@@ -506,6 +527,29 @@ export class AppState {
     }
 
     this.sessionLoaded = true;
+  }
+
+  private rebuildPlaylist(
+    items: PersistedPlaylistItem[] | undefined,
+    byId: Map<number, Track>,
+    legacyIds: number[],
+  ): PlaylistItem[] {
+    if (items && items.length > 0) {
+      const out: PlaylistItem[] = [];
+      for (const i of items) {
+        if (i.kind === "stop") {
+          out.push(stopMarker());
+        } else {
+          const t = byId.get(i.id);
+          if (t) out.push(trackItem(t));
+        }
+      }
+      return out;
+    }
+    return legacyIds
+      .map((id) => byId.get(id))
+      .filter((t): t is Track => t !== undefined)
+      .map(trackItem);
   }
 
   private async loadWithSeek(track: Track, seek: number): Promise<void> {
@@ -532,7 +576,12 @@ export class AppState {
   private async persistSession(): Promise<void> {
     await api
       .saveSession({
-        playlistIds: this.playlist.map((t) => t.id),
+        playlistIds: this.playlist.filter(isTrackItem).map((i) => i.track.id),
+        playlistItems: this.playlist.map((i) =>
+          isStopMarker(i)
+            ? { kind: "stop" as const }
+            : { kind: "track" as const, id: i.track.id },
+        ),
         historyIds: this.history.map((t) => t.id),
         currentTrackId: this.currentTrack?.id ?? null,
         currentTime: this.currentTime,
