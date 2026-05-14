@@ -3,5 +3,10 @@
   "identifier": "default",
   "description": "default app capabilities",
   "windows": ["main"],
-  "permissions": ["core:default", "core:window:allow-destroy", "dialog:default"]
+  "permissions": [
+    "core:default",
+    "core:window:allow-destroy",
+    "dialog:default",
+    "log:default"
+  ]
 }

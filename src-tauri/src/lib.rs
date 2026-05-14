@@ -299,7 +299,33 @@ fn get_scan_status(state: State<'_, AppState>) -> ScanStatus {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    let log_level = std::env::var("RUST_LOG")
+        .ok()
+        .and_then(|s| s.parse::<log::LevelFilter>().ok())
+        .unwrap_or(if cfg!(debug_assertions) {
+            log::LevelFilter::Debug
+        } else {
+            log::LevelFilter::Info
+        });
+
     tauri::Builder::default()
+        .plugin(
+            tauri_plugin_log::Builder::new()
+                .targets([
+                    tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::Stdout),
+                    tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::Webview),
+                    tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::LogDir {
+                        file_name: None,
+                    }),
+                ])
+                .level(log_level)
+                .level_for("symphonia", log::LevelFilter::Warn)
+                .level_for("symphonia_core", log::LevelFilter::Warn)
+                .level_for("symphonia_bundle_mp3", log::LevelFilter::Warn)
+                .max_file_size(1024 * 1024)
+                .rotation_strategy(tauri_plugin_log::RotationStrategy::KeepOne)
+                .build(),
+        )
         .plugin(tauri_plugin_dialog::init())
         .plugin(
             tauri_plugin_window_state::Builder::default()
@@ -311,6 +337,10 @@ pub fn run() {
                 .build(),
         )
         .setup(|app| {
+            std::panic::set_hook(Box::new(|info| {
+                let bt = std::backtrace::Backtrace::force_capture();
+                log::error!("panic: {}\n{}", info, bt);
+            }));
             let data_dir = app.path().app_data_dir()?;
             std::fs::create_dir_all(&data_dir)?;
             let db = Db::open(&data_dir.join("diodedj.db"))?;
