@@ -12,13 +12,9 @@ on:
         type: string
         required: true
       args:
-        description: Extra args passed to `tauri build` (e.g. --target <triple>)
+        description: Extra args passed to `tauri build` (e.g. `--target <triple>`, `--no-bundle`)
         type: string
         default: ""
-      bundle:
-        description: Produce platform bundles (.AppImage/.deb/.dmg/.msi). Disable for binary-only builds (e.g. PR CI feeding e2e).
-        type: boolean
-        default: true
       artifact-name:
         description: Name of the uploaded artifact bundle
         type: string
@@ -56,20 +52,10 @@ jobs:
         with:
           workspaces: src-tauri
 
-      - name: Compose tauri-action args
-        id: args
-        shell: bash
-        run: |
-          extra=""
-          if [ "${{ inputs.bundle }}" != "true" ]; then
-            extra="--no-bundle"
-          fi
-          echo "value=${{ inputs.args }} $extra" >> "$GITHUB_OUTPUT"
-
       - uses: tauri-apps/tauri-action@84b9d35b5fc46c1e45415bdb6144030364f7ebc5 # v0.6.2
         id: tauri
         with:
-          args: ${{ steps.args.outputs.value }}
+          args: ${{ inputs.args }}
           tauriScript: pnpm tauri
 
       - name: Stage bundles
