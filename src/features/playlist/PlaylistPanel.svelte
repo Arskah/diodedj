@@ -1,5 +1,6 @@
 <script lang="ts">
   import { app, formatTime, type Track } from "../../shared/state.svelte";
+  import { isStopMarker, type PlaylistItem } from "../../shared/types";
 
   let dragFromIndex = $state(-1);
   let dropTarget = $state(-1);
@@ -67,6 +68,10 @@
     if (app.playlistTab === "queue") app.clearPlaylist();
     else app.clearHistory();
   }
+
+  function rowKey(item: PlaylistItem): string {
+    return isStopMarker(item) ? "stop" : String(item.track.id);
+  }
 </script>
 
 <section id="playlist-panel">
@@ -105,6 +110,11 @@
           disabled={(app.stats?.tracksByType.commercial ?? 0) === 0}
           onclick={() => app.addFiller("commercial")}>+ Commercial</button
         >
+        <button
+          class="btn-filler"
+          title="Stop automatic play when reached"
+          onclick={() => app.addStopMarker()}>+ Stop</button
+        >
       {/if}
       <button
         id="btn-clear-playlist"
@@ -124,39 +134,72 @@
       {#if app.playlist.length === 0}
         <div class="empty">Playlist empty</div>
       {:else}
-        {#each app.playlist as track, i (i + "-" + track.id)}
-          <div
-            class="playlist-row"
-            class:dragging={i === dragFromIndex}
-            class:drop-before={dragFromIndex !== -1 && dropTarget === i}
-            class:drop-after={dragFromIndex !== -1 &&
-              dropTarget === i + 1 &&
-              i === app.playlist.length - 1}
-            draggable="true"
-            data-index={i}
-            ondblclick={() => app.playIndex(i)}
-            ondragstart={(e) => onDragStart(e, i)}
-            ondragend={onDragEnd}
-            ondragover={(e) => onRowDragOver(e, i)}
-            ondrop={(e) => onRowDrop(e, i)}
-            onmouseenter={(e) => onEnter(track, e)}
-            onmouseleave={() => app.clearHover()}
-            role="listitem"
-          >
-            <span class="pl-drag">&#8942;</span>
-            <span class="pl-num">{i + 1}</span>
-            <span class="pl-title">{track.title}</span>
-            <span class="pl-artist">{track.artist}</span>
-            <span class="pl-duration">{formatTime(track.duration)}</span>
-            <button
-              class="btn-remove"
-              title="Remove"
-              onclick={(e) => {
-                e.stopPropagation();
-                app.removeFromPlaylist(i);
-              }}>&#10005;</button
+        {#each app.playlist as item, i (i + "-" + rowKey(item))}
+          {#if isStopMarker(item)}
+            <div
+              class="playlist-row stop-row"
+              class:dragging={i === dragFromIndex}
+              class:drop-before={dragFromIndex !== -1 && dropTarget === i}
+              class:drop-after={dragFromIndex !== -1 &&
+                dropTarget === i + 1 &&
+                i === app.playlist.length - 1}
+              draggable="true"
+              data-index={i}
+              ondblclick={() => app.playIndex(i)}
+              ondragstart={(e) => onDragStart(e, i)}
+              ondragend={onDragEnd}
+              ondragover={(e) => onRowDragOver(e, i)}
+              ondrop={(e) => onRowDrop(e, i)}
+              role="listitem"
             >
-          </div>
+              <span class="pl-drag">&#8942;</span>
+              <span class="pl-num">{i + 1}</span>
+              <span class="pl-stop-label"
+                >&#9632; STOP &mdash; auto play halts here</span
+              >
+              <button
+                class="btn-remove"
+                title="Remove"
+                onclick={(e) => {
+                  e.stopPropagation();
+                  app.removeFromPlaylist(i);
+                }}>&#10005;</button
+              >
+            </div>
+          {:else}
+            <div
+              class="playlist-row"
+              class:dragging={i === dragFromIndex}
+              class:drop-before={dragFromIndex !== -1 && dropTarget === i}
+              class:drop-after={dragFromIndex !== -1 &&
+                dropTarget === i + 1 &&
+                i === app.playlist.length - 1}
+              draggable="true"
+              data-index={i}
+              ondblclick={() => app.playIndex(i)}
+              ondragstart={(e) => onDragStart(e, i)}
+              ondragend={onDragEnd}
+              ondragover={(e) => onRowDragOver(e, i)}
+              ondrop={(e) => onRowDrop(e, i)}
+              onmouseenter={(e) => onEnter(item.track, e)}
+              onmouseleave={() => app.clearHover()}
+              role="listitem"
+            >
+              <span class="pl-drag">&#8942;</span>
+              <span class="pl-num">{i + 1}</span>
+              <span class="pl-title">{item.track.title}</span>
+              <span class="pl-artist">{item.track.artist}</span>
+              <span class="pl-duration">{formatTime(item.track.duration)}</span>
+              <button
+                class="btn-remove"
+                title="Remove"
+                onclick={(e) => {
+                  e.stopPropagation();
+                  app.removeFromPlaylist(i);
+                }}>&#10005;</button
+              >
+            </div>
+          {/if}
         {/each}
       {/if}
     </div>
