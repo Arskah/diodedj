@@ -1,8 +1,7 @@
 import { browser } from "@wdio/globals";
 import fs from "fs/promises";
-import os from "os";
 import path from "path";
-import { APP_BINARY } from "./wdio.conf";
+import { E2E_APP_DATA_DIR } from "./wdio.conf";
 
 export interface SeededConfig {
   musicPaths?: string[];
@@ -11,19 +10,23 @@ export interface SeededConfig {
 }
 
 export interface LaunchedApp {
-  xdgDataHome: string;
   appDataDir: string;
-  cleanup: () => Promise<void>;
 }
-
-const APP_IDENTIFIER = "com.diodedj.app";
 
 export async function launchApp(
   seeded: SeededConfig = {},
 ): Promise<LaunchedApp> {
-  const xdgDataHome = await fs.mkdtemp(path.join(os.tmpdir(), "diodedj-e2e-"));
-  const appDataDir = path.join(xdgDataHome, APP_IDENTIFIER);
-  await fs.mkdir(appDataDir, { recursive: true });
+  // Drop any state from a previous test: library.db (FTS index + tracks),
+  // session.json (playlist/history), then write a fresh config.json so the
+  // Rust backend reads the seeded paths at startup.
+  for (const name of [
+    "library.db",
+    "library.db-wal",
+    "library.db-shm",
+    "session.json",
+  ]) {
+    await fs.rm(path.join(E2E_APP_DATA_DIR, name), { force: true });
+  }
 
   const config = {
     musicPaths: seeded.musicPaths ?? [],
@@ -31,28 +34,16 @@ export async function launchApp(
     jinglePaths: seeded.jinglePaths ?? [],
   };
   await fs.writeFile(
-    path.join(appDataDir, "config.json"),
+    path.join(E2E_APP_DATA_DIR, "config.json"),
     JSON.stringify(config, null, 2),
   );
 
-  await browser.reloadSession({
-    "tauri:options": {
-      application: APP_BINARY,
-      env: {
-        XDG_DATA_HOME: xdgDataHome,
-        RUST_LOG: process.env.RUST_LOG ?? "debug",
-        RUST_BACKTRACE: "1",
-      },
-    },
-  } as unknown as WebdriverIO.Capabilities);
-
+  // Reload the WebDriver session — tauri-driver kills the current app and
+  // spawns a fresh one, which re-reads the seeded config.json on startup.
+  await browser.reloadSession();
   await browser.$("#track-list").waitForExist({ timeout: 15_000 });
 
-  const cleanup = async (): Promise<void> => {
-    await fs.rm(xdgDataHome, { recursive: true, force: true });
-  };
-
-  return { xdgDataHome, appDataDir, cleanup };
+  return { appDataDir: E2E_APP_DATA_DIR };
 }
 
 export async function captureArtifacts(specName: string): Promise<void> {
@@ -66,6 +57,19 @@ export async function captureArtifacts(specName: string): Promise<void> {
     await browser.saveScreenshot(path.join(resultsDir, "failure.png"));
   } catch {
     /* session may already be gone */
+  }
+  // Snapshot the app data dir for forensics.
+  try {
+    const entries = await fs.readdir(E2E_APP_DATA_DIR);
+    for (const entry of entries) {
+      const src = path.join(E2E_APP_DATA_DIR, entry);
+      const stat = await fs.stat(src);
+      if (stat.isFile()) {
+        await fs.copyFile(src, path.join(resultsDir, entry));
+      }
+    }
+  } catch {
+    /* ignore */
   }
 }
 

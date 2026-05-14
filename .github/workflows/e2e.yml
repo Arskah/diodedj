@@ -32,13 +32,28 @@ jobs:
             librsvg2-dev \
             libssl-dev \
             libasound2-dev \
+            libasound2-plugins \
+            pulseaudio \
+            pulseaudio-utils \
             webkit2gtk-driver \
             xvfb
 
-      - name: Load snd-dummy
+      - name: Start PulseAudio with null sink
         run: |
-          sudo modprobe snd-dummy || true
-          aplay -l || true
+          # Bridge ALSA → PulseAudio so rodio/cpal's ALSA backend finds a sink
+          mkdir -p ~/.config/pulse
+          sudo tee /etc/asound.conf > /dev/null <<'EOF'
+          pcm.!default {
+            type pulse
+          }
+          ctl.!default {
+            type pulse
+          }
+          EOF
+          pulseaudio --start --exit-idle-time=-1 --log-target=stderr
+          pactl load-module module-null-sink sink_name=dummy sink_properties=device.description=Dummy
+          pactl set-default-sink dummy
+          pactl list short sinks
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable

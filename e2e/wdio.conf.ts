@@ -1,5 +1,6 @@
 import { ChildProcess, spawn } from "child_process";
 import fs from "fs";
+import os from "os";
 import path from "path";
 
 const REPO_ROOT = path.resolve(__dirname, "..");
@@ -12,6 +13,21 @@ export const APP_BINARY: string = path.join(
   "diodedj",
 );
 const RESULTS_DIR = path.join(REPO_ROOT, "e2e-results");
+const APP_IDENTIFIER = "com.diodedj.app";
+
+// Fixed XDG_DATA_HOME for the whole run. Each test rewrites
+// `${XDG_DATA_HOME}/${APP_IDENTIFIER}/config.json` and forces an app respawn via
+// `browser.reloadSession()`. The env var is set BEFORE tauri-driver spawns so
+// the child app inherits it; tauri-driver does not honour mid-run capability
+// changes for `tauri:options.env`.
+export const E2E_XDG_DATA_HOME: string = fs.mkdtempSync(
+  path.join(os.tmpdir(), "diodedj-e2e-xdg-"),
+);
+export const E2E_APP_DATA_DIR: string = path.join(
+  E2E_XDG_DATA_HOME,
+  APP_IDENTIFIER,
+);
+fs.mkdirSync(E2E_APP_DATA_DIR, { recursive: true });
 
 let tauriDriver: ChildProcess | null = null;
 
@@ -32,6 +48,7 @@ export const config: WebdriverIO.Config = {
     } as WebdriverIO.Capabilities,
   ],
   logLevel: "info",
+  outputDir: RESULTS_DIR,
   bail: 0,
   waitforTimeout: 10_000,
   connectionRetryTimeout: 120_000,
@@ -57,8 +74,13 @@ export const config: WebdriverIO.Config = {
   },
 
   beforeSession: () => {
+    process.env.XDG_DATA_HOME = E2E_XDG_DATA_HOME;
+    process.env.RUST_LOG = process.env.RUST_LOG ?? "debug";
+    process.env.RUST_BACKTRACE = process.env.RUST_BACKTRACE ?? "1";
+
     tauriDriver = spawn("tauri-driver", [], {
       stdio: ["ignore", "pipe", "pipe"],
+      env: process.env,
     });
     const logPath = path.join(RESULTS_DIR, "tauri-driver.log");
     const logStream = fs.createWriteStream(logPath, { flags: "a" });

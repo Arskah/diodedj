@@ -5,15 +5,12 @@ import { sel } from "../selectors";
 
 describe("playlist", () => {
   let fixtures: FixtureLibrary | null = null;
-  let cleanup: (() => Promise<void>) | null = null;
 
   afterEach(async function () {
     if (this.currentTest?.state === "failed") {
       await captureArtifacts(this.currentTest.fullTitle());
     }
-    if (cleanup) await cleanup();
     if (fixtures) await fixtures.cleanup();
-    cleanup = null;
     fixtures = null;
   });
 
@@ -22,8 +19,7 @@ describe("playlist", () => {
       name: `auto-${i}`,
     }));
     fixtures = await createFixtureLibrary({ music });
-    const app = await launchApp({ musicPaths: [fixtures.musicDir] });
-    cleanup = app.cleanup;
+    await launchApp({ musicPaths: [fixtures.musicDir] });
 
     await browser.$(sel.settingsButton).click();
     await browser.$(sel.scanButton).waitForClickable({ timeout: 5_000 });
