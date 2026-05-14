@@ -14,7 +14,7 @@ use audio::player::{Cmd, PlayerHandle};
 use library::db::{Db, LibraryStats, Track};
 use library::scan_state::{ScanState, ScanStatus, StartResult};
 use persist::config::{Config, DeviceRef};
-use persist::session::{Session, SessionState};
+use persist::session::{PlaylistItem, Session, SessionState};
 
 pub struct AppState {
     db: Arc<Db>,
@@ -104,9 +104,14 @@ fn load_session(app: State<'_, AppState>) -> Result<SessionLoadResult, String> {
     let s = app.session.load();
     let mut ids: Vec<i64> = Vec::new();
     let mut seen: HashSet<i64> = HashSet::new();
+    let item_ids = s.playlist_items.iter().filter_map(|item| match item {
+        PlaylistItem::Track { id } => Some(id),
+        PlaylistItem::Stop => None,
+    });
     for id in s
         .playlist_ids
         .iter()
+        .chain(item_ids)
         .chain(s.history_ids.iter())
         .chain(s.current_track_id.iter())
     {
