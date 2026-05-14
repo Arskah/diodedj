@@ -6,6 +6,7 @@ export default tseslint.config(
     ignores: [
       "coverage/**",
       "dist/**",
+      "e2e-results/**",
       "node_modules/**",
       "src-tauri/target/**",
     ],
