@@ -29,10 +29,11 @@ jobs:
       platform: ubuntu-24.04
       target: x86_64-unknown-linux-gnu
       args: ""
-      artifact-name: linux-bundle
+      bundle: false
+      artifact-name: linux-binary
 
   e2e:
     needs: build
     uses: ./.github/workflows/e2e.yml
     with:
-      build-artifact: linux-bundle
+      build-artifact: linux-binary
