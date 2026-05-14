@@ -39,23 +39,40 @@
       <span id="np-artist">{app.currentTrack?.artist ?? ""}</span>
     </div>
     <div id="player-controls">
-      <button id="btn-prev" title="Previous" onclick={() => app.prev()}
-        >&#9198;</button
+      <button
+        id="btn-prev"
+        title="Previous"
+        aria-label="Previous track"
+        onclick={() => app.prev()}>&#9198;</button
       >
-      <button id="btn-play" title="Play" onclick={() => app.togglePlay()}>
+      <button
+        id="btn-play"
+        title={app.isPlaying ? "Pause" : "Play"}
+        aria-label={app.isPlaying ? "Pause" : "Play"}
+        aria-pressed={app.isPlaying}
+        onclick={() => app.togglePlay()}
+      >
         {@html app.isPlaying ? "&#9208;" : "&#9654;"}
       </button>
-      <button id="btn-stop" title="Stop" onclick={() => app.stop()}
-        >&#9632;</button
+      <button
+        id="btn-stop"
+        title="Stop"
+        aria-label="Stop"
+        onclick={() => app.stop()}>&#9632;</button
       >
-      <button id="btn-next" title="Next" onclick={() => app.next()}
-        >&#9197;</button
+      <button
+        id="btn-next"
+        title="Next"
+        aria-label="Next track"
+        onclick={() => app.next()}>&#9197;</button
       >
     </div>
     <button
       id="btn-mode"
       class:active={app.autoAdvance}
       title="Auto/Manual playback mode"
+      aria-label="Toggle playback mode"
+      aria-pressed={app.autoAdvance}
       onclick={() => app.toggleMode()}
     >
       {app.autoAdvance ? "AUTO" : "MANUAL"}

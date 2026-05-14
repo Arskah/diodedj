@@ -26,6 +26,7 @@
       id="btn-generate"
       class:active={app.autoPlaylistActive}
       title="Generate random playlist"
+      aria-pressed={app.autoPlaylistActive}
       onclick={() => app.toggleAutoPlaylist()}
     >
       Auto Playlist

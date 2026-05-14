@@ -114,6 +114,7 @@
         </div>
         <div class="settings-row">
           <button
+            id="btn-scan-now"
             class="btn-scan-now"
             title="Scan all configured paths"
             onclick={onScan}>Scan library</button
