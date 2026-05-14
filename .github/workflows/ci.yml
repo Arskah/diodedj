@@ -32,4 +32,7 @@ jobs:
       artifact-name: linux-bundle
 
   e2e:
+    needs: build
     uses: ./.github/workflows/e2e.yml
+    with:
+      build-artifact: linux-bundle

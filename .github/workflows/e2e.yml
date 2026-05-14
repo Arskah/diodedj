@@ -2,6 +2,11 @@ name: E2E
 
 on:
   workflow_call:
+    inputs:
+      build-artifact:
+        description: Name of the bundle artifact uploaded by build.yml (must contain the raw `diodedj` binary)
+        type: string
+        required: true
 
 permissions:
   contents: read
@@ -38,18 +43,25 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
 
-      - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
-        with:
-          workspaces: src-tauri
-
       - name: Install tauri-driver
         run: cargo install tauri-driver --version ${{ env.TAURI_DRIVER_VERSION }} --locked
 
-      - name: Build renderer
-        run: pnpm vite build
+      - name: Download build artifact
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v6.0.0
+        with:
+          name: ${{ inputs.build-artifact }}
+          path: build-artifact
 
-      - name: Build app (release, no bundle)
-        run: pnpm tauri build --no-bundle
+      - name: Place binary at expected path
+        run: |
+          if [ ! -f build-artifact/diodedj ]; then
+            echo "diodedj binary missing from build artifact"
+            ls -la build-artifact
+            exit 1
+          fi
+          mkdir -p src-tauri/target/release
+          cp build-artifact/diodedj src-tauri/target/release/diodedj
+          chmod +x src-tauri/target/release/diodedj
 
       - name: Run e2e
         env:

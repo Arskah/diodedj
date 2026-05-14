@@ -67,6 +67,13 @@ jobs:
           echo "$ARTIFACT_PATHS" | jq -r '.[]' | tr -d '\r' | while read -r p; do
             cp -r "$p" staging/
           done
+          # Also stage the raw binary so downstream jobs (e.g. e2e) can run
+          # the app without rebuilding. Skipped silently if not present.
+          for binary in \
+            src-tauri/target/release/diodedj \
+            src-tauri/target/release/diodedj.exe; do
+            [ -f "$binary" ] && cp "$binary" staging/
+          done
 
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
