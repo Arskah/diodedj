@@ -20,6 +20,11 @@
     return app.sortDir === "asc" ? " \u25B2" : " \u25BC";
   }
 
+  function ariaSort(column: SortColumn): "ascending" | "descending" | "none" {
+    if (app.sortBy !== column) return "none";
+    return app.sortDir === "asc" ? "ascending" : "descending";
+  }
+
   let searchTimeout: number | undefined;
 
   function onSearchInput(): void {
@@ -50,12 +55,14 @@
 
 <section id="library-panel">
   <div id="library-header">
-    <div id="library-tabs">
+    <div id="library-tabs" role="tablist" aria-label="Library tabs">
       {#each tabs as { type, label } (type)}
         <button
           class="lib-tab"
           class:active={app.activeTab === type}
           data-type={type}
+          role="tab"
+          aria-selected={app.activeTab === type}
           onclick={() => app.setTab(type)}
         >
           {label}
@@ -67,6 +74,7 @@
       id="search-input"
       placeholder="Search tracks..."
       autocomplete="off"
+      aria-label="Search tracks"
       bind:value={app.searchQuery}
       oninput={onSearchInput}
     />
@@ -76,6 +84,8 @@
       <button
         class="track-header {col.cls}"
         class:active={app.sortBy === col.column}
+        role="columnheader"
+        aria-sort={ariaSort(col.column)}
         onclick={() => app.toggleSort(col.column)}
       >
         {col.label}{sortIndicator(col.column)}
@@ -95,6 +105,8 @@
           onmouseenter={(e) => onEnter(track, e)}
           onmouseleave={() => app.clearHover()}
           role="button"
+          aria-label={`Track: ${track.title} by ${track.artist}`}
+          data-track-id={track.id}
           tabindex="0"
         >
           <span class="track-title">{track.title}</span>
