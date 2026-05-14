@@ -58,7 +58,7 @@ jobs:
         run: cargo install tauri-driver --version ${{ env.TAURI_DRIVER_VERSION }} --locked
 
       - name: Download build artifact
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v6.0.0
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
         with:
           name: ${{ inputs.build-artifact }}
           path: build-artifact
