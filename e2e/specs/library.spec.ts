@@ -1,0 +1,122 @@
+import { browser, expect } from "@wdio/globals";
+import { launchApp, captureArtifacts } from "../launch";
+import { createFixtureLibrary, type FixtureLibrary } from "../fixtures";
+import { sel } from "../selectors";
+
+describe("library", () => {
+  let fixtures: FixtureLibrary | null = null;
+
+  afterEach(async function () {
+    if (this.currentTest?.state === "failed") {
+      await captureArtifacts(this.currentTest.fullTitle());
+    }
+    if (fixtures) await fixtures.cleanup();
+    fixtures = null;
+  });
+
+  async function bootAndScan(): Promise<void> {
+    fixtures = await createFixtureLibrary({
+      music: [
+        { name: "alpha-song" },
+        { name: "beta-song" },
+        { name: "gamma-track" },
+      ],
+    });
+    await launchApp({ musicPaths: [fixtures.musicDir] });
+
+    await browser.$(sel.settingsButton).click();
+    await browser.$(sel.scanButton).waitForClickable({ timeout: 5_000 });
+    await browser.$(sel.scanButton).click();
+
+    await browser.waitUntil(
+      async () => (await browser.$$(sel.trackRow).length) >= 3,
+      { timeout: 15_000, timeoutMsg: "scan did not populate track list" },
+    );
+  }
+
+  it("scans a fixture library and lists tracks", async () => {
+    await bootAndScan();
+
+    const rows = browser.$$(sel.trackRow);
+    await expect(rows).toBeElementsArrayOfSize(3);
+
+    const statusBar = browser.$(sel.scanStatusBar);
+    if (await statusBar.isExisting()) {
+      await expect(statusBar).toHaveText(expect.stringContaining("Scan"));
+    }
+  });
+
+  // Read rendered text via textContent rather than WebDriver's getText() —
+  // under WebKitGTK, getText() occasionally returns "" for a span whose
+  // text-node child has been bound by Svelte but not yet visually laid out,
+  // even though the surrounding DOM is settled enough for findElement to
+  // resolve. textContent reflects the current DOM state without the layout
+  // dependency.
+  async function rowTitles(): Promise<string[]> {
+    return browser.execute(() =>
+      Array.from(document.querySelectorAll(".track-row .track-title")).map(
+        (el) => (el.textContent ?? "").trim(),
+      ),
+    );
+  }
+
+  it("filters via FTS prefix search", async () => {
+    await bootAndScan();
+
+    await browser.$(sel.searchInput).setValue("alpha");
+    await browser.waitUntil(
+      async () => {
+        const titles = await rowTitles();
+        return titles.length === 1 && titles[0] === "alpha-song";
+      },
+      {
+        timeout: 5_000,
+        timeoutMsg: "search did not filter to alpha-song",
+      },
+    );
+  });
+
+  it("re-orders rows when sort header clicked", async () => {
+    await bootAndScan();
+
+    const titleHeader = browser.$$('button[role="columnheader"]')[0];
+    await titleHeader.click();
+    await browser.waitUntil(
+      async () => (await titleHeader.getAttribute("aria-sort")) === "ascending",
+      { timeout: 5_000 },
+    );
+    let firstAsc = "";
+    await browser.waitUntil(
+      async () => {
+        const titles = await rowTitles();
+        if (titles.length === 0 || titles[0] === "") return false;
+        firstAsc = titles[0];
+        return true;
+      },
+      { timeout: 5_000, timeoutMsg: "ascending titles never rendered" },
+    );
+
+    await titleHeader.click();
+    await browser.waitUntil(
+      async () =>
+        (await titleHeader.getAttribute("aria-sort")) === "descending",
+      { timeout: 5_000 },
+    );
+    let firstDesc = "";
+    await browser.waitUntil(
+      async () => {
+        const titles = await rowTitles();
+        if (titles.length === 0 || titles[0] === "" || titles[0] === firstAsc)
+          return false;
+        firstDesc = titles[0];
+        return true;
+      },
+      {
+        timeout: 5_000,
+        timeoutMsg: "descending titles did not flip from ascending order",
+      },
+    );
+
+    await expect(firstAsc).not.toBe(firstDesc);
+  });
+});
