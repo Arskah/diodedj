@@ -395,8 +395,12 @@ body {
   opacity: 0.4;
 }
 
-.playlist-row.drag-over {
-  border-top: 2px solid var(--accent);
+.playlist-row.drop-before {
+  box-shadow: inset 0 2px 0 0 var(--accent);
+}
+
+.playlist-row.drop-after {
+  box-shadow: inset 0 -2px 0 0 var(--accent);
 }
 
 .pl-num {
