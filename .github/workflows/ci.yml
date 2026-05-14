@@ -30,3 +30,6 @@ jobs:
       target: x86_64-unknown-linux-gnu
       args: ""
       artifact-name: linux-bundle
+
+  e2e:
+    uses: ./.github/workflows/e2e.yml
