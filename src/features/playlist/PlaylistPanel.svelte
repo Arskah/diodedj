@@ -9,8 +9,12 @@
     app.setHover(track, rect);
   }
 
-  function onDragStart(i: number): void {
+  function onDragStart(e: DragEvent, i: number): void {
     dragFromIndex = i;
+    if (e.dataTransfer) {
+      e.dataTransfer.effectAllowed = "move";
+      e.dataTransfer.setData("text/plain", String(i));
+    }
   }
 
   function onDragEnd(): void {
@@ -98,7 +102,7 @@
             draggable="true"
             data-index={i}
             ondblclick={() => app.playIndex(i)}
-            ondragstart={() => onDragStart(i)}
+            ondragstart={(e) => onDragStart(e, i)}
             ondragend={onDragEnd}
             ondragover={(e) => onDragOver(e, i)}
             ondragleave={() => onDragLeave(i)}
