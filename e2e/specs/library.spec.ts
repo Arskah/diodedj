@@ -46,17 +46,34 @@ describe("library", () => {
     }
   });
 
+  // Read rendered text via textContent rather than WebDriver's getText() —
+  // under WebKitGTK, getText() occasionally returns "" for a span whose
+  // text-node child has been bound by Svelte but not yet visually laid out,
+  // even though the surrounding DOM is settled enough for findElement to
+  // resolve. textContent reflects the current DOM state without the layout
+  // dependency.
+  async function rowTitles(): Promise<string[]> {
+    return browser.execute(() =>
+      Array.from(document.querySelectorAll(".track-row .track-title")).map(
+        (el) => (el.textContent ?? "").trim(),
+      ),
+    );
+  }
+
   it("filters via FTS prefix search", async () => {
     await bootAndScan();
 
     await browser.$(sel.searchInput).setValue("alpha");
     await browser.waitUntil(
-      async () => (await browser.$$(sel.trackRow).length) === 1,
-      { timeout: 5_000, timeoutMsg: "search did not filter" },
+      async () => {
+        const titles = await rowTitles();
+        return titles.length === 1 && titles[0] === "alpha-song";
+      },
+      {
+        timeout: 5_000,
+        timeoutMsg: "search did not filter to alpha-song",
+      },
     );
-
-    const visible = await browser.$$(sel.trackRow);
-    await expect(visible[0]).toHaveText(expect.stringContaining("alpha-song"));
   });
 
   it("re-orders rows when sort header clicked", async () => {
@@ -68,9 +85,16 @@ describe("library", () => {
       async () => (await titleHeader.getAttribute("aria-sort")) === "ascending",
       { timeout: 5_000 },
     );
-
-    const ascRows = await browser.$$(sel.trackRow);
-    const firstAsc = await ascRows[0].$(".track-title").getText();
+    let firstAsc = "";
+    await browser.waitUntil(
+      async () => {
+        const titles = await rowTitles();
+        if (titles.length === 0 || titles[0] === "") return false;
+        firstAsc = titles[0];
+        return true;
+      },
+      { timeout: 5_000, timeoutMsg: "ascending titles never rendered" },
+    );
 
     await titleHeader.click();
     await browser.waitUntil(
@@ -78,9 +102,20 @@ describe("library", () => {
         (await titleHeader.getAttribute("aria-sort")) === "descending",
       { timeout: 5_000 },
     );
-
-    const descRows = await browser.$$(sel.trackRow);
-    const firstDesc = await descRows[0].$(".track-title").getText();
+    let firstDesc = "";
+    await browser.waitUntil(
+      async () => {
+        const titles = await rowTitles();
+        if (titles.length === 0 || titles[0] === "" || titles[0] === firstAsc)
+          return false;
+        firstDesc = titles[0];
+        return true;
+      },
+      {
+        timeout: 5_000,
+        timeoutMsg: "descending titles did not flip from ascending order",
+      },
+    );
 
     await expect(firstAsc).not.toBe(firstDesc);
   });
