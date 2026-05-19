@@ -86,10 +86,6 @@ export const config: WebdriverIO.Config = {
     const logStream = fs.createWriteStream(logPath, { flags: "a" });
     tauriDriver.stdout?.pipe(logStream);
     tauriDriver.stderr?.pipe(logStream);
-    // Also tee to host stdout/stderr so logs surface live in
-    // `docker run` output and CI job logs without unzipping artifacts.
-    tauriDriver.stdout?.pipe(process.stdout);
-    tauriDriver.stderr?.pipe(process.stderr);
   },
 
   afterSession: () => {
