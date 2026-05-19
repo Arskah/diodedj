@@ -40,6 +40,16 @@ cargo test --manifest-path src-tauri/Cargo.toml             # 24 cargo backend t
 pnpm typecheck && pnpm lint                                 # tsc + svelte-check + eslint
 ```
 
+## Data files
+
+DiodeDJ stores its database (`diodedj.db`), config (`config.json`), session
+state (`session.json`), and default now-playing output in a per-user data
+directory.
+
+- macOS: `~/Library/Application Support/com.diodedj.app/`
+- Linux: `~/.local/share/com.diodedj.app/` (or `$XDG_DATA_HOME/com.diodedj.app/`)
+- Windows: `%APPDATA%\com.diodedj.app\` (typically `C:\Users\<you>\AppData\Roaming\com.diodedj.app\`)
+
 ## Logs
 
 DiodeDJ writes a rotating log file (`DiodeDJ.log`, 1 MB max, one prior file kept).

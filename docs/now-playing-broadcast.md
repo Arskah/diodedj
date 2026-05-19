@@ -110,5 +110,14 @@ On a `stopped` event both files are truncated to empty. OBS Text (GDI+)
 sources should be pointed at `now_playing.txt` and configured to display
 nothing while empty.
 
-If no directory is set the files land in
-`<app-data-dir>/now-playing/`.
+If no directory is set the files land in `<app-data-dir>/now-playing/`,
+where `<app-data-dir>` resolves to:
+
+- macOS: `~/Library/Application Support/com.diodedj.app/`
+- Linux: `~/.local/share/com.diodedj.app/` (or
+  `$XDG_DATA_HOME/com.diodedj.app/`)
+- Windows: `%APPDATA%\com.diodedj.app\` (typically
+  `C:\Users\<you>\AppData\Roaming\com.diodedj.app\`)
+
+The same directory holds DiodeDJ's `config.json`, `session.json`, and
+`diodedj.db`.
