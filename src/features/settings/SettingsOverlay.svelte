@@ -228,85 +228,106 @@
     {:else}
       <div class="settings-section">
         <h4>Now Playing broadcast</h4>
-        <p class="hint">
+        <p class="np-intro">
           Expose the currently playing track to external consumers via outbound
-          webhook and/or local files. Both update on track-start and on stop.
+          webhook and/or local files. Updates fire on track-start and on stop.
         </p>
 
-        <h5>Webhook</h5>
-        <label class="np-toggle">
-          <input
-            type="checkbox"
-            bind:checked={nowPlaying.webhookEnabled}
-            onchange={saveNowPlaying}
-          />
-          Enable webhook
-        </label>
-        <div class="np-row">
-          <label for="np-webhook-url">URL</label>
-          <input
-            id="np-webhook-url"
-            type="url"
-            placeholder="https://example.com/now-playing"
-            value={nowPlaying.webhookUrl ?? ""}
-            oninput={(e) =>
-              (nowPlaying = {
-                ...nowPlaying,
-                webhookUrl: (e.currentTarget as HTMLInputElement).value || null,
-              })}
-            onchange={saveNowPlaying}
-          />
-        </div>
-        <div class="np-row">
-          <label for="np-webhook-secret">HMAC secret (optional)</label>
-          <input
-            id="np-webhook-secret"
-            type="password"
-            placeholder="leave blank for unsigned"
-            value={nowPlaying.webhookSecret ?? ""}
-            oninput={(e) =>
-              (nowPlaying = {
-                ...nowPlaying,
-                webhookSecret:
-                  (e.currentTarget as HTMLInputElement).value || null,
-              })}
-            onchange={saveNowPlaying}
-          />
-        </div>
-        <div class="np-row">
-          <button
-            id="btn-np-test"
-            onclick={runTestWebhook}
-            disabled={testing || !nowPlaying.webhookUrl}>Test webhook</button
-          >
-          {#if testResult}
-            <span class="np-test-result">{testResult}</span>
-          {/if}
+        <div class="np-group">
+          <div class="np-group-header">
+            <span class="np-group-title">Webhook</span>
+            <label class="np-toggle">
+              <input
+                type="checkbox"
+                bind:checked={nowPlaying.webhookEnabled}
+                onchange={saveNowPlaying}
+              />
+              <span>Enabled</span>
+            </label>
+          </div>
+          <div class="device-row">
+            <label for="np-webhook-url">URL</label>
+            <input
+              id="np-webhook-url"
+              class="np-input"
+              type="url"
+              placeholder="https://example.com/now-playing"
+              value={nowPlaying.webhookUrl ?? ""}
+              oninput={(e) =>
+                (nowPlaying = {
+                  ...nowPlaying,
+                  webhookUrl:
+                    (e.currentTarget as HTMLInputElement).value || null,
+                })}
+              onchange={saveNowPlaying}
+            />
+          </div>
+          <div class="device-row">
+            <label for="np-webhook-secret">HMAC secret</label>
+            <input
+              id="np-webhook-secret"
+              class="np-input"
+              type="password"
+              placeholder="optional"
+              value={nowPlaying.webhookSecret ?? ""}
+              oninput={(e) =>
+                (nowPlaying = {
+                  ...nowPlaying,
+                  webhookSecret:
+                    (e.currentTarget as HTMLInputElement).value || null,
+                })}
+              onchange={saveNowPlaying}
+            />
+          </div>
+          <div class="device-row np-action-row">
+            <span class="np-action-spacer"></span>
+            <button
+              class="btn-scan-now"
+              onclick={runTestWebhook}
+              disabled={testing || !nowPlaying.webhookUrl}
+              >{testing ? "Testing…" : "Test webhook"}</button
+            >
+            {#if testResult}
+              <span class="np-test-result">{testResult}</span>
+            {/if}
+          </div>
         </div>
 
-        <h5>File output</h5>
-        <label class="np-toggle">
-          <input
-            type="checkbox"
-            bind:checked={nowPlaying.fileEnabled}
-            onchange={saveNowPlaying}
-          />
-          Enable file output
-        </label>
-        <div class="np-row">
-          <span>Directory</span>
-          <span class="np-file-dir"
-            >{nowPlaying.fileDir ?? "(app data dir / now-playing)"}</span
-          >
-          <button onclick={pickFileDir}>Pick folder</button>
-          {#if nowPlaying.fileDir}
-            <button onclick={clearFileDir}>Reset</button>
-          {/if}
+        <div class="np-group">
+          <div class="np-group-header">
+            <span class="np-group-title">File output</span>
+            <label class="np-toggle">
+              <input
+                type="checkbox"
+                bind:checked={nowPlaying.fileEnabled}
+                onchange={saveNowPlaying}
+              />
+              <span>Enabled</span>
+            </label>
+          </div>
+          <div class="device-row">
+            <label for="np-file-dir">Directory</label>
+            <code id="np-file-dir" class="np-file-dir"
+              >{nowPlaying.fileDir ?? "(app data dir / now-playing)"}</code
+            >
+          </div>
+          <div class="device-row np-action-row">
+            <span class="np-action-spacer"></span>
+            <button class="btn-scan-now" onclick={pickFileDir}
+              >Pick folder…</button
+            >
+            {#if nowPlaying.fileDir}
+              <button class="btn-scan-now" onclick={clearFileDir}
+                >Reset to default</button
+              >
+            {/if}
+          </div>
+          <div class="hint np-file-hint">
+            Writes <code>now_playing.txt</code> and
+            <code>now_playing.json</code> atomically. TXT is truncated on stop; JSON
+            keeps the Stopped event payload.
+          </div>
         </div>
-        <p class="hint">
-          Writes <code>now_playing.txt</code> and <code>now_playing.json</code>
-          atomically. Both files are truncated on stop.
-        </p>
       </div>
     {/if}
 

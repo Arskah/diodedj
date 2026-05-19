@@ -824,6 +824,114 @@ body {
   font-style: italic;
 }
 
+.np-intro {
+  margin: -4px 0 16px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.np-group {
+  margin-bottom: 18px;
+  padding: 12px 14px 8px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.np-group:last-of-type {
+  margin-bottom: 0;
+}
+
+.np-group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.np-group-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.np-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.np-toggle input[type="checkbox"] {
+  margin: 0;
+  cursor: pointer;
+}
+
+.np-input {
+  flex: 1;
+  padding: 6px 8px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-family: inherit;
+}
+
+.np-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.np-input::placeholder {
+  color: var(--text-secondary);
+  opacity: 0.6;
+}
+
+.np-action-row {
+  margin-top: 4px;
+}
+
+.np-action-spacer {
+  flex: 0 0 160px;
+}
+
+.np-test-result {
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-family: var(--font-mono, ui-monospace, monospace);
+}
+
+.np-file-dir {
+  flex: 1;
+  padding: 6px 8px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-primary);
+  font-size: 12px;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.np-file-hint {
+  margin: 4px 0 0 172px;
+}
+
+.np-file-hint code {
+  background: var(--bg-secondary);
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-size: 11px;
+}
+
 #paths-list {
   max-height: 300px;
   overflow-y: auto;
