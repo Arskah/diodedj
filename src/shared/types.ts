@@ -50,6 +50,14 @@ export interface ScanResult {
   added: number;
 }
 
+export interface NowPlayingConfig {
+  webhookUrl: string | null;
+  webhookSecret: string | null;
+  fileDir: string | null;
+  fileEnabled: boolean;
+  webhookEnabled: boolean;
+}
+
 export interface DeviceRef {
   name: string;
   description: string;

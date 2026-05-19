@@ -6,6 +6,7 @@ import type {
   DeviceInfo,
   DeviceRef,
   LibraryStats,
+  NowPlayingConfig,
   ScanResult,
   SortColumn,
   SortDir,
@@ -123,6 +124,22 @@ export const api = {
   },
   setCueDevice(device: DeviceRef | null): Promise<void> {
     return invoke<void>("set_cue_device", { device });
+  },
+  getNowPlayingConfig(): Promise<NowPlayingConfig> {
+    return invoke<NowPlayingConfig>("get_now_playing_config");
+  },
+  setNowPlayingConfig(config: NowPlayingConfig): Promise<void> {
+    return invoke<void>("set_now_playing_config", { config });
+  },
+  testNowPlayingWebhook(): Promise<number> {
+    return invoke<number>("now_playing_test");
+  },
+  broadcastShutdown(): Promise<void> {
+    return invoke<void>("broadcast_shutdown");
+  },
+  async pickDirectory(): Promise<string | null> {
+    const dir = await open({ directory: true, multiple: false });
+    return typeof dir === "string" ? dir : null;
   },
 };
 
