@@ -285,11 +285,7 @@ mod tests {
     fn now_playing_partial_json_fills_defaults() {
         let dir = tempdir().unwrap();
         let path = dir.path().join("config.json");
-        fs::write(
-            &path,
-            r#"{"nowPlaying":{"webhookUrl":"https://x"}}"#,
-        )
-        .unwrap();
+        fs::write(&path, r#"{"nowPlaying":{"webhookUrl":"https://x"}}"#).unwrap();
         let cfg = Config::open(dir.path()).unwrap();
         let np = cfg.get_now_playing();
         assert_eq!(np.webhook_url.as_deref(), Some("https://x"));
