@@ -5,15 +5,17 @@ use std::sync::Arc;
 use tauri::{AppHandle, Manager, State};
 
 mod audio;
+mod broadcast;
 mod library;
 mod persist;
 mod playlist;
 
 use audio::devices::{list_output_devices, resolve_device, resolve_main_device, DeviceInfo};
 use audio::player::{Cmd, PlayerHandle};
+use broadcast::{service::default_now_playing_dir, BroadcastService};
 use library::db::{Db, LibraryStats, Track};
 use library::scan_state::{ScanState, ScanStatus, StartResult};
-use persist::config::{Config, DeviceRef};
+use persist::config::{Config, DeviceRef, NowPlayingConfig};
 use persist::session::{PlaylistItem, Session, SessionState};
 
 pub struct AppState {
@@ -23,6 +25,7 @@ pub struct AppState {
     scan: Arc<ScanState>,
     player: Arc<PlayerHandle>,
     cue: Arc<Mutex<Option<PlayerHandle>>>,
+    broadcast: Arc<BroadcastService>,
     app_handle: AppHandle,
 }
 
@@ -142,16 +145,15 @@ fn pick_filler(app: State<'_, AppState>, content_type: String) -> Result<Option<
 fn player_load(app_state: State<'_, AppState>, id: i64) -> Result<(), String> {
     let track = app_state
         .db
-        .get_media_track(id)
+        .get_track_broadcast_info(id)
         .map_err(err)?
         .ok_or_else(|| "track not found".to_string())?;
+    let path = track.path.clone();
+    let duration = track.duration;
+    app_state.broadcast.set_pending_track(track.into());
     app_state.player.send(Cmd::Load {
-        path: std::path::PathBuf::from(track.path),
-        duration: if track.duration > 0.0 {
-            Some(track.duration)
-        } else {
-            None
-        },
+        path: std::path::PathBuf::from(path),
+        duration: if duration > 0.0 { Some(duration) } else { None },
     });
     Ok(())
 }
@@ -288,6 +290,29 @@ fn cue_set_volume(state: State<'_, AppState>, volume: f32) -> Result<(), String>
 }
 
 #[tauri::command(rename_all = "camelCase")]
+fn get_now_playing_config(state: State<'_, AppState>) -> NowPlayingConfig {
+    state.config.get_now_playing()
+}
+
+#[tauri::command(rename_all = "camelCase")]
+fn set_now_playing_config(
+    state: State<'_, AppState>,
+    config: NowPlayingConfig,
+) -> Result<(), String> {
+    state.config.set_now_playing(config).map_err(err)
+}
+
+#[tauri::command(rename_all = "camelCase")]
+fn now_playing_test(state: State<'_, AppState>) -> Result<u16, String> {
+    state.broadcast.test_webhook_blocking()
+}
+
+#[tauri::command(rename_all = "camelCase")]
+fn broadcast_shutdown(state: State<'_, AppState>) {
+    state.broadcast.shutdown_blocking();
+}
+
+#[tauri::command(rename_all = "camelCase")]
 fn scan_library(app: AppHandle, state: State<'_, AppState>) -> StartResult {
     Arc::clone(&state.scan).start(app, Arc::clone(&state.db), Arc::clone(&state.config))
 }
@@ -353,13 +378,20 @@ pub fn run() {
             let session = Session::open(&data_dir);
             let main_device = resolve_main_device(config.get_main_device().as_ref());
             let player = PlayerHandle::spawn(app.handle().clone(), main_device, "player");
+            let config = Arc::new(config);
+            let broadcast = Arc::new(BroadcastService::new(
+                Arc::clone(&config),
+                default_now_playing_dir(&data_dir),
+            )?);
+            broadcast.attach_to_app(app.handle());
             app.manage(AppState {
                 db: Arc::new(db),
-                config: Arc::new(config),
+                config,
                 session: Arc::new(session),
                 scan: Arc::new(ScanState::default()),
                 player: Arc::new(player),
                 cue: Arc::new(Mutex::new(None)),
+                broadcast,
                 app_handle: app.handle().clone(),
             });
             Ok(())
@@ -398,7 +430,18 @@ pub fn run() {
             player_stop,
             player_seek,
             player_set_volume,
+            get_now_playing_config,
+            set_now_playing_config,
+            now_playing_test,
+            broadcast_shutdown,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|app, event| {
+            if let tauri::RunEvent::ExitRequested { .. } = event {
+                if let Some(state) = app.try_state::<AppState>() {
+                    state.broadcast.shutdown_blocking();
+                }
+            }
+        });
 }
