@@ -11,6 +11,37 @@ pub struct DeviceRef {
     pub description: String,
 }
 
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct NowPlayingConfig {
+    #[serde(default)]
+    pub webhook_url: Option<String>,
+    #[serde(default)]
+    pub webhook_secret: Option<String>,
+    #[serde(default)]
+    pub file_dir: Option<String>,
+    #[serde(default = "default_true")]
+    pub file_enabled: bool,
+    #[serde(default = "default_true")]
+    pub webhook_enabled: bool,
+}
+
+fn default_true() -> bool {
+    true
+}
+
+impl Default for NowPlayingConfig {
+    fn default() -> Self {
+        Self {
+            webhook_url: None,
+            webhook_secret: None,
+            file_dir: None,
+            file_enabled: true,
+            webhook_enabled: true,
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, Default, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct AppConfig {
@@ -24,6 +55,8 @@ pub struct AppConfig {
     pub main_device: Option<DeviceRef>,
     #[serde(default)]
     pub cue_device: Option<DeviceRef>,
+    #[serde(default)]
+    pub now_playing: NowPlayingConfig,
 }
 
 pub struct Config {
@@ -124,6 +157,16 @@ impl Config {
         self.save_locked(&cfg)
     }
 
+    pub fn get_now_playing(&self) -> NowPlayingConfig {
+        self.inner.lock().now_playing.clone()
+    }
+
+    pub fn set_now_playing(&self, np: NowPlayingConfig) -> Result<()> {
+        let mut cfg = self.inner.lock();
+        cfg.now_playing = np;
+        self.save_locked(&cfg)
+    }
+
     pub fn remove_path(&self, kind: &str, dir_path: &str) -> Result<bool> {
         let resolved = canonicalize_lossy(dir_path);
         let mut cfg = self.inner.lock();
@@ -207,6 +250,51 @@ mod tests {
         let cfg = Config::open(dir.path()).unwrap();
         assert!(cfg.get_main_device().is_none());
         assert!(cfg.get_cue_device().is_none());
+    }
+
+    #[test]
+    fn now_playing_defaults_when_missing() {
+        let dir = tempdir().unwrap();
+        let cfg = Config::open(dir.path()).unwrap();
+        let np = cfg.get_now_playing();
+        assert_eq!(np, NowPlayingConfig::default());
+        assert!(np.file_enabled);
+        assert!(np.webhook_enabled);
+        assert!(np.webhook_url.is_none());
+    }
+
+    #[test]
+    fn now_playing_round_trips_to_disk() {
+        let dir = tempdir().unwrap();
+        let cfg = Config::open(dir.path()).unwrap();
+        let np = NowPlayingConfig {
+            webhook_url: Some("https://example.com/hook".into()),
+            webhook_secret: Some("s3cret".into()),
+            file_dir: Some("/tmp/np".into()),
+            file_enabled: false,
+            webhook_enabled: true,
+        };
+        cfg.set_now_playing(np.clone()).unwrap();
+
+        drop(cfg);
+        let cfg2 = Config::open(dir.path()).unwrap();
+        assert_eq!(cfg2.get_now_playing(), np);
+    }
+
+    #[test]
+    fn now_playing_partial_json_fills_defaults() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("config.json");
+        fs::write(
+            &path,
+            r#"{"nowPlaying":{"webhookUrl":"https://x"}}"#,
+        )
+        .unwrap();
+        let cfg = Config::open(dir.path()).unwrap();
+        let np = cfg.get_now_playing();
+        assert_eq!(np.webhook_url.as_deref(), Some("https://x"));
+        assert!(np.file_enabled);
+        assert!(np.webhook_enabled);
     }
 
     #[test]
