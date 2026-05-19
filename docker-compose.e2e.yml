@@ -1,0 +1,33 @@
+# Local Linux e2e harness. Source is baked into the image at build time —
+# nothing from the host is bind-mounted into /work, so the container runs
+# exactly like CI. Only failure artifacts escape via the e2e-results bind.
+#
+# Usage:
+#   docker compose -f docker-compose.e2e.yml run --build --rm e2e
+#
+# `--build` re-COPYs the working tree into the image. Named volumes keep
+# pnpm/cargo caches + cargo target dir across runs so incremental builds
+# stay fast.
+
+services:
+  e2e:
+    build:
+      context: .
+      dockerfile: Dockerfile.e2e
+    image: diodedj-e2e:local
+    init: true
+    shm_size: "2gb"
+    working_dir: /work
+    environment:
+      E2E_BINARY: release
+      RUST_LOG: debug
+      RUST_BACKTRACE: "1"
+    volumes:
+      - ./e2e-results:/work/e2e-results
+      # node_modules + cargo registry are baked into the image via layered
+      # COPY + install; only the cargo target dir needs cross-run state for
+      # incremental compile.
+      - e2e-target:/work/src-tauri/target
+
+volumes:
+  e2e-target:

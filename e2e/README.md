@@ -7,7 +7,13 @@ End-to-end tests for DiodeDJ via `tauri-driver` + WebdriverIO.
 **Linux only.** macOS WKWebView ships no WebDriver implementation, and Tauri's `tauri-driver` does not support darwin. Mac developers have two options:
 
 1. Push the branch and watch CI (5 min feedback loop).
-2. Run inside a Linux container. See issue #130 for the planned OrbStack / Lima setup script.
+2. Run inside the Linux container shipped at `docker-compose.e2e.yml`:
+
+   ```bash
+   docker compose -f docker-compose.e2e.yml run --build --rm e2e
+   ```
+
+   Source is COPY'd into the image at build time — no bind mount of the working tree — so the run matches CI. `--build` re-COPYs after edits. Named volumes persist node_modules, the cargo target dir, and the pnpm/cargo download caches across runs, so incremental builds stay fast. Failure artifacts surface in `./e2e-results/`.
 
 ## One-time local setup (Linux)
 

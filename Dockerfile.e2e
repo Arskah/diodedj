@@ -7,7 +7,8 @@ ENV DEBIAN_FRONTEND=noninteractive \
     CARGO_HOME=/usr/local/cargo \
     PATH=/usr/local/cargo/bin:$PATH \
     RUST_VERSION=1.95.0 \
-    TAURI_DRIVER_VERSION=2.0.6
+    TAURI_DRIVER_VERSION=2.0.6 \
+    COREPACK_ENABLE_DOWNLOAD_PROMPT=0
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
       ca-certificates curl git xz-utils unzip jq pkg-config build-essential file \
