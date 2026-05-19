@@ -34,7 +34,10 @@ impl FileSink {
                 let text = track_text_line(&p.track);
                 (json, text)
             }
-            Payload::Stopped(_) => (String::new(), String::new()),
+            Payload::Stopped(p) => {
+                let json = serde_json::to_string_pretty(p)?;
+                (json, String::new())
+            }
         };
 
         atomic_write(&self.dir.join(JSON_NAME), json.as_bytes())?;
@@ -97,7 +100,7 @@ mod tests {
     }
 
     #[test]
-    fn stopped_truncates_both_files() {
+    fn stopped_truncates_txt_and_writes_stopped_payload_to_json() {
         let dir = tempdir().unwrap();
         let sink = FileSink::new(dir.path().to_path_buf());
         let ts: DateTime<chrono::Utc> = "2026-05-19T00:00:00Z".parse().unwrap();
@@ -106,8 +109,12 @@ mod tests {
 
         let txt = fs::read_to_string(dir.path().join(TXT_NAME)).unwrap();
         assert_eq!(txt, "");
+
         let json = fs::read_to_string(dir.path().join(JSON_NAME)).unwrap();
-        assert_eq!(json, "");
+        assert!(json.contains("\"event\": \"stopped\""));
+        assert!(json.contains("\"stoppedAt\": \"2026-05-19T00:00:00Z\""));
+        // Must remain valid JSON.
+        let _: serde_json::Value = serde_json::from_str(&json).unwrap();
     }
 
     #[test]

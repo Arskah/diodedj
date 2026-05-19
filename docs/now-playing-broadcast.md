@@ -106,9 +106,11 @@ directory on every event:
   artist is empty). No trailing newline.
 - `now_playing.json` — identical schema to the webhook payload.
 
-On a `stopped` event both files are truncated to empty. OBS Text (GDI+)
-sources should be pointed at `now_playing.txt` and configured to display
-nothing while empty.
+On a `stopped` event `now_playing.txt` is truncated to empty (OBS Text
+(GDI+) sources should be pointed at it and configured to display nothing
+while empty), while `now_playing.json` is rewritten with the Stopped
+payload so it always parses as valid JSON and mirrors what the webhook
+sends.
 
 If no directory is set the files land in `<app-data-dir>/now-playing/`,
 where `<app-data-dir>` resolves to:
