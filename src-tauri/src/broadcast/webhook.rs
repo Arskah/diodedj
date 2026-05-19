@@ -66,8 +66,8 @@ impl Webhook {
 }
 
 pub fn sign(secret: &str, body: &[u8]) -> String {
-    let mut mac = <Hmac<Sha256>>::new_from_slice(secret.as_bytes())
-        .expect("HMAC accepts any key length");
+    let mut mac =
+        <Hmac<Sha256>>::new_from_slice(secret.as_bytes()).expect("HMAC accepts any key length");
     mac.update(body);
     hex_lower(&mac.finalize().into_bytes())
 }
@@ -116,7 +116,9 @@ mod tests {
             "42eb9553cf9288e53d3389208d00db1ac80d3666f1fa74fe02e1038672d0c83a"
         );
         assert_eq!(sig.len(), 64);
-        assert!(sig.chars().all(|c| c.is_ascii_hexdigit() && !c.is_ascii_uppercase()));
+        assert!(sig
+            .chars()
+            .all(|c| c.is_ascii_hexdigit() && !c.is_ascii_uppercase()));
     }
 
     #[test]
@@ -187,10 +189,7 @@ mod tests {
         .await
         .unwrap();
 
-        let reqs: Vec<Request> = server
-            .received_requests()
-            .await
-            .expect("requests recorded");
+        let reqs: Vec<Request> = server.received_requests().await.expect("requests recorded");
         let req = reqs.first().expect("one request");
         let sig_header = req
             .headers

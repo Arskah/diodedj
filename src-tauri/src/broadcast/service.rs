@@ -83,9 +83,11 @@ impl BroadcastService {
     /// or error string for inline UI feedback. Blocks until result.
     pub fn test_webhook_blocking(&self) -> Result<u16, String> {
         let cfg = self.inner.config.get_now_playing();
-        let url = cfg.webhook_url.clone().filter(|u| !u.is_empty()).ok_or_else(|| {
-            "webhook URL not configured".to_string()
-        })?;
+        let url = cfg
+            .webhook_url
+            .clone()
+            .filter(|u| !u.is_empty())
+            .ok_or_else(|| "webhook URL not configured".to_string())?;
         let secret = cfg.webhook_secret.clone();
         let inner = Arc::clone(&self.inner);
         async_runtime::block_on(async move {

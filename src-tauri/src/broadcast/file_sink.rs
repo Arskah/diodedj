@@ -24,9 +24,8 @@ impl FileSink {
     /// Write current state. Track-start writes both files with content;
     /// stop truncates both to empty (also via atomic rename).
     pub fn write(&self, payload: &Payload) -> Result<()> {
-        fs::create_dir_all(&self.dir).with_context(|| {
-            format!("create now-playing dir {}", self.dir.display())
-        })?;
+        fs::create_dir_all(&self.dir)
+            .with_context(|| format!("create now-playing dir {}", self.dir.display()))?;
 
         let (json, text) = match payload {
             Payload::NowPlaying(p) => {
@@ -48,8 +47,7 @@ impl FileSink {
 
 fn atomic_write(path: &Path, bytes: &[u8]) -> Result<()> {
     let tmp = tmp_sibling(path);
-    fs::write(&tmp, bytes)
-        .with_context(|| format!("write {}", tmp.display()))?;
+    fs::write(&tmp, bytes).with_context(|| format!("write {}", tmp.display()))?;
     fs::rename(&tmp, path)
         .with_context(|| format!("rename {} -> {}", tmp.display(), path.display()))?;
     Ok(())
