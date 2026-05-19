@@ -6,3 +6,5 @@ minimumReleaseAge: 4320
 minimumReleaseAgeExclude:
   - "@babel/code-frame"
   - "@commitlint/to-lines"
+  # Renovate security update: svelte@5.55.7
+  - svelte@5.55.7
