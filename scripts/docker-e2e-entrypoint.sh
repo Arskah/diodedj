@@ -14,13 +14,8 @@ pactl set-default-sink dummy
 
 export E2E_BINARY="${E2E_BINARY:-release}"
 
-# Install deps if needed. Detect empty dir (named volume mount) as missing,
-# not just absence — `-d` is true for an empty mounted volume.
-if [ -z "$(ls -A node_modules 2>/dev/null)" ]; then
-  pnpm install --frozen-lockfile
-fi
-
-# Build release binary if missing.
+# Build release binary if missing. node_modules + cargo deps are baked into
+# the image; the target dir lives in a named volume for incremental rebuilds.
 if [ ! -f "src-tauri/target/${E2E_BINARY}/diodedj" ]; then
   pnpm tauri build --no-bundle
 fi

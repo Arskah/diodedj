@@ -1,4 +1,5 @@
-FROM node:24-trixie
+# ── base ───────────────────────────────────────────────────────────────
+FROM node:24-trixie AS base
 
 ENV DEBIAN_FRONTEND=noninteractive \
     LANG=C.UTF-8 \
@@ -8,9 +9,6 @@ ENV DEBIAN_FRONTEND=noninteractive \
     RUST_VERSION=1.95.0 \
     TAURI_DRIVER_VERSION=2.0.6
 
-# Build deps (libwebkit2gtk-4.1-dev etc) + runtime deps (webkit2gtk-driver,
-# pulseaudio, xvfb) collapsed into one layer so the image works for both
-# `tauri build` and `pnpm e2e` against the produced binary.
 RUN apt-get update && apt-get install -y --no-install-recommends \
       ca-certificates curl git xz-utils unzip jq pkg-config build-essential file \
       libwebkit2gtk-4.1-dev \
@@ -29,10 +27,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       xauth \
     && rm -rf /var/lib/apt/lists/*
 
-# pnpm via corepack (ships with node images).
-RUN corepack enable && corepack prepare pnpm@latest --activate
+RUN corepack enable
 
-# Rust pinned to .tool-versions.
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
       | sh -s -- -y --default-toolchain ${RUST_VERSION} --profile minimal \
     && rustup component add rustfmt clippy
@@ -44,6 +40,37 @@ RUN printf 'pcm.!default { type pulse }\nctl.!default { type pulse }\n' \
       > /etc/asound.conf
 
 WORKDIR /work
+
+
+# ── pnpm-deps ──────────────────────────────────────────────────────────
+# HUSKY=0 skips the `prepare: husky` hook (no .git in build context).
+# strict-dep-builds=false silences ERR_PNPM_IGNORED_BUILDS for
+# edgedriver/geckodriver — only esbuild's postinstall is needed.
+FROM base AS pnpm-deps
+COPY package.json pnpm-lock.yaml ./
+RUN HUSKY=0 pnpm install --frozen-lockfile --config.strict-dep-builds=false
+
+
+# ── cargo-deps ─────────────────────────────────────────────────────────
+# Warms the cargo registry only. Stub src/ satisfies manifest validation
+# without pulling real source into this stage's cache key. tauri-build
+# requires the renderer dist + full source so compilation is deferred to
+# the runtime stage against the e2e-target volume.
+FROM base AS cargo-deps
+COPY src-tauri/Cargo.toml src-tauri/Cargo.lock src-tauri/
+RUN mkdir -p src-tauri/src \
+    && : > src-tauri/src/lib.rs \
+    && echo 'fn main() {}' > src-tauri/src/main.rs \
+    && cd src-tauri && cargo fetch
+
+
+# ── runtime ────────────────────────────────────────────────────────────
+FROM base AS runtime
+
+COPY --from=pnpm-deps /work/node_modules ./node_modules
+COPY --from=cargo-deps /usr/local/cargo/registry /usr/local/cargo/registry
+
+COPY . /work
 
 COPY scripts/docker-e2e-entrypoint.sh /usr/local/bin/run-e2e.sh
 RUN chmod +x /usr/local/bin/run-e2e.sh
