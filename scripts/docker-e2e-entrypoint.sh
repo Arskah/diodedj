@@ -23,4 +23,5 @@ if [ ! -f src-tauri/target/release/diodedj ]; then
   E2E_BINARY="${E2E_BINARY:-release}" pnpm tauri build --no-bundle
 fi
 
-exec xvfb-run -a pnpm e2e
+mkdir -p e2e-results
+exec xvfb-run -a -e e2e-results/xvfb.log pnpm e2e
