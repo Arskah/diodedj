@@ -31,6 +31,53 @@ fs.mkdirSync(E2E_APP_DATA_DIR, { recursive: true });
 
 let tauriDriver: ChildProcess | null = null;
 
+const tailedLogs = new Set<string>();
+
+function tailFile(file: string): void {
+  if (tailedLogs.has(file)) return;
+  tailedLogs.add(file);
+  const prefix = `[app:${path.basename(file)}] `;
+  let position = 0;
+  let pending = false;
+  const stream = () => {
+    if (pending) return;
+    pending = true;
+    fs.stat(file, (err, st) => {
+      if (err || st.size <= position) {
+        pending = false;
+        return;
+      }
+      const rs = fs.createReadStream(file, { start: position, end: st.size });
+      let buf = "";
+      rs.on("data", (chunk) => {
+        buf += chunk.toString();
+        const lines = buf.split("\n");
+        buf = lines.pop() ?? "";
+        for (const line of lines) process.stdout.write(prefix + line + "\n");
+      });
+      rs.on("end", () => {
+        if (buf) process.stdout.write(prefix + buf);
+        position = st.size;
+        pending = false;
+      });
+    });
+  };
+  fs.watchFile(file, { interval: 250 }, stream);
+  stream();
+}
+
+function tailAppLogs(logsDir: string): void {
+  fs.mkdirSync(logsDir, { recursive: true });
+  for (const f of fs.readdirSync(logsDir)) {
+    if (f.endsWith(".log")) tailFile(path.join(logsDir, f));
+  }
+  fs.watch(logsDir, (_event, filename) => {
+    if (filename && filename.endsWith(".log")) {
+      tailFile(path.join(logsDir, filename));
+    }
+  });
+}
+
 export const config: WebdriverIO.Config = {
   runner: "local",
   hostname: "127.0.0.1",
@@ -90,6 +137,12 @@ export const config: WebdriverIO.Config = {
     // `docker run` output and CI job logs without unzipping artifacts.
     tauriDriver.stdout?.pipe(process.stdout);
     tauriDriver.stderr?.pipe(process.stderr);
+
+    // Tail the app's tauri-plugin-log file sink to stdout. The plugin's
+    // Stdout target is swallowed because tauri-driver doesn't forward the
+    // app's stdio. The LogDir target writes `${E2E_APP_DATA_DIR}/logs/*.log`,
+    // which we follow as soon as it appears.
+    tailAppLogs(path.join(E2E_APP_DATA_DIR, "logs"));
   },
 
   afterSession: () => {
