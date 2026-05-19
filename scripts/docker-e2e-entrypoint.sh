@@ -12,6 +12,8 @@ pulseaudio --start --exit-idle-time=-1 --log-target=stderr
 pactl load-module module-null-sink sink_name=dummy sink_properties=device.description=Dummy
 pactl set-default-sink dummy
 
+export E2E_BINARY="${E2E_BINARY:-release}"
+
 # Install deps if needed. Detect empty dir (named volume mount) as missing,
 # not just absence — `-d` is true for an empty mounted volume.
 if [ -z "$(ls -A node_modules 2>/dev/null)" ]; then
@@ -19,8 +21,8 @@ if [ -z "$(ls -A node_modules 2>/dev/null)" ]; then
 fi
 
 # Build release binary if missing.
-if [ ! -f src-tauri/target/release/diodedj ]; then
-  E2E_BINARY="${E2E_BINARY:-release}" pnpm tauri build --no-bundle
+if [ ! -f "src-tauri/target/${E2E_BINARY}/diodedj" ]; then
+  pnpm tauri build --no-bundle
 fi
 
 mkdir -p e2e-results
@@ -29,4 +31,16 @@ mkdir -p e2e-results
 # `process.stdout` which causes ERR_STREAM_WRITE_AFTER_END on shutdown.
 : > e2e-results/tauri-driver.log
 tail -F e2e-results/tauri-driver.log &
-exec xvfb-run -a -e e2e-results/xvfb.log pnpm e2e
+
+# Start Xvfb directly instead of via xvfb-run. xvfb-run waits for SIGUSR1
+# from Xvfb to signal readiness; inside this container that handshake
+# blocks indefinitely and the wrapped command never starts.
+Xvfb :99 -screen 0 1280x1024x24 -nolisten tcp >e2e-results/xvfb.log 2>&1 &
+export DISPLAY=:99
+# Wait for Xvfb's UNIX socket to appear (readiness signal without xset).
+for _ in $(seq 1 50); do
+  if [ -S /tmp/.X11-unix/X99 ]; then break; fi
+  sleep 0.1
+done
+
+exec pnpm e2e
