@@ -1,5 +1,41 @@
 # Changelog
 
+## [0.10.0](https://github.com/Arskah/diodedj/compare/v0.9.1...v0.10.0) (2026-05-19)
+
+
+### Features
+
+* expose currently playing track via webhook + file output ([#146](https://github.com/Arskah/diodedj/issues/146)) ([d48a39f](https://github.com/Arskah/diodedj/commit/d48a39f3b9e2be9ed4fb9ae1ccfdd15b5f464902))
+* stop marker halts auto-play when reached ([#123](https://github.com/Arskah/diodedj/issues/123)) ([777d0aa](https://github.com/Arskah/diodedj/commit/777d0aa0bc8f4c5c8da26e6bf2c30fb58752d5d8))
+
+
+### Bug Fixes
+
+* **deps:** update tauri monorepo ([#144](https://github.com/Arskah/diodedj/issues/144)) ([7706871](https://github.com/Arskah/diodedj/commit/77068715e2ff50626fd7a50f423bbdbb34753da9))
+
+
+### Miscellaneous Chores
+
+* **a11y:** add ARIA roles and labels for e2e selectors ([#131](https://github.com/Arskah/diodedj/issues/131)) ([f598b8c](https://github.com/Arskah/diodedj/commit/f598b8c127e401027d6f706bb1ca7a6634a27bc1))
+* **deps:** pin node.js ([#145](https://github.com/Arskah/diodedj/issues/145)) ([1d791b2](https://github.com/Arskah/diodedj/commit/1d791b2b7c4b3714a3b766dc33c4373d14cb48d1))
+* **deps:** update actions/download-artifact action to v8 ([#135](https://github.com/Arskah/diodedj/issues/135)) ([2d1e3ad](https://github.com/Arskah/diodedj/commit/2d1e3adfbc6d0ff32a872f8053025cce47cdaccf))
+* **deps:** update commitlint monorepo to v21.0.1 ([#139](https://github.com/Arskah/diodedj/issues/139)) ([92a3e95](https://github.com/Arskah/diodedj/commit/92a3e95d8ed35f491cc0502575f85c9f228bbd0e))
+* **deps:** update dependency eslint to v10.4.0 ([#142](https://github.com/Arskah/diodedj/issues/142)) ([556a36f](https://github.com/Arskah/diodedj/commit/556a36f8b5e13c19f60adf23e0e52d1d13a7430b))
+* **deps:** update dependency lint-staged to v17.0.5 ([#143](https://github.com/Arskah/diodedj/issues/143)) ([0f6814b](https://github.com/Arskah/diodedj/commit/0f6814b5ac4e9d76aaefa475e7624e9d393fa126))
+* **deps:** update dependency svelte to v5.55.7 [security] ([#133](https://github.com/Arskah/diodedj/issues/133)) ([d29e69b](https://github.com/Arskah/diodedj/commit/d29e69b2548e4b6b812e1bf5e3472a698c603797))
+* **deps:** update dependency tsx to v4.22.0 ([#140](https://github.com/Arskah/diodedj/issues/140)) ([0f555fa](https://github.com/Arskah/diodedj/commit/0f555fa472cb3f5313b16cff4638b7a7de9ab25a))
+* **deps:** update dependency typescript-eslint to v8.59.3 ([#127](https://github.com/Arskah/diodedj/issues/127)) ([67a0c3f](https://github.com/Arskah/diodedj/commit/67a0c3f7f2328f0febb67d30da741811f2675ce0))
+* **deps:** update dependency vite to v8.0.13 ([#141](https://github.com/Arskah/diodedj/issues/141)) ([61c6182](https://github.com/Arskah/diodedj/commit/61c61827949ed795b2fd9be47c891b773563799e))
+* **deps:** update pnpm to v11.1.0 ([#129](https://github.com/Arskah/diodedj/issues/129)) ([c0282bc](https://github.com/Arskah/diodedj/commit/c0282bc7828d4076b0da01bf9afddecea80ea3fe))
+* **deps:** update pnpm to v11.1.2 ([#137](https://github.com/Arskah/diodedj/issues/137)) ([414f861](https://github.com/Arskah/diodedj/commit/414f8610a96e6a647bbf3d736c4b997bf25ab952))
+* **deps:** update pnpm/action-setup action to v6.0.8 ([#138](https://github.com/Arskah/diodedj/issues/138)) ([6bad28f](https://github.com/Arskah/diodedj/commit/6bad28fc3ac46ce8df82efc1b0faab9053e23f05))
+
+
+### Tests
+
+* **e2e:** add Docker harness for local Linux e2e ([3c989e9](https://github.com/Arskah/diodedj/commit/3c989e98cfd311e8f53bd118db2317682494bd5b))
+* **e2e:** port smoke suite to tauri-driver + WebdriverIO ([#132](https://github.com/Arskah/diodedj/issues/132)) ([4a0e649](https://github.com/Arskah/diodedj/commit/4a0e649ebb4a097e154be185d7277828f1e72540))
+
 ## [0.9.1](https://github.com/Arskah/diodedj/compare/v0.9.0...v0.9.1) (2026-05-14)
 
 
