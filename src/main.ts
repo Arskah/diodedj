@@ -2,6 +2,7 @@ import { mount } from "svelte";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { attachConsole } from "@tauri-apps/plugin-log";
 import App from "./App.svelte";
+import { api } from "./shared/api";
 import { app } from "./shared/state.svelte";
 import "./styles.css";
 
@@ -23,6 +24,7 @@ void win.onCloseRequested(async (event) => {
   event.preventDefault();
   try {
     await app.flushSave();
+    await api.broadcastShutdown();
   } finally {
     await win.destroy();
   }

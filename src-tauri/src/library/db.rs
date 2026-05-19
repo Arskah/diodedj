@@ -65,6 +65,17 @@ pub struct MediaTrack {
     pub duration: f64,
 }
 
+pub struct TrackBroadcastInfo {
+    pub id: i64,
+    pub title: String,
+    pub artist: String,
+    pub album: String,
+    pub genre: Option<String>,
+    pub duration: f64,
+    pub content_type: String,
+    pub path: String,
+}
+
 pub struct Db {
     conn: Mutex<Connection>,
 }
@@ -179,6 +190,30 @@ impl Db {
             Ok(MediaTrack {
                 path: r.get(0)?,
                 duration: r.get::<_, Option<f64>>(1)?.unwrap_or(0.0),
+            })
+        })?;
+        match rows.next() {
+            Some(r) => r.map(Some).map_err(Into::into),
+            None => Ok(None),
+        }
+    }
+
+    pub fn get_track_broadcast_info(&self, id: i64) -> Result<Option<TrackBroadcastInfo>> {
+        let conn = self.conn.lock();
+        let mut stmt = conn.prepare(
+            "SELECT id, title, artist, album, genre, duration, content_type, path \
+             FROM tracks WHERE id = ?",
+        )?;
+        let mut rows = stmt.query_map([id], |r| {
+            Ok(TrackBroadcastInfo {
+                id: r.get(0)?,
+                title: r.get::<_, Option<String>>(1)?.unwrap_or_default(),
+                artist: r.get::<_, Option<String>>(2)?.unwrap_or_default(),
+                album: r.get::<_, Option<String>>(3)?.unwrap_or_default(),
+                genre: r.get::<_, Option<String>>(4)?,
+                duration: r.get::<_, Option<f64>>(5)?.unwrap_or(0.0),
+                content_type: r.get(6)?,
+                path: r.get(7)?,
             })
         })?;
         match rows.next() {

@@ -10,6 +10,7 @@ Desktop music player built for radio stations. Manage music, commercials, and ji
 - **Playback modes** — AUTO advances through playlist, MANUAL stops after each track
 - **Native audio** — in-process Rust player (rodio + symphonia) for MP3, FLAC, Vorbis, WAV, AAC, M4A. No browser audio pipeline, no external transcoder
 - **Now playing** — real-time display with seekable progress bar, time, and volume
+- **Now-playing broadcast** — outbound webhook + atomic file output for stream overlays, metadata bridges, and scripted consumers (see [docs/now-playing-broadcast.md](docs/now-playing-broadcast.md))
 
 ## Prerequisites
 
@@ -38,6 +39,16 @@ pnpm test -- run                                            # 62 vitest renderer
 cargo test --manifest-path src-tauri/Cargo.toml             # 24 cargo backend tests
 pnpm typecheck && pnpm lint                                 # tsc + svelte-check + eslint
 ```
+
+## Data files
+
+DiodeDJ stores its database (`diodedj.db`), config (`config.json`), session
+state (`session.json`), and default now-playing output in a per-user data
+directory.
+
+- macOS: `~/Library/Application Support/com.diodedj.app/`
+- Linux: `~/.local/share/com.diodedj.app/` (or `$XDG_DATA_HOME/com.diodedj.app/`)
+- Windows: `%APPDATA%\com.diodedj.app\` (typically `C:\Users\<you>\AppData\Roaming\com.diodedj.app\`)
 
 ## Logs
 
