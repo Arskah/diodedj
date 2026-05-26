@@ -211,8 +211,8 @@ describe("AppState history view", () => {
     app = makeApp().app;
   });
 
-  it("playlistTab defaults to queue", () => {
-    expect(app.playlistTab).toBe("queue");
+  it("playlistTab defaults to playlist", () => {
+    expect(app.playlistTab).toBe("playlist");
   });
 
   it("historyDisplay reverses storage order (newest first)", () => {

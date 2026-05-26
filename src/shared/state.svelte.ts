@@ -32,12 +32,12 @@ const AUTO_PLAYLIST_THRESHOLD = 5;
 const HISTORY_CAP = 100;
 const SESSION_SAVE_THROTTLE_MS = 500;
 
-export type PlaylistTab = "queue" | "history";
+export type PlaylistTab = "playlist" | "history";
 
 export class AppState {
   searchQuery = $state("");
   activeTab = $state<ContentType>("music");
-  playlistTab = $state<PlaylistTab>("queue");
+  playlistTab = $state<PlaylistTab>("playlist");
   sortBy = $state<SortColumn | null>(null);
   sortDir = $state<SortDir>("asc");
   tracks = $state<Track[]>([]);
