@@ -1,5 +1,39 @@
 # Changelog
 
+## [0.10.1](https://github.com/Arskah/diodedj/compare/v0.10.0...v0.10.1) (2026-05-26)
+
+
+### Bug Fixes
+
+* **deps:** update rust crate serde_json to v1.0.150 ([#161](https://github.com/Arskah/diodedj/issues/161)) ([c7c7709](https://github.com/Arskah/diodedj/commit/c7c77095d3b343c3e175f2c8aa7711b37f1d5c99))
+
+
+### Miscellaneous Chores
+
+* cleanup pnpm settings ([0985f71](https://github.com/Arskah/diodedj/commit/0985f71c67472dbfb9e1bfc5f929c27726448873))
+* **deps:** lock file maintenance ([#149](https://github.com/Arskah/diodedj/issues/149)) ([0a83c41](https://github.com/Arskah/diodedj/commit/0a83c413061c796874ea19b6cc01b70d15269124))
+* **deps:** update dependency @types/node to v25.8.0 ([#128](https://github.com/Arskah/diodedj/issues/128)) ([9ed35a6](https://github.com/Arskah/diodedj/commit/9ed35a63f07850161f210ebb96792f4266222794))
+* **deps:** update dependency @types/node to v25.9.1 ([#154](https://github.com/Arskah/diodedj/issues/154)) ([471f3e7](https://github.com/Arskah/diodedj/commit/471f3e79ab882dfcfdb0f39ec184be0e635ac053))
+* **deps:** update dependency prettier-plugin-svelte to v4 ([#159](https://github.com/Arskah/diodedj/issues/159)) ([ef12b98](https://github.com/Arskah/diodedj/commit/ef12b98fde4167d3a365c09cdb065babe66b8341))
+* **deps:** update dependency svelte to v5.55.9 ([#155](https://github.com/Arskah/diodedj/issues/155)) ([6c08a8b](https://github.com/Arskah/diodedj/commit/6c08a8b8c0eb8d2ca13dcbca0b0a96697af7a967))
+* **deps:** update dependency tsx to v4.22.3 ([#151](https://github.com/Arskah/diodedj/issues/151)) ([055dcc6](https://github.com/Arskah/diodedj/commit/055dcc6b61e030fc8c441051aa53b1d0e15225a1))
+* **deps:** update dependency typescript-eslint to v8.59.4 ([#156](https://github.com/Arskah/diodedj/issues/156)) ([a90a7a7](https://github.com/Arskah/diodedj/commit/a90a7a7155135989cecbd0f0acd55452e7bf6e7a))
+* **deps:** update dependency vite to v8.0.14 ([#160](https://github.com/Arskah/diodedj/issues/160)) ([864caf2](https://github.com/Arskah/diodedj/commit/864caf25abf93869a011a1a4048ca3ee5cdd5703))
+* **deps:** update node.js to v24.16.0 ([#158](https://github.com/Arskah/diodedj/issues/158)) ([19a9930](https://github.com/Arskah/diodedj/commit/19a99303783f523e3220d9396efebbb41c6e73ad))
+* **deps:** update pnpm to v11.2.2 ([#153](https://github.com/Arskah/diodedj/issues/153)) ([0c35b24](https://github.com/Arskah/diodedj/commit/0c35b24f2ce904f5a158d26d3abb4980260c5759))
+* **deps:** update vitest monorepo to v4.1.7 ([#157](https://github.com/Arskah/diodedj/issues/157)) ([ad31abf](https://github.com/Arskah/diodedj/commit/ad31abfaa77fc1685684c34c31dd2c85cc16e46c))
+* fix audit issues ([2fa9be1](https://github.com/Arskah/diodedj/commit/2fa9be129bab825848ce9c4f1ab5f4f454044be3))
+
+
+### Documentation
+
+* add CONTEXT.md ubiquitous language glossary ([9501e61](https://github.com/Arskah/diodedj/commit/9501e61084edb7eb802c68e6ab7ad0eafab7ad21))
+
+
+### Code Refactoring
+
+* align codebase with CONTEXT.md ubiquitous language ([#163](https://github.com/Arskah/diodedj/issues/163)) ([77e3c9c](https://github.com/Arskah/diodedj/commit/77e3c9cdc94ee7048b6c35c004302969ec666262))
+
 ## [0.10.0](https://github.com/Arskah/diodedj/compare/v0.9.1...v0.10.0) (2026-05-19)
 
 
