@@ -5,7 +5,7 @@ use super::payload::{BroadcastTrack, Payload};
 /// Pure FSM tracking what the broadcast service has last announced.
 ///
 /// Inputs come from `BroadcastService` after listening to Tauri events:
-/// - `set_pending(track)` — called from `player_load` with the track about to play.
+/// - `set_pending(track)` — called from `main_deck_load` with the track about to play.
 /// - `on_pause_state(paused)` — main deck pause-state transitions.
 /// - `on_ended()` — main deck track ended naturally.
 /// - `on_shutdown()` — app quit; fire final stop if currently playing.

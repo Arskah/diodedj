@@ -15,8 +15,8 @@ import {
   type ScanStatus,
   type SessionLoadResult,
 } from "./api";
-import type { PlayerBackend } from "../features/player/backend";
-import { NativeBackend } from "../features/player/nativeBackend";
+import type { DeckBackend } from "../features/deck/backend";
+import { NativeBackend } from "../features/deck/nativeBackend";
 import { throttle, type Throttled } from "./throttle";
 
 const logger = {
@@ -77,14 +77,14 @@ export class AppState {
   hoverX = $state(0);
   hoverY = $state(0);
 
-  backend: PlayerBackend;
-  cueBackend: PlayerBackend;
+  backend: DeckBackend;
+  cueBackend: DeckBackend;
 
   private throttledSave: Throttled;
   private sessionLoaded = false;
 
-  constructor(backend?: PlayerBackend, cueBackend?: PlayerBackend) {
-    this.backend = backend ?? new NativeBackend("player");
+  constructor(backend?: DeckBackend, cueBackend?: DeckBackend) {
+    this.backend = backend ?? new NativeBackend("main");
     this.cueBackend = cueBackend ?? new NativeBackend("cue");
     this.throttledSave = throttle(
       () => void this.persistSession(),

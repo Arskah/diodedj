@@ -64,17 +64,17 @@ impl BroadcastService {
         self.inner.state.lock().set_pending(track);
     }
 
-    /// Attach app.listen handlers for player:pause-state and player:ended.
+    /// Attach app.listen handlers for main-deck:pause-state and main-deck:ended.
     /// Cue deck uses cue:* topics and is intentionally not subscribed.
     pub fn attach_to_app(&self, app: &AppHandle) {
         let pause_state_inner = Arc::clone(&self.inner);
-        app.listen("player:pause-state", move |event| {
+        app.listen("main-deck:pause-state", move |event| {
             let paused: bool = serde_json::from_str(event.payload()).unwrap_or(false);
             Inner::dispatch(&pause_state_inner, |s| s.on_pause_state(paused, Utc::now()));
         });
 
         let ended_inner = Arc::clone(&self.inner);
-        app.listen("player:ended", move |_event| {
+        app.listen("main-deck:ended", move |_event| {
             Inner::dispatch(&ended_inner, |s| s.on_ended(Utc::now()));
         });
     }

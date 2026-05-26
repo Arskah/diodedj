@@ -33,7 +33,7 @@ const { api } = vi.hoisted(() => {
 
 vi.mock("./api", () => ({ api }));
 
-vi.mock("../features/player/nativeBackend", () => ({
+vi.mock("../features/deck/nativeBackend", () => ({
   NativeBackend: class {
     on(): () => void {
       return () => {};
