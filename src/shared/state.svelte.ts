@@ -412,7 +412,7 @@ export class AppState {
     this.loadCoverArt(track.id);
     void this.loadAndPlay(track);
     void api.trackPlayed(track.id);
-    document.title = `${track.title} - ${track.artist} | DiodeDJ`;
+    document.title = `${track.title} - ${track.artist} | Radiodiodj`;
     void this.maybeRefillPlaylist();
     this.updatePrefetch();
     this.scheduleSave();
@@ -503,7 +503,7 @@ export class AppState {
     this.waveform = null;
     this.coverArt = null;
     this.isPlaying = false;
-    document.title = "DiodeDJ";
+    document.title = "Radiodiodj";
     this.updatePrefetch();
     this.scheduleSave();
   }
@@ -734,7 +734,7 @@ export class AppState {
       this.loadWaveform(restored.id);
       this.loadCoverArt(restored.id);
       void this.loadWithSeek(restored, state.currentTime);
-      document.title = `${restored.title} - ${restored.artist} | DiodeDJ`;
+      document.title = `${restored.title} - ${restored.artist} | Radiodiodj`;
     }
 
     this.sessionLoaded = true;
