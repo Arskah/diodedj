@@ -87,7 +87,7 @@ Playlist mode that maintains itself by randomly selecting from the Music library
 _Avoid_: Auto-DJ, autoplay
 
 **Lookahead buffer**:
-The buffer of tracks the auto-playlist keeps ahead of Now playing; refills when remaining tracks fall below a threshold.
+The buffer of tracks the auto-playlist keeps ahead of Now playing. Target size is 20 tracks; refills when remaining tracks fall below a threshold of 5.
 _Avoid_: Buffer, preload
 
 **Interleave**:
