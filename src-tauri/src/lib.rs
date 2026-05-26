@@ -137,8 +137,11 @@ fn generate_playlist(app: State<'_, AppState>, count: i64) -> Result<Vec<Track>,
 }
 
 #[tauri::command(rename_all = "camelCase")]
-fn pick_filler(app: State<'_, AppState>, content_type: String) -> Result<Option<Track>, String> {
-    playlist::pick_filler(&app.db, &content_type).map_err(err)
+fn pick_filler(
+    app: State<'_, AppState>,
+    content_type: playlist::ContentType,
+) -> Result<Option<Track>, String> {
+    playlist::pick_filler(&app.db, content_type).map_err(err)
 }
 
 #[tauri::command(rename_all = "camelCase")]

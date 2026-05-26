@@ -1,7 +1,26 @@
 use anyhow::Result;
+use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
 use crate::library::db::{Db, Track};
+
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum ContentType {
+    Music,
+    Jingle,
+    Commercial,
+}
+
+impl ContentType {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            ContentType::Music => "music",
+            ContentType::Jingle => "jingle",
+            ContentType::Commercial => "commercial",
+        }
+    }
+}
 
 const JINGLE_EVERY: i64 = 4;
 const COMMERCIAL_EVERY: i64 = 8;
@@ -20,10 +39,10 @@ pub fn generate(db: &Db, count: i64) -> Result<Vec<Track>> {
     let commercial_count = count / COMMERCIAL_EVERY;
     let music_count = (count - jingle_count - commercial_count).max(0);
 
-    let music = db.get_random_tracks("music", music_count)?;
-    let jingles = db.get_random_tracks("jingle", jingle_count)?;
+    let music = db.get_random_tracks(ContentType::Music.as_str(), music_count)?;
+    let jingles = db.get_random_tracks(ContentType::Jingle.as_str(), jingle_count)?;
     let commercials = db.pick_random_from_bottom(
-        "commercial",
+        ContentType::Commercial.as_str(),
         commercial_count,
         commercial_bucket_size(commercial_count),
     )?;
@@ -31,13 +50,17 @@ pub fn generate(db: &Db, count: i64) -> Result<Vec<Track>> {
     Ok(interleave_evenly(music, jingles, commercials))
 }
 
-pub fn pick_filler(db: &Db, content_type: &str) -> Result<Option<Track>> {
+pub fn pick_filler(db: &Db, content_type: ContentType) -> Result<Option<Track>> {
     match content_type {
-        "jingle" => Ok(db.get_random_tracks("jingle", 1)?.pop()),
-        "commercial" => Ok(db
-            .pick_random_from_bottom("commercial", 1, commercial_bucket_size(1))?
+        ContentType::Jingle => Ok(db.get_random_tracks(ContentType::Jingle.as_str(), 1)?.pop()),
+        ContentType::Commercial => Ok(db
+            .pick_random_from_bottom(
+                ContentType::Commercial.as_str(),
+                1,
+                commercial_bucket_size(1),
+            )?
             .pop()),
-        _ => Ok(None),
+        ContentType::Music => Ok(None),
     }
 }
 
