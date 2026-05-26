@@ -12,6 +12,9 @@ mod playlist;
 
 use audio::cache::Cache;
 use audio::devices::{list_output_devices, DeviceInfo};
+
+pub const APP_NAME: &str = "Radiodiodj";
+
 use audio::player::{Cmd, PlayerHandle};
 use broadcast::{service::default_now_playing_dir, BroadcastService};
 use library::db::{Db, LibraryStats, Track};
