@@ -22,7 +22,7 @@ Tauri 2 app. Two process boundaries: a Rust backend and a Svelte 5 / Vite render
 **Rust backend** (`src-tauri/src/`) — grouped by domain:
 
 - `lib.rs` — `tauri::Builder` setup (`tauri-plugin-log` first, then `tauri-plugin-dialog`), `AppState`, all `#[tauri::command]` handlers, panic hook (force-capture backtrace → `log::error!`)
-- `main.rs` — thin `pub fn main() { diodedj_lib::run() }` binary entry
+- `main.rs` — thin `pub fn main() { radiodiodj_lib::run() }` binary entry
 - `audio/` — `formats.rs` (supported extension table), `player.rs` (rodio `Sink` on a worker thread driven by `mpsc::Sender<Cmd>`; symphonia decoders for mp3/flac/vorbis/wav/aac/m4a; emits `player:time` (10 Hz) / `player:duration` / `player:pause-state` / `player:ended` / `player:error`)
 - `library/` — `db.rs` (rusqlite + FTS5, WAL, `parking_lot::Mutex<Connection>`, `user_version` migrations), `scanner.rs` + `scan_state.rs` (recursive walkdir scan, `lofty` tag extraction, mtime+content_type delta cache, background worker thread emitting `scan-progress` / `scan-state-changed` events with cancel token)
 - `persist/` — `config.rs` (`AppConfig` → `{app_data_dir}/config.json`), `session.rs` (`SessionState` per-field defaults → `{app_data_dir}/session.json`)
@@ -58,21 +58,21 @@ Tauri 2 app. Two process boundaries: a Rust backend and a Svelte 5 / Vite render
 
 ## Data files
 
-DiodeDJ stores its database (`diodedj.db`), config (`config.json`), session
+Radiodiodj stores its database (`radiodiodj.db`), config (`config.json`), session
 state (`session.json`), and default now-playing output in a per-user data
 directory.
 
-- macOS: `~/Library/Application Support/com.diodedj/`
-- Linux: `~/.local/share/com.diodedj/` (or `$XDG_DATA_HOME/com.diodedj/`)
-- Windows: `%APPDATA%\com.diodedj\` (typically `C:\Users\<you>\AppData\Roaming\com.diodedj\`)
+- macOS: `~/Library/Application Support/com.radiodiodj/`
+- Linux: `~/.local/share/com.radiodiodj/` (or `$XDG_DATA_HOME/com.radiodiodj/`)
+- Windows: `%APPDATA%\com.radiodiodj\` (typically `C:\Users\<you>\AppData\Roaming\com.radiodiodj\`)
 
 ## Logs
 
-DiodeDJ writes a rotating log file (`DiodeDJ.log`, 1 MB max, one prior file kept).
+Radiodiodj writes a rotating log file (`Radiodiodj.log`, 1 MB max, one prior file kept).
 
-- macOS: `~/Library/Logs/com.diodedj/DiodeDJ.log`
-- Linux: `~/.local/share/com.diodedj/logs/DiodeDJ.log` (or `$XDG_DATA_HOME/com.diodedj/logs/`)
-- Windows: `%LOCALAPPDATA%\com.diodedj\logs\DiodeDJ.log`
+- macOS: `~/Library/Logs/com.radiodiodj/Radiodiodj.log`
+- Linux: `~/.local/share/com.radiodiodj/logs/Radiodiodj.log` (or `$XDG_DATA_HOME/com.radiodiodj/logs/`)
+- Windows: `%LOCALAPPDATA%\com.radiodiodj\logs\Radiodiodj.log`
 
 Set `RUST_LOG=debug` (or `trace`) before launching to raise verbosity. Default is `info` (release) or `debug` (dev).
 

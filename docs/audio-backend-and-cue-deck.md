@@ -40,7 +40,7 @@ rodio = { version = "0.21", features = ["symphonia-mp3", "symphonia-flac",
 
 No `--audio-exclusive` analogue today; exclusive output mode is a cpal-level concern tracked under #81 — see [Exclusive output — investigation](#exclusive-output--investigation) below.
 
-`DIODEDJ_LOG=debug` (via `tauri-plugin-log`, #79) will gate verbose backend logging once that plugin lands. For now `RUST_LOG=debug` works at dev time.
+`RADIODIODJ_LOG=debug` (via `tauri-plugin-log`, #79) will gate verbose backend logging once that plugin lands. For now `RUST_LOG=debug` works at dev time.
 
 ### Lifecycle (rodio path)
 
@@ -194,7 +194,7 @@ Net delta: ~80MB saved across platform installs **plus** Electron itself (~150MB
 
 - Backend impl: 24 cargo unit tests cover db/scanner/session/playlist/config. The rodio worker thread is **not** unit-tested today (would need a fake audio sink). A `cargo test` smoke that loads a silent fixture and verifies `player:ended` is a future task. (Adapts Q17a/U3 — original mpv smoke plan dropped.)
 - `state.svelte.ts` deck logic: `MockBackend` in `tests/renderer/mockBackend.ts` exposes `loadedIds`, `play/pause/stop/seek/setVolume` plus test helpers `emitEnded()`, `emitTime(t)`. 62 vitest tests cover playlist, history, cue interactions (skeleton) and auto-advance. (Q17b, updated for `loadedIds: number[]` after the load-takes-track-id refactor.)
-- e2e: tauri-driver + WebdriverIO harness (Linux-only, mac WKWebView has no WebDriver) — tracked under [#77](https://github.com/Arskah/diodedj/issues/77). Stub backend mode (`DIODEDJ_E2E_FAKE_PLAYER=1`) carries forward but needs reimplementation for the rodio backend. (Q17c, P2)
+- e2e: tauri-driver + WebdriverIO harness (Linux-only, mac WKWebView has no WebDriver) — tracked under [#77](https://github.com/Arskah/diodedj/issues/77). Stub backend mode (`RADIODIODJ_E2E_FAKE_PLAYER=1`) carries forward but needs reimplementation for the rodio backend. (Q17c, P2)
 
 ## Ship plan (SP3)
 
@@ -242,9 +242,9 @@ Recommendation when prioritised: option (1) — defer until upstream offers a st
 
 ### Tradeoffs operators should know (regardless of implementation path)
 
-- **Exclusive engaged**: other apps' audio (Slack, browser, system sounds) cannot use the device. macOS Slack-call notifications, Windows Discord pings, Linux desktop alerts all silently drop while DiodeDJ holds the device.
+- **Exclusive engaged**: other apps' audio (Slack, browser, system sounds) cannot use the device. macOS Slack-call notifications, Windows Discord pings, Linux desktop alerts all silently drop while Radiodiodj holds the device.
 - **Exclusive on cue device only**: main keeps system audio routing intact. Cue going to a USB interface that nothing else uses is the sweet spot.
-- **Format mismatch**: exclusive mode requires the device's raw mix format (often 44.1 kHz / 24-bit on a USB interface, 48 kHz / 32-bit float on most onboard DACs). DiodeDJ's symphonia decoder produces f32; rodio's mixer resamples. Going exclusive removes the OS resampler — if symphonia output sample rate ≠ device rate, we'd need to add an SRC step. Not free.
+- **Format mismatch**: exclusive mode requires the device's raw mix format (often 44.1 kHz / 24-bit on a USB interface, 48 kHz / 32-bit float on most onboard DACs). Radiodiodj's symphonia decoder produces f32; rodio's mixer resamples. Going exclusive removes the OS resampler — if symphonia output sample rate ≠ device rate, we'd need to add an SRC step. Not free.
 - **Hot-unplug**: in shared mode cpal can recover via the OS reroute; in exclusive mode the stream must be explicitly torn down + reopened against a new device.
 
 ### What ships in step 4

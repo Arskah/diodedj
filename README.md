@@ -1,4 +1,4 @@
-# DiodeDJ
+# Radiodiodj
 
 Desktop music player built for radio stations. Manage music, commercials, and jingles with separate libraries, search with instant metadata filtering, and play with automated or manual advance.
 
@@ -42,21 +42,21 @@ pnpm typecheck && pnpm lint                                 # tsc + svelte-check
 
 ## Data files
 
-DiodeDJ stores its database (`diodedj.db`), config (`config.json`), session
+Radiodiodj stores its database (`radiodiodj.db`), config (`config.json`), session
 state (`session.json`), and default now-playing output in a per-user data
 directory.
 
-- macOS: `~/Library/Application Support/com.diodedj/`
-- Linux: `~/.local/share/com.diodedj/` (or `$XDG_DATA_HOME/com.diodedj/`)
-- Windows: `%APPDATA%\com.diodedj\` (typically `C:\Users\<you>\AppData\Roaming\com.diodedj\`)
+- macOS: `~/Library/Application Support/com.radiodiodj/`
+- Linux: `~/.local/share/com.radiodiodj/` (or `$XDG_DATA_HOME/com.radiodiodj/`)
+- Windows: `%APPDATA%\com.radiodiodj\` (typically `C:\Users\<you>\AppData\Roaming\com.radiodiodj\`)
 
 ## Logs
 
-DiodeDJ writes a rotating log file (`DiodeDJ.log`, 1 MB max, one prior file kept).
+Radiodiodj writes a rotating log file (`Radiodiodj.log`, 1 MB max, one prior file kept).
 
-- macOS: `~/Library/Logs/com.diodedj/DiodeDJ.log`
-- Linux: `~/.local/share/com.diodedj/logs/DiodeDJ.log` (or `$XDG_DATA_HOME/com.diodedj/logs/`)
-- Windows: `%LOCALAPPDATA%\com.diodedj\logs\DiodeDJ.log`
+- macOS: `~/Library/Logs/com.radiodiodj/Radiodiodj.log`
+- Linux: `~/.local/share/com.radiodiodj/logs/Radiodiodj.log` (or `$XDG_DATA_HOME/com.radiodiodj/logs/`)
+- Windows: `%LOCALAPPDATA%\com.radiodiodj\logs\Radiodiodj.log`
 
 Set `RUST_LOG=debug` (or `trace`) before launching to raise verbosity. Default is `info` (release) or `debug` (dev).
 
