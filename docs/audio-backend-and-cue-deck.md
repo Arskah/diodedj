@@ -1,10 +1,10 @@
 # Audio Backend Bypass + Cue Deck — Design
 
-Closes [#43](https://github.com/Arskah/diodedj/issues/43) and adds secondary audio interface for monitoring (cue/preview deck).
+Closes [#43](https://github.com/Arskah/radiodiodj/issues/43) and adds secondary audio interface for monitoring (cue/preview deck).
 
 Original design locked via grill-me on 2026-05-04 (mpv subprocess on Electron). Decisions referenced as Q# below.
 
-**Status update (2026-05-05):** the platform pivoted from Electron → Tauri 2 in PR #76. The chromium `<audio>` pipeline was replaced not by an mpv subprocess but by an in-process rodio + symphonia player living in `src-tauri/src/player.rs`. PR-1 and PR-2 are shipped; PR-3 (cue deck) is reframed for the rodio path and tracked as [#81](https://github.com/Arskah/diodedj/issues/81). ReplayGain + LAME-tag gapless trim moved to a separate audio-polish track [#80](https://github.com/Arskah/diodedj/issues/80).
+**Status update (2026-05-05):** the platform pivoted from Electron → Tauri 2 in PR #76. The chromium `<audio>` pipeline was replaced not by an mpv subprocess but by an in-process rodio + symphonia player living in `src-tauri/src/player.rs`. PR-1 and PR-2 are shipped; PR-3 (cue deck) is reframed for the rodio path and tracked as [#81](https://github.com/Arskah/radiodiodj/issues/81). ReplayGain + LAME-tag gapless trim moved to a separate audio-polish track [#80](https://github.com/Arskah/radiodiodj/issues/80).
 
 ## Goals
 
@@ -194,17 +194,17 @@ Net delta: ~80MB saved across platform installs **plus** Electron itself (~150MB
 
 - Backend impl: 24 cargo unit tests cover db/scanner/session/playlist/config. The rodio worker thread is **not** unit-tested today (would need a fake audio sink). A `cargo test` smoke that loads a silent fixture and verifies `player:ended` is a future task. (Adapts Q17a/U3 — original mpv smoke plan dropped.)
 - `state.svelte.ts` deck logic: `MockBackend` in `tests/renderer/mockBackend.ts` exposes `loadedIds`, `play/pause/stop/seek/setVolume` plus test helpers `emitEnded()`, `emitTime(t)`. 62 vitest tests cover playlist, history, cue interactions (skeleton) and auto-advance. (Q17b, updated for `loadedIds: number[]` after the load-takes-track-id refactor.)
-- e2e: tauri-driver + WebdriverIO harness (Linux-only, mac WKWebView has no WebDriver) — tracked under [#77](https://github.com/Arskah/diodedj/issues/77). Stub backend mode (`RADIODIODJ_E2E_FAKE_PLAYER=1`) carries forward but needs reimplementation for the rodio backend. (Q17c, P2)
+- e2e: tauri-driver + WebdriverIO harness (Linux-only, mac WKWebView has no WebDriver) — tracked under [#77](https://github.com/Arskah/radiodiodj/issues/77). Stub backend mode (`RADIODIODJ_E2E_FAKE_PLAYER=1`) carries forward but needs reimplementation for the rodio backend. (Q17c, P2)
 
 ## Ship plan (SP3)
 
 - **PR-1 — backend abstraction.** ✅ Shipped pre-Tauri: `PlayerBackend` interface + `HtmlAudioBackend`, `state.svelte.ts` refactored to talk to a backend instance. Pure refactor.
 - **PR-2 — chromium bypass (closes #43).** ✅ Shipped as **PR #76 (Tauri port)**. Implementation diverged from the original plan: instead of `MpvBackend` on Electron, the renderer calls `NativeBackend` over Tauri invokes that drive `src-tauri/src/player.rs` (rodio + symphonia). `HtmlAudioBackend`, `transcode.ts`, `media://`, `audio-formats.ts`, and `ffmpeg-static` were all dropped in the same PR.
-- **PR-3 — cue deck.** ⏳ Tracked as [#81](https://github.com/Arskah/diodedj/issues/81). Stacked PR series:
+- **PR-3 — cue deck.** ⏳ Tracked as [#81](https://github.com/Arskah/radiodiodj/issues/81). Stacked PR series:
   - Step 1 (#89, `feat/audio-devices`): cpal device enumeration, `DeviceRef` config plumbing, 5 Tauri commands (`audio_list_devices`, `get/set_main_device`, `get/set_cue_device`).
   - Step 2 (#90, `feat/cue-deck-backend`): second `PlayerHandle` parameterised on event prefix + cpal device, lazy spawn on first `cue_*` command, 6 cue Tauri commands + `cue:*` events, `NativeBackend` parameterised on `DeckId`.
   - Step 3 (#91, `feat/cue-deck-ui`): renderer cue state + transport, `PathsOverlay` → `SettingsOverlay` (Library + Audio tabs), `CueDeck.svelte`, library 🎧 button, `#deck-row` flexbox layout, `SessionState.cue_volume` persisted.
-  - Step 4 (this PR): exclusive output — see [Exclusive output — investigation](#exclusive-output--investigation). Hotkeys (K3) deferred — not strictly required by #81 and easy to add post-merge. Companion audio-polish work (ReplayGain + LAME-tag gapless trim) tracked on [#80](https://github.com/Arskah/diodedj/issues/80).
+  - Step 4 (this PR): exclusive output — see [Exclusive output — investigation](#exclusive-output--investigation). Hotkeys (K3) deferred — not strictly required by #81 and easy to add post-merge. Companion audio-polish work (ReplayGain + LAME-tag gapless trim) tracked on [#80](https://github.com/Arskah/radiodiodj/issues/80).
 
 ## Exclusive output — investigation
 

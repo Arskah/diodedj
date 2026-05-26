@@ -6,13 +6,13 @@
     "name": "Aarni Halinen",
     "email": "radiodiodj@aarnihalinen.fi"
   },
-  "homepage": "https://github.com/Arskah/diodedj#readme",
+  "homepage": "https://github.com/Arskah/radiodiodj#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Arskah/diodedj.git"
+    "url": "git+https://github.com/Arskah/radiodiodj.git"
   },
   "bugs": {
-    "url": "https://github.com/Arskah/diodedj/issues"
+    "url": "https://github.com/Arskah/radiodiodj/issues"
   },
   "license": "UNLICENSED",
   "scripts": {
