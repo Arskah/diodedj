@@ -4,7 +4,7 @@ on:
   workflow_call:
     inputs:
       build-artifact:
-        description: Name of the bundle artifact uploaded by build.yml (must contain the raw `diodedj` binary)
+        description: Name of the bundle artifact uploaded by build.yml (must contain the raw `radiodiodj` binary)
         type: string
         required: true
 
@@ -65,14 +65,14 @@ jobs:
 
       - name: Place binary at expected path
         run: |
-          if [ ! -f build-artifact/diodedj ]; then
-            echo "diodedj binary missing from build artifact"
+          if [ ! -f build-artifact/radiodiodj ]; then
+            echo "radiodiodj binary missing from build artifact"
             ls -la build-artifact
             exit 1
           fi
           mkdir -p src-tauri/target/release
-          cp build-artifact/diodedj src-tauri/target/release/diodedj
-          chmod +x src-tauri/target/release/diodedj
+          cp build-artifact/radiodiodj src-tauri/target/release/radiodiodj
+          chmod +x src-tauri/target/release/radiodiodj
 
       - name: Run e2e
         env:

@@ -72,8 +72,8 @@ jobs:
           # Also stage the raw binary so downstream jobs (e.g. e2e) can run
           # the app without rebuilding. Skipped silently if not present.
           for binary in \
-            src-tauri/target/release/diodedj \
-            src-tauri/target/release/diodedj.exe; do
+            src-tauri/target/release/radiodiodj \
+            src-tauri/target/release/radiodiodj.exe; do
             [ -f "$binary" ] && cp "$binary" staging/
           done
           ls -la staging/

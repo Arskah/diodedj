@@ -54,7 +54,7 @@ export async function createFixtureLibrary(specs: {
   commercial?: FixtureSpec[];
   jingle?: FixtureSpec[];
 }): Promise<FixtureLibrary> {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), "diodedj-fixtures-"));
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "radiodiodj-fixtures-"));
   const musicDir = path.join(root, "music");
   const commercialDir = path.join(root, "commercials");
   const jingleDir = path.join(root, "jingles");

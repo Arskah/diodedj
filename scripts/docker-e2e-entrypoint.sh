@@ -16,7 +16,7 @@ export E2E_BINARY="${E2E_BINARY:-release}"
 
 # Build release binary if missing. node_modules + cargo deps are baked into
 # the image; the target dir lives in a named volume for incremental rebuilds.
-if [ ! -f "src-tauri/target/${E2E_BINARY}/diodedj" ]; then
+if [ ! -f "src-tauri/target/${E2E_BINARY}/radiodiodj" ]; then
   pnpm tauri build --no-bundle
 fi
 
