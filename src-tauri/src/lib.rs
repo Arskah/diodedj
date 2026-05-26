@@ -316,7 +316,7 @@ fn broadcast_shutdown(state: State<'_, AppState>) {
 }
 
 #[tauri::command(rename_all = "camelCase")]
-fn scan_library(app: AppHandle, state: State<'_, AppState>) -> StartResult {
+fn scan_libraries(app: AppHandle, state: State<'_, AppState>) -> StartResult {
     Arc::clone(&state.scan).start(app, Arc::clone(&state.db), Arc::clone(&state.config))
 }
 
@@ -413,7 +413,7 @@ pub fn run() {
             get_all_paths,
             add_path,
             remove_path,
-            scan_library,
+            scan_libraries,
             cancel_scan,
             get_scan_status,
             audio_list_devices,

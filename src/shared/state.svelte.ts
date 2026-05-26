@@ -42,7 +42,7 @@ export class AppState {
   sortDir = $state<SortDir>("asc");
   tracks = $state<Track[]>([]);
   stats = $state<LibraryStats | null>(null);
-  paths = $state<Record<ContentType, string[]>>({
+  libraryPaths = $state<Record<ContentType, string[]>>({
     music: [],
     commercial: [],
     jingle: [],
@@ -595,22 +595,22 @@ export class AppState {
       });
   }
 
-  async loadPaths(): Promise<void> {
-    this.paths = await api.getAllPaths();
+  async loadLibraryPaths(): Promise<void> {
+    this.libraryPaths = await api.getAllPaths();
   }
 
   async addPath(type: ContentType): Promise<void> {
     const added = await api.addPath(type);
-    if (added) await this.loadPaths();
+    if (added) await this.loadLibraryPaths();
   }
 
   async removePath(type: ContentType, p: string): Promise<void> {
     await api.removePath(type, p);
-    await this.loadPaths();
+    await this.loadLibraryPaths();
   }
 
   async scan(): Promise<void> {
-    await api.scanLibrary();
+    await api.scanLibraries();
   }
 
   async cancelScan(): Promise<void> {
