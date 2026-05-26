@@ -1,25 +1,17 @@
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
+use strum::AsRefStr;
 
 use crate::library::db::{Db, Track};
 
-#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, AsRefStr, Clone, Copy, Debug, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
+#[strum(serialize_all = "lowercase")]
 pub enum ContentType {
     Music,
     Jingle,
     Commercial,
-}
-
-impl ContentType {
-    pub fn as_str(self) -> &'static str {
-        match self {
-            ContentType::Music => "music",
-            ContentType::Jingle => "jingle",
-            ContentType::Commercial => "commercial",
-        }
-    }
 }
 
 const JINGLE_EVERY: i64 = 4;
@@ -39,10 +31,10 @@ pub fn generate(db: &Db, count: i64) -> Result<Vec<Track>> {
     let commercial_count = count / COMMERCIAL_EVERY;
     let music_count = (count - jingle_count - commercial_count).max(0);
 
-    let music = db.get_random_tracks(ContentType::Music.as_str(), music_count)?;
-    let jingles = db.get_random_tracks(ContentType::Jingle.as_str(), jingle_count)?;
+    let music = db.get_random_tracks(ContentType::Music.as_ref(), music_count)?;
+    let jingles = db.get_random_tracks(ContentType::Jingle.as_ref(), jingle_count)?;
     let commercials = db.pick_random_from_bottom(
-        ContentType::Commercial.as_str(),
+        ContentType::Commercial.as_ref(),
         commercial_count,
         commercial_bucket_size(commercial_count),
     )?;
@@ -52,10 +44,10 @@ pub fn generate(db: &Db, count: i64) -> Result<Vec<Track>> {
 
 pub fn pick_filler(db: &Db, content_type: ContentType) -> Result<Option<Track>> {
     match content_type {
-        ContentType::Jingle => Ok(db.get_random_tracks(ContentType::Jingle.as_str(), 1)?.pop()),
+        ContentType::Jingle => Ok(db.get_random_tracks(ContentType::Jingle.as_ref(), 1)?.pop()),
         ContentType::Commercial => Ok(db
             .pick_random_from_bottom(
-                ContentType::Commercial.as_str(),
+                ContentType::Commercial.as_ref(),
                 1,
                 commercial_bucket_size(1),
             )?
