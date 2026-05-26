@@ -8,8 +8,8 @@ use sha2::Sha256;
 use super::payload::{Payload, TestPayload};
 
 const TIMEOUT: Duration = Duration::from_secs(5);
-const USER_AGENT: &str = concat!("DiodeDJ/", env!("CARGO_PKG_VERSION"));
-pub const SIGNATURE_HEADER: &str = "X-DiodeDJ-Signature";
+const USER_AGENT: &str = concat!("Radiodiodj/", env!("CARGO_PKG_VERSION"));
+pub const SIGNATURE_HEADER: &str = "X-Radiodiodj-Signature";
 
 pub struct Webhook {
     client: Client,

@@ -425,7 +425,7 @@ pub fn run() {
             }));
             let data_dir = app.path().app_data_dir()?;
             std::fs::create_dir_all(&data_dir)?;
-            let db = Db::open(&data_dir.join("diodedj.db"))?;
+            let db = Db::open(&data_dir.join("radiodiodj.db"))?;
             let config = Config::open(&data_dir)?;
             let session = Session::open(&data_dir);
             // Pass the saved DeviceRef (not a pre-resolved device): the worker
