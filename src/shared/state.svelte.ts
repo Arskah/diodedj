@@ -15,8 +15,8 @@ import {
   type ScanStatus,
   type SessionLoadResult,
 } from "./api";
-import type { PlayerBackend } from "../features/player/backend";
-import { NativeBackend } from "../features/player/nativeBackend";
+import type { DeckBackend } from "../features/deck/backend";
+import { NativeBackend } from "../features/deck/nativeBackend";
 import { throttle, type Throttled } from "./throttle";
 
 const logger = {
@@ -32,17 +32,17 @@ const AUTO_PLAYLIST_THRESHOLD = 5;
 const HISTORY_CAP = 100;
 const SESSION_SAVE_THROTTLE_MS = 500;
 
-export type PlaylistTab = "queue" | "history";
+export type PlaylistTab = "playlist" | "history";
 
 export class AppState {
   searchQuery = $state("");
   activeTab = $state<ContentType>("music");
-  playlistTab = $state<PlaylistTab>("queue");
+  playlistTab = $state<PlaylistTab>("playlist");
   sortBy = $state<SortColumn | null>(null);
   sortDir = $state<SortDir>("asc");
   tracks = $state<Track[]>([]);
   stats = $state<LibraryStats | null>(null);
-  paths = $state<Record<ContentType, string[]>>({
+  libraryPaths = $state<Record<ContentType, string[]>>({
     music: [],
     commercial: [],
     jingle: [],
@@ -77,14 +77,14 @@ export class AppState {
   hoverX = $state(0);
   hoverY = $state(0);
 
-  backend: PlayerBackend;
-  cueBackend: PlayerBackend;
+  backend: DeckBackend;
+  cueBackend: DeckBackend;
 
   private throttledSave: Throttled;
   private sessionLoaded = false;
 
-  constructor(backend?: PlayerBackend, cueBackend?: PlayerBackend) {
-    this.backend = backend ?? new NativeBackend("player");
+  constructor(backend?: DeckBackend, cueBackend?: DeckBackend) {
+    this.backend = backend ?? new NativeBackend("main");
     this.cueBackend = cueBackend ?? new NativeBackend("cue");
     this.throttledSave = throttle(
       () => void this.persistSession(),
@@ -595,22 +595,22 @@ export class AppState {
       });
   }
 
-  async loadPaths(): Promise<void> {
-    this.paths = await api.getAllPaths();
+  async loadLibraryPaths(): Promise<void> {
+    this.libraryPaths = await api.getAllPaths();
   }
 
   async addPath(type: ContentType): Promise<void> {
     const added = await api.addPath(type);
-    if (added) await this.loadPaths();
+    if (added) await this.loadLibraryPaths();
   }
 
   async removePath(type: ContentType, p: string): Promise<void> {
     await api.removePath(type, p);
-    await this.loadPaths();
+    await this.loadLibraryPaths();
   }
 
   async scan(): Promise<void> {
-    await api.scanLibrary();
+    await api.scanLibraries();
   }
 
   async cancelScan(): Promise<void> {

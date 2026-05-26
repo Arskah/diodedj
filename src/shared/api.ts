@@ -93,8 +93,8 @@ export const api = {
   removePath(type: ContentType, dirPath: string): Promise<boolean> {
     return invoke<boolean>("remove_path", { type, dirPath });
   },
-  scanLibrary(): Promise<{ alreadyRunning: boolean }> {
-    return invoke<{ alreadyRunning: boolean }>("scan_library");
+  scanLibraries(): Promise<{ alreadyRunning: boolean }> {
+    return invoke<{ alreadyRunning: boolean }>("scan_libraries");
   },
   cancelScan(): Promise<void> {
     return invoke<void>("cancel_scan");

@@ -2,7 +2,7 @@
   import { app } from "../../shared/state.svelte";
 
   async function openSettings(): Promise<void> {
-    await app.loadPaths();
+    await app.loadLibraryPaths();
     app.settingsOpen = true;
   }
 </script>

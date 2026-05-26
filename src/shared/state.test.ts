@@ -17,7 +17,7 @@ const { api } = vi.hoisted(() => {
     getAllPaths: vi.fn(),
     addPath: vi.fn(),
     removePath: vi.fn(),
-    scanLibrary: vi.fn(),
+    scanLibraries: vi.fn(),
     cancelScan: vi.fn(),
     getScanStatus: vi.fn(),
     onScanProgress: vi.fn(),
@@ -33,7 +33,7 @@ const { api } = vi.hoisted(() => {
 
 vi.mock("./api", () => ({ api }));
 
-vi.mock("../features/player/nativeBackend", () => ({
+vi.mock("../features/deck/nativeBackend", () => ({
   NativeBackend: class {
     on(): () => void {
       return () => {};
@@ -97,7 +97,7 @@ function resetApi(): void {
   });
   api.addPath.mockResolvedValue(null);
   api.removePath.mockResolvedValue(true);
-  api.scanLibrary.mockResolvedValue({ alreadyRunning: false });
+  api.scanLibraries.mockResolvedValue({ alreadyRunning: false });
   api.cancelScan.mockResolvedValue(undefined);
   api.getScanStatus.mockResolvedValue({ status: "idle", lastResult: null });
   api.getTracksByIds.mockResolvedValue([]);
@@ -211,8 +211,8 @@ describe("AppState history view", () => {
     app = makeApp().app;
   });
 
-  it("playlistTab defaults to queue", () => {
-    expect(app.playlistTab).toBe("queue");
+  it("playlistTab defaults to playlist", () => {
+    expect(app.playlistTab).toBe("playlist");
   });
 
   it("historyDisplay reverses storage order (newest first)", () => {
@@ -567,9 +567,9 @@ describe("AppState library + paths", () => {
     expect(app.stats?.totalTracks).toBe(5);
   });
 
-  it("loadPaths stores response", async () => {
-    await app.loadPaths();
-    expect(app.paths.music).toEqual(["/m"]);
+  it("loadLibraryPaths stores response", async () => {
+    await app.loadLibraryPaths();
+    expect(app.libraryPaths.music).toEqual(["/m"]);
   });
 
   it("addPath skips reload when api returns null", async () => {
@@ -590,9 +590,9 @@ describe("AppState library + paths", () => {
     expect(api.getAllPaths).toHaveBeenCalled();
   });
 
-  it("scan invokes scanLibrary fire-and-forget without blocking on result", async () => {
+  it("scan invokes scanLibraries fire-and-forget without blocking on result", async () => {
     await app.scan();
-    expect(api.scanLibrary).toHaveBeenCalled();
+    expect(api.scanLibraries).toHaveBeenCalled();
   });
 
   it("cancelScan invokes the api", async () => {

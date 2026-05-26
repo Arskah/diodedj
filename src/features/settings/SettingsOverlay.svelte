@@ -152,10 +152,10 @@
                   onclick={() => app.addPath(type)}>+ Add</button
                 >
               </div>
-              {#if (app.paths[type] ?? []).length === 0}
+              {#if (app.libraryPaths[type] ?? []).length === 0}
                 <div class="empty path-empty">No folders configured</div>
               {:else}
-                {#each app.paths[type] as p (p)}
+                {#each app.libraryPaths[type] as p (p)}
                   <div class="path-row">
                     <span class="path-text">{p}</span>
                     <button

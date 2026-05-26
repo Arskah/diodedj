@@ -9,7 +9,7 @@ vi.mock("@tauri-apps/api/core", () => ({ invoke }));
 vi.mock("@tauri-apps/api/event", () => ({ listen }));
 
 import { NativeBackend } from "./nativeBackend";
-import type { PlayerEvent } from "./backend";
+import type { DeckEvent } from "./backend";
 
 interface ListenCallback {
   (e: { payload: unknown }): void;
@@ -28,48 +28,50 @@ beforeEach(() => {
   invoke.mockResolvedValue(undefined);
 });
 
-describe("NativeBackend (deckId='player' default)", () => {
-  it("subscribes to player:* event topics on construction", async () => {
+describe("NativeBackend (deckId='main' default)", () => {
+  it("subscribes to main-deck:* event topics on construction", async () => {
     const b = new NativeBackend();
     await b.load(1); // awaits ready
     const topics = listen.mock.calls.map((c) => c[0]);
     expect(topics).toEqual(
       expect.arrayContaining([
-        "player:time",
-        "player:duration",
-        "player:pause-state",
-        "player:ended",
-        "player:error",
+        "main-deck:time",
+        "main-deck:duration",
+        "main-deck:pause-state",
+        "main-deck:ended",
+        "main-deck:error",
       ]),
     );
   });
 
-  it("invokes player_* commands", async () => {
+  it("invokes main_deck_* commands", async () => {
     const b = new NativeBackend();
     await b.load(7);
-    expect(invoke).toHaveBeenCalledWith("player_load", { id: 7 });
+    expect(invoke).toHaveBeenCalledWith("main_deck_load", { id: 7 });
     await b.play();
-    expect(invoke).toHaveBeenCalledWith("player_play");
+    expect(invoke).toHaveBeenCalledWith("main_deck_play");
     await b.pause();
-    expect(invoke).toHaveBeenCalledWith("player_pause");
+    expect(invoke).toHaveBeenCalledWith("main_deck_pause");
     await b.stop();
-    expect(invoke).toHaveBeenCalledWith("player_stop");
+    expect(invoke).toHaveBeenCalledWith("main_deck_stop");
     await b.seek(3.5);
-    expect(invoke).toHaveBeenCalledWith("player_seek", { seconds: 3.5 });
+    expect(invoke).toHaveBeenCalledWith("main_deck_seek", { seconds: 3.5 });
     await b.setVolume(0.7);
-    expect(invoke).toHaveBeenCalledWith("player_set_volume", { volume: 0.7 });
+    expect(invoke).toHaveBeenCalledWith("main_deck_set_volume", {
+      volume: 0.7,
+    });
   });
 
-  it("forwards player:time events to handlers", async () => {
+  it("forwards main-deck:time events to handlers", async () => {
     const b = new NativeBackend();
-    const events: PlayerEvent[] = [];
+    const events: DeckEvent[] = [];
     b.on((e) => events.push(e));
     await b.load(1); // ensure ready
-    listeners["player:time"]({ payload: 12.5 });
-    listeners["player:duration"]({ payload: 200 });
-    listeners["player:pause-state"]({ payload: true });
-    listeners["player:ended"]({ payload: null });
-    listeners["player:error"]({ payload: "boom" });
+    listeners["main-deck:time"]({ payload: 12.5 });
+    listeners["main-deck:duration"]({ payload: 200 });
+    listeners["main-deck:pause-state"]({ payload: true });
+    listeners["main-deck:ended"]({ payload: null });
+    listeners["main-deck:error"]({ payload: "boom" });
     expect(events).toEqual([
       { type: "time", seconds: 12.5 },
       { type: "duration", seconds: 200 },
@@ -110,7 +112,7 @@ describe("NativeBackend (deckId='cue')", () => {
 
   it("forwards cue:* events to handlers", async () => {
     const b = new NativeBackend("cue");
-    const events: PlayerEvent[] = [];
+    const events: DeckEvent[] = [];
     b.on((e) => events.push(e));
     await b.load(1);
     listeners["cue:time"]({ payload: 5 });

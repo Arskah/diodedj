@@ -23,7 +23,7 @@ pub struct AppState {
     config: Arc<Config>,
     session: Arc<Session>,
     scan: Arc<ScanState>,
-    player: Arc<PlayerHandle>,
+    main_deck: Arc<PlayerHandle>,
     cue: Arc<Mutex<Option<PlayerHandle>>>,
     broadcast: Arc<BroadcastService>,
     app_handle: AppHandle,
@@ -137,12 +137,15 @@ fn generate_playlist(app: State<'_, AppState>, count: i64) -> Result<Vec<Track>,
 }
 
 #[tauri::command(rename_all = "camelCase")]
-fn pick_filler(app: State<'_, AppState>, content_type: String) -> Result<Option<Track>, String> {
-    playlist::pick_filler(&app.db, &content_type).map_err(err)
+fn pick_filler(
+    app: State<'_, AppState>,
+    content_type: playlist::ContentType,
+) -> Result<Option<Track>, String> {
+    playlist::pick_filler(&app.db, content_type).map_err(err)
 }
 
 #[tauri::command(rename_all = "camelCase")]
-fn player_load(app_state: State<'_, AppState>, id: i64) -> Result<(), String> {
+fn main_deck_load(app_state: State<'_, AppState>, id: i64) -> Result<(), String> {
     let track = app_state
         .db
         .get_track_broadcast_info(id)
@@ -151,7 +154,7 @@ fn player_load(app_state: State<'_, AppState>, id: i64) -> Result<(), String> {
     let path = track.path.clone();
     let duration = track.duration;
     app_state.broadcast.set_pending_track(track.into());
-    app_state.player.send(Cmd::Load {
+    app_state.main_deck.send(Cmd::Load {
         path: std::path::PathBuf::from(path),
         duration: if duration > 0.0 { Some(duration) } else { None },
     });
@@ -159,28 +162,28 @@ fn player_load(app_state: State<'_, AppState>, id: i64) -> Result<(), String> {
 }
 
 #[tauri::command(rename_all = "camelCase")]
-fn player_play(app_state: State<'_, AppState>) {
-    app_state.player.send(Cmd::Play);
+fn main_deck_play(app_state: State<'_, AppState>) {
+    app_state.main_deck.send(Cmd::Play);
 }
 
 #[tauri::command(rename_all = "camelCase")]
-fn player_pause(app_state: State<'_, AppState>) {
-    app_state.player.send(Cmd::Pause);
+fn main_deck_pause(app_state: State<'_, AppState>) {
+    app_state.main_deck.send(Cmd::Pause);
 }
 
 #[tauri::command(rename_all = "camelCase")]
-fn player_stop(app_state: State<'_, AppState>) {
-    app_state.player.send(Cmd::Stop);
+fn main_deck_stop(app_state: State<'_, AppState>) {
+    app_state.main_deck.send(Cmd::Stop);
 }
 
 #[tauri::command(rename_all = "camelCase")]
-fn player_seek(app_state: State<'_, AppState>, seconds: f64) {
-    app_state.player.send(Cmd::Seek(seconds));
+fn main_deck_seek(app_state: State<'_, AppState>, seconds: f64) {
+    app_state.main_deck.send(Cmd::Seek(seconds));
 }
 
 #[tauri::command(rename_all = "camelCase")]
-fn player_set_volume(app_state: State<'_, AppState>, volume: f32) {
-    app_state.player.send(Cmd::SetVolume(volume));
+fn main_deck_set_volume(app_state: State<'_, AppState>, volume: f32) {
+    app_state.main_deck.send(Cmd::SetVolume(volume));
 }
 
 #[tauri::command(rename_all = "camelCase")]
@@ -313,7 +316,7 @@ fn broadcast_shutdown(state: State<'_, AppState>) {
 }
 
 #[tauri::command(rename_all = "camelCase")]
-fn scan_library(app: AppHandle, state: State<'_, AppState>) -> StartResult {
+fn scan_libraries(app: AppHandle, state: State<'_, AppState>) -> StartResult {
     Arc::clone(&state.scan).start(app, Arc::clone(&state.db), Arc::clone(&state.config))
 }
 
@@ -377,7 +380,7 @@ pub fn run() {
             let config = Config::open(&data_dir)?;
             let session = Session::open(&data_dir);
             let main_device = resolve_main_device(config.get_main_device().as_ref());
-            let player = PlayerHandle::spawn(app.handle().clone(), main_device, "player");
+            let main_deck = PlayerHandle::spawn(app.handle().clone(), main_device, "main-deck");
             let config = Arc::new(config);
             let broadcast = Arc::new(BroadcastService::new(
                 Arc::clone(&config),
@@ -389,7 +392,7 @@ pub fn run() {
                 config,
                 session: Arc::new(session),
                 scan: Arc::new(ScanState::default()),
-                player: Arc::new(player),
+                main_deck: Arc::new(main_deck),
                 cue: Arc::new(Mutex::new(None)),
                 broadcast,
                 app_handle: app.handle().clone(),
@@ -410,7 +413,7 @@ pub fn run() {
             get_all_paths,
             add_path,
             remove_path,
-            scan_library,
+            scan_libraries,
             cancel_scan,
             get_scan_status,
             audio_list_devices,
@@ -424,12 +427,12 @@ pub fn run() {
             cue_stop,
             cue_seek,
             cue_set_volume,
-            player_load,
-            player_play,
-            player_pause,
-            player_stop,
-            player_seek,
-            player_set_volume,
+            main_deck_load,
+            main_deck_play,
+            main_deck_pause,
+            main_deck_stop,
+            main_deck_seek,
+            main_deck_set_volume,
             get_now_playing_config,
             set_now_playing_config,
             now_playing_test,

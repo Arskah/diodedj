@@ -1,10 +1,10 @@
 import type {
-  PlayerBackend,
-  PlayerEvent,
-  PlayerEventHandler,
-} from "../features/player/backend";
+  DeckBackend,
+  DeckEvent,
+  DeckEventHandler,
+} from "../features/deck/backend";
 
-export class MockBackend implements PlayerBackend {
+export class MockBackend implements DeckBackend {
   loadedIds: number[] = [];
   seekCalls: number[] = [];
   volume = 1;
@@ -16,7 +16,7 @@ export class MockBackend implements PlayerBackend {
   playShouldReject = false;
   seekShouldReject = false;
 
-  private handlers = new Set<PlayerEventHandler>();
+  private handlers = new Set<DeckEventHandler>();
 
   async load(trackId: number): Promise<void> {
     this.loadedIds.push(trackId);
@@ -48,7 +48,7 @@ export class MockBackend implements PlayerBackend {
     this.volume = volume;
   }
 
-  on(handler: PlayerEventHandler): () => void {
+  on(handler: DeckEventHandler): () => void {
     this.handlers.add(handler);
     return () => {
       this.handlers.delete(handler);
@@ -88,7 +88,7 @@ export class MockBackend implements PlayerBackend {
     return this.seekCalls[this.seekCalls.length - 1];
   }
 
-  private emit(event: PlayerEvent): void {
+  private emit(event: DeckEvent): void {
     for (const h of this.handlers) h(event);
   }
 }

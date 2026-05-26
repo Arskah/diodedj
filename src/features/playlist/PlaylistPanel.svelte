@@ -65,7 +65,7 @@
   }
 
   function onClear(): void {
-    if (app.playlistTab === "queue") app.clearPlaylist();
+    if (app.playlistTab === "playlist") app.clearPlaylist();
     else app.clearHistory();
   }
 
@@ -79,10 +79,10 @@
     <div id="playlist-tabs" role="tablist">
       <button
         class="pl-tab"
-        class:active={app.playlistTab === "queue"}
+        class:active={app.playlistTab === "playlist"}
         role="tab"
-        aria-selected={app.playlistTab === "queue"}
-        onclick={() => (app.playlistTab = "queue")}
+        aria-selected={app.playlistTab === "playlist"}
+        onclick={() => (app.playlistTab = "playlist")}
       >
         Up next <span class="pl-tab-count">({app.playlist.length})</span>
       </button>
@@ -97,16 +97,16 @@
       </button>
     </div>
     <div id="playlist-actions">
-      {#if app.playlistTab === "queue"}
+      {#if app.playlistTab === "playlist"}
         <button
           class="btn-filler"
-          title="Add a jingle to the queue"
+          title="Add a jingle to the playlist"
           disabled={(app.stats?.tracksByType.jingle ?? 0) === 0}
           onclick={() => app.addFiller("jingle")}>+ Jingle</button
         >
         <button
           class="btn-filler"
-          title="Add a commercial to the queue"
+          title="Add a commercial to the playlist"
           disabled={(app.stats?.tracksByType.commercial ?? 0) === 0}
           onclick={() => app.addFiller("commercial")}>+ Commercial</button
         >
@@ -118,13 +118,15 @@
       {/if}
       <button
         id="btn-clear-playlist"
-        title={app.playlistTab === "queue" ? "Clear queue" : "Clear history"}
+        title={app.playlistTab === "playlist"
+          ? "Clear playlist"
+          : "Clear history"}
         onclick={onClear}>Clear</button
       >
     </div>
   </div>
 
-  {#if app.playlistTab === "queue"}
+  {#if app.playlistTab === "playlist"}
     <div
       id="playlist"
       ondragover={onListDragOver}

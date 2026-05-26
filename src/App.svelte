@@ -1,7 +1,7 @@
 <script lang="ts">
   import Toolbar from "./features/toolbar/Toolbar.svelte";
-  import NowPlaying from "./features/player/NowPlaying.svelte";
-  import CueDeck from "./features/player/CueDeck.svelte";
+  import NowPlaying from "./features/deck/NowPlaying.svelte";
+  import CueDeck from "./features/deck/CueDeck.svelte";
   import LibraryPanel from "./features/library/LibraryPanel.svelte";
   import PlaylistPanel from "./features/playlist/PlaylistPanel.svelte";
   import SettingsOverlay from "./features/settings/SettingsOverlay.svelte";
