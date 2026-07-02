@@ -68,7 +68,7 @@
     "prettier-plugin-svelte": "4.0.1",
     "svelte": "5.55.9",
     "svelte-check": "4.4.8",
-    "tsx": "4.22.3",
+    "tsx": "4.22.4",
     "typescript": "6.0.3",
     "typescript-eslint": "8.59.4",
     "vite": "8.0.14",
