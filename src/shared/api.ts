@@ -14,8 +14,7 @@ import type {
 } from "./types";
 
 export type PersistedPlaylistItem =
-  | { kind: "track"; id: number }
-  | { kind: "stop" };
+  { kind: "track"; id: number } | { kind: "stop" };
 
 export interface SessionPersistState {
   playlistIds: number[];
