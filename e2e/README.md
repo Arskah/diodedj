@@ -89,9 +89,7 @@ describe("my feature", () => {
 
   it("does the thing", async () => {
     const app = await launchApp({
-      musicPaths: [
-        /* fixture dir */
-      ],
+      musicPaths: [/* fixture dir */],
     });
     cleanup = app.cleanup;
     // ... assertions

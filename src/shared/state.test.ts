@@ -602,8 +602,7 @@ describe("AppState library + paths", () => {
 
   it("scan-state-changed transition from running to idle refreshes search + stats", async () => {
     const cb = api.onScanStateChanged.mock.calls[0]?.[0] as
-      | ((s: ScanStatus) => void)
-      | undefined;
+      ((s: ScanStatus) => void) | undefined;
     expect(cb).toBeDefined();
     cb!({ status: "running", processed: 0, total: 0 });
     expect(app.scanStatus.status).toBe("running");
@@ -617,11 +616,9 @@ describe("AppState library + paths", () => {
 
   it("scan-progress patches running state", () => {
     const stateCb = api.onScanStateChanged.mock.calls[0]?.[0] as
-      | ((s: ScanStatus) => void)
-      | undefined;
+      ((s: ScanStatus) => void) | undefined;
     const progCb = api.onScanProgress.mock.calls[0]?.[0] as
-      | ((p: { processed: number; total: number }) => void)
-      | undefined;
+      ((p: { processed: number; total: number }) => void) | undefined;
     stateCb!({ status: "running", processed: 0, total: 0 });
     progCb!({ processed: 7, total: 10 });
     expect(app.scanStatus).toEqual({
