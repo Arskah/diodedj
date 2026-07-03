@@ -20,7 +20,7 @@ tauri-plugin-log = "=2.8.0"
 tauri-plugin-window-state = "=2.4.1"
 serde = { version = "=1.0.228", features = ["derive"] }
 serde_json = "=1.0.150"
-rusqlite = { version = "=0.39.0", features = ["bundled"] }
+rusqlite = { version = "=0.40.1", features = ["bundled"] }
 parking_lot = "=0.12.5"
 anyhow = "=1.0.103"
 walkdir = "=2.5.0"
