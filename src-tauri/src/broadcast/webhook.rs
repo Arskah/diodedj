@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use anyhow::Result;
-use hmac::{Hmac, Mac};
+use hmac::{Hmac, KeyInit, Mac};
 use reqwest::{header, Client};
 use sha2::Sha256;
 
