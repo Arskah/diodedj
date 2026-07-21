@@ -11,6 +11,23 @@ use tauri::{AppHandle, Emitter};
 const TICK_INTERVAL: Duration = Duration::from_millis(50);
 const TIME_EMIT_INTERVAL: Duration = Duration::from_millis(100);
 
+/// A background read that neither completes nor errors within this budget is
+/// treated as a wedged (e.g. networked) mount. The audio worker stops waiting
+/// on it and declares a timeout; the detached read thread is abandoned (a
+/// blocked `read()` cannot be cancelled — it unwinds whenever the OS finally
+/// errors the mount).
+const READ_WATCHDOG_TIMEOUT: Duration = Duration::from_secs(10);
+
+/// Backoff delays applied between failed read attempts. The read thread makes
+/// one initial attempt plus one retry per entry (4 attempts, 3 backoffs) before
+/// giving up. Retries cover *transient* failures (`Err`); hangs are handled by
+/// the watchdog, not retry.
+const READ_RETRY_BACKOFFS: [Duration; 3] = [
+    Duration::from_millis(500),
+    Duration::from_millis(1000),
+    Duration::from_millis(2000),
+];
+
 /// Whole track file resident in RAM. Shared (cheaply cloned) between the
 /// playing `Decoder` and the retained copy used for seeking, so playback and
 /// seek never touch the (possibly networked) filesystem again after load.
@@ -18,6 +35,9 @@ type Bytes = Arc<[u8]>;
 
 pub enum Cmd {
     Load {
+        /// DB track id, threaded through so a failed/timed-out load can name the
+        /// track in the `:load-failed` event for programmatic handling.
+        id: i64,
         path: PathBuf,
         duration: Option<f64>,
     },
@@ -33,6 +53,8 @@ pub enum Cmd {
 /// superseded (e.g. the user skipped again before a slow read finished).
 struct LoadMsg {
     generation: u64,
+    /// Track id this read was issued for; reported in `:load-failed` on failure.
+    id: i64,
     duration: Option<f64>,
     bytes: Result<Bytes>,
 }
@@ -44,6 +66,7 @@ struct Topics {
     ended: String,
     error: String,
     buffering: String,
+    load_failed: String,
 }
 
 impl Topics {
@@ -55,6 +78,7 @@ impl Topics {
             ended: format!("{prefix}:ended"),
             error: format!("{prefix}:error"),
             buffering: format!("{prefix}:buffering"),
+            load_failed: format!("{prefix}:load-failed"),
         }
     }
 }
@@ -82,6 +106,8 @@ impl PlayerHandle {
 }
 
 struct State {
+    /// Track id of the most recent `Load`, reported in `:load-failed`.
+    current_id: Option<i64>,
     current_path: Option<PathBuf>,
     current_duration: Option<f64>,
     /// Bytes of the currently loaded track, kept so seeks re-decode from RAM.
@@ -91,6 +117,9 @@ struct State {
     /// A background read is in flight; suppresses ended-detection and time
     /// emits until the source is ready.
     loading: bool,
+    /// When the in-flight read started; drives the watchdog timeout. `None`
+    /// whenever no read is pending.
+    load_start: Option<Instant>,
     /// Monotonic token identifying the most recent load intent. Bumped on every
     /// `Load` and `Stop`; background reads carry the token they were issued for.
     generation: u64,
@@ -124,12 +153,14 @@ fn run(
         .checked_sub(TIME_EMIT_INTERVAL)
         .unwrap_or_else(Instant::now);
     let mut state = State {
+        current_id: None,
         current_path: None,
         current_duration: None,
         current_bytes: None,
         seek_offset: 0.0,
         active: false,
         loading: false,
+        load_start: None,
         generation: 0,
         volume: 1.0,
     };
@@ -146,6 +177,13 @@ fn run(
         // Drain any completed background reads.
         while let Ok(msg) = load_rx.try_recv() {
             apply_load(&app, &stream, &mut sink, &mut state, topics, msg);
+        }
+
+        // Watchdog: a read that neither completed nor errored within the budget
+        // is a wedged mount. Declare a timeout and abandon the detached read
+        // thread — the worker never blocks waiting on it.
+        if watchdog_timed_out(state.loading, state.load_start, Instant::now()) {
+            handle_load_timeout(&app, &mut state, topics);
         }
 
         if state.active && last_time_emit.elapsed() >= TIME_EMIT_INTERVAL {
@@ -174,7 +212,7 @@ fn apply(
     cmd: Cmd,
 ) {
     match cmd {
-        Cmd::Load { path, duration } => {
+        Cmd::Load { id, path, duration } => {
             // Stop current audio immediately; the new source arrives once the
             // background read completes.
             sink.stop();
@@ -182,22 +220,29 @@ fn apply(
             sink.set_volume(state.volume);
 
             state.generation = state.generation.wrapping_add(1);
+            state.current_id = Some(id);
             state.current_path = Some(path.clone());
             state.current_duration = duration;
             state.current_bytes = None;
             state.seek_offset = 0.0;
             state.active = false;
             state.loading = true;
+            state.load_start = Some(Instant::now());
             let _ = app.emit(&topics.buffering, true);
 
             // Read the whole file off the worker thread so a slow/networked
-            // read never blocks transport commands.
+            // read never blocks transport commands. One read is in flight per
+            // deck at a time: a newer `Load` bumps `generation`, so this read's
+            // result is discarded rather than another thread being blocked on.
             let generation = state.generation;
             let tx = load_tx.clone();
             thread::spawn(move || {
-                let bytes = read_file(&path);
+                // Retry transient failures with backoff; hangs are the
+                // watchdog's job (handled in the worker loop, not here).
+                let bytes = read_with_retry(|| read_file(&path), thread::sleep);
                 let _ = tx.send(LoadMsg {
                     generation,
+                    id,
                     duration,
                     bytes,
                 });
@@ -222,6 +267,8 @@ fn apply(
             state.generation = state.generation.wrapping_add(1);
             state.active = false;
             state.loading = false;
+            state.load_start = None;
+            state.current_id = None;
             state.current_path = None;
             state.current_duration = None;
             state.current_bytes = None;
@@ -293,6 +340,7 @@ fn apply_load(
         return; // superseded
     }
     state.loading = false;
+    state.load_start = None;
     let _ = app.emit(&topics.buffering, false);
 
     let bytes = match msg.bytes {
@@ -303,9 +351,12 @@ fn apply_load(
                 .as_ref()
                 .map(|p| p.display().to_string())
                 .unwrap_or_default();
-            log::error!("player: read {} failed: {}", path, e);
+            // Retries were already exhausted inside the read thread.
+            log::error!("player: read {} failed after retries: {}", path, e);
             let _ = app.emit(&topics.error, format!("read failed: {}", e));
             reset_after_failure(state);
+            // Programmatic signal carrying the track id (human message above).
+            let _ = app.emit(&topics.load_failed, msg.id);
             let _ = app.emit(&topics.pause_state, true);
             return;
         }
@@ -337,10 +388,77 @@ fn apply_load(
 fn reset_after_failure(state: &mut State) {
     state.active = false;
     state.loading = false;
+    state.load_start = None;
+    state.current_id = None;
     state.current_path = None;
     state.current_duration = None;
     state.current_bytes = None;
     state.seek_offset = 0.0;
+}
+
+/// Decide whether an in-flight read has exceeded the watchdog budget. Pure
+/// (given the clock via `now`) so it is unit-testable without threads or sleeps.
+/// A read is timed out only while `loading` is true, a `load_start` is recorded,
+/// and at least `READ_WATCHDOG_TIMEOUT` has elapsed. When a result has arrived
+/// the worker sets `loading = false`, so this returns false.
+fn watchdog_timed_out(loading: bool, load_start: Option<Instant>, now: Instant) -> bool {
+    match load_start {
+        Some(start) if loading => now.saturating_duration_since(start) >= READ_WATCHDOG_TIMEOUT,
+        _ => false,
+    }
+}
+
+/// Handle a watchdog timeout: abandon the detached read, emit the human error
+/// plus a `:load-failed` carrying the track id, and reset load state. The
+/// generation is bumped so a late `LoadMsg` from the abandoned thread is
+/// discarded rather than played.
+fn handle_load_timeout(app: &AppHandle, state: &mut State, topics: &Topics) {
+    let id = state.current_id;
+    let path = state
+        .current_path
+        .as_ref()
+        .map(|p| p.display().to_string())
+        .unwrap_or_default();
+    log::error!(
+        "player: read {} timed out after {:?}; abandoning read",
+        path,
+        READ_WATCHDOG_TIMEOUT
+    );
+    state.generation = state.generation.wrapping_add(1);
+    reset_after_failure(state);
+    let _ = app.emit(&topics.buffering, false);
+    let _ = app.emit(&topics.error, "network down: read timed out".to_string());
+    if let Some(id) = id {
+        let _ = app.emit(&topics.load_failed, id);
+    }
+    let _ = app.emit(&topics.pause_state, true);
+}
+
+/// Read a file with bounded retry + backoff for *transient* failures. Makes an
+/// initial attempt plus one retry per `READ_RETRY_BACKOFFS` entry, sleeping the
+/// matching backoff between attempts, and returns the first success or the last
+/// error. `read`/`sleep` are injected so tests exercise the schedule without
+/// touching the filesystem or actually sleeping.
+fn read_with_retry<R, S>(mut read: R, mut sleep: S) -> Result<Bytes>
+where
+    R: FnMut() -> Result<Bytes>,
+    S: FnMut(Duration),
+{
+    let mut last_err: Option<anyhow::Error> = None;
+    // Attempt indices 0..=len: index 0 is the initial try, and after a failing
+    // attempt `i` we back off by `READ_RETRY_BACKOFFS[i]` if one exists.
+    for attempt in 0..=READ_RETRY_BACKOFFS.len() {
+        match read() {
+            Ok(bytes) => return Ok(bytes),
+            Err(e) => {
+                last_err = Some(e);
+                if let Some(delay) = READ_RETRY_BACKOFFS.get(attempt) {
+                    sleep(*delay);
+                }
+            }
+        }
+    }
+    Err(last_err.unwrap_or_else(|| anyhow::anyhow!("read failed with no attempts")))
 }
 
 fn read_file(path: &Path) -> Result<Bytes> {
@@ -415,15 +533,95 @@ mod tests {
         let latest = 5u64;
         let stale = LoadMsg {
             generation: 4,
+            id: 1,
             duration: None,
             bytes: Ok(Arc::from(Vec::new().into_boxed_slice())),
         };
         let fresh = LoadMsg {
             generation: 5,
+            id: 1,
             duration: None,
             bytes: Ok(Arc::from(Vec::new().into_boxed_slice())),
         };
         assert_ne!(stale.generation, latest);
         assert_eq!(fresh.generation, latest);
+    }
+
+    /// The backoff schedule is the agreed 0.5s / 1s / 2s with three entries
+    /// (three retries after the initial attempt).
+    #[test]
+    fn backoff_schedule_is_half_one_two_seconds() {
+        assert_eq!(
+            READ_RETRY_BACKOFFS,
+            [
+                Duration::from_millis(500),
+                Duration::from_millis(1000),
+                Duration::from_millis(2000),
+            ]
+        );
+    }
+
+    /// A transient failure that clears within the retry budget eventually
+    /// succeeds, and the recorded backoffs follow the schedule exactly.
+    #[test]
+    fn read_with_retry_succeeds_after_transient_failures() {
+        let mut attempts = 0u32;
+        let mut slept: Vec<Duration> = Vec::new();
+        let result = read_with_retry(
+            || {
+                attempts += 1;
+                if attempts <= 2 {
+                    Err(anyhow::anyhow!("transient"))
+                } else {
+                    Ok(Arc::from(vec![1u8, 2, 3].into_boxed_slice()))
+                }
+            },
+            |d| slept.push(d),
+        );
+        assert!(result.is_ok());
+        assert_eq!(attempts, 3, "initial attempt + 2 retries");
+        // Backoffs applied before retry 1 and retry 2 only.
+        assert_eq!(
+            slept,
+            vec![Duration::from_millis(500), Duration::from_millis(1000)]
+        );
+    }
+
+    /// An always-failing read exhausts the budget: 4 attempts (initial + 3
+    /// retries), sleeping the full 0.5s / 1s / 2s schedule, then returns Err.
+    #[test]
+    fn read_with_retry_gives_up_after_exhausting_backoffs() {
+        let mut attempts = 0u32;
+        let mut slept: Vec<Duration> = Vec::new();
+        let result = read_with_retry(
+            || {
+                attempts += 1;
+                Err::<Bytes, _>(anyhow::anyhow!("always fails"))
+            },
+            |d| slept.push(d),
+        );
+        assert!(result.is_err());
+        assert_eq!(attempts, READ_RETRY_BACKOFFS.len() as u32 + 1);
+        assert_eq!(slept, READ_RETRY_BACKOFFS.to_vec());
+    }
+
+    #[test]
+    fn watchdog_times_out_only_after_budget_while_loading() {
+        let start = Instant::now();
+        let before = start
+            .checked_add(READ_WATCHDOG_TIMEOUT - Duration::from_millis(1))
+            .unwrap();
+        let after = start
+            .checked_add(READ_WATCHDOG_TIMEOUT + Duration::from_millis(1))
+            .unwrap();
+
+        // Under budget: not timed out.
+        assert!(!watchdog_timed_out(true, Some(start), before));
+        // Over budget while loading: timed out.
+        assert!(watchdog_timed_out(true, Some(start), after));
+        // A result arrived (loading == false): never a timeout.
+        assert!(!watchdog_timed_out(false, Some(start), after));
+        // No read in flight: never a timeout.
+        assert!(!watchdog_timed_out(true, None, after));
     }
 }

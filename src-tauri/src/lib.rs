@@ -155,6 +155,7 @@ fn main_deck_load(app_state: State<'_, AppState>, id: i64) -> Result<(), String>
     let duration = track.duration;
     app_state.broadcast.set_pending_track(track.into());
     app_state.main_deck.send(Cmd::Load {
+        id,
         path: std::path::PathBuf::from(path),
         duration: if duration > 0.0 { Some(duration) } else { None },
     });
@@ -257,6 +258,7 @@ fn cue_load(state: State<'_, AppState>, id: i64) -> Result<(), String> {
         .ok_or_else(|| "track not found".to_string())?;
     with_cue(&state, |h| {
         h.send(Cmd::Load {
+            id,
             path: std::path::PathBuf::from(track.path),
             duration: if track.duration > 0.0 {
                 Some(track.duration)

@@ -40,6 +40,7 @@ describe("NativeBackend (deckId='main' default)", () => {
         "main-deck:pause-state",
         "main-deck:ended",
         "main-deck:error",
+        "main-deck:load-failed",
       ]),
     );
   });
@@ -93,6 +94,15 @@ describe("NativeBackend (deckId='main' default)", () => {
       { type: "buffering", buffering: false },
     ]);
   });
+
+  it("forwards main-deck:load-failed events with the track id", async () => {
+    const b = new NativeBackend();
+    const events: DeckEvent[] = [];
+    b.on((e) => events.push(e));
+    await b.load(1); // ensure ready
+    listeners["main-deck:load-failed"]({ payload: 99 });
+    expect(events).toEqual([{ type: "load-failed", id: 99 }]);
+  });
 });
 
 describe("NativeBackend (deckId='cue')", () => {
@@ -107,6 +117,7 @@ describe("NativeBackend (deckId='cue')", () => {
         "cue:pause-state",
         "cue:ended",
         "cue:error",
+        "cue:load-failed",
       ]),
     );
   });
