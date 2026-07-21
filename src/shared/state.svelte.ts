@@ -124,6 +124,12 @@ export class AppState {
           this.isBuffering = false;
           logger.error("Audio error:", event.message);
           break;
+        case "load-failed":
+          // Read failed after retries or watchdog timeout. Clear buffering;
+          // skip-to-cached handling is a later issue.
+          this.isBuffering = false;
+          logger.error("Audio load failed for track:", event.id);
+          break;
       }
     });
 
@@ -149,6 +155,12 @@ export class AppState {
           this.cueIsBuffering = false;
           logger.error("Cue audio error:", event.message);
           this.cueError = event.message;
+          break;
+        case "load-failed":
+          // Read failed after retries or watchdog timeout. Clear buffering;
+          // skip-to-cached handling is a later issue.
+          this.cueIsBuffering = false;
+          logger.error("Cue audio load failed for track:", event.id);
           break;
       }
     });
