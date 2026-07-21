@@ -31,6 +31,12 @@ const AUTO_PLAYLIST_BUFFER = 20;
 const AUTO_PLAYLIST_THRESHOLD = 5;
 const HISTORY_CAP = 100;
 const SESSION_SAVE_THROTTLE_MS = 500;
+// Number of upcoming playlist tracks to prefetch ahead of the current track.
+// Mirrors the backend cache keep-window (audio/cache.rs WINDOW_SIZE).
+const PREFETCH_WINDOW = 15;
+// Backoff schedule (ms) for retrying advancement while nothing playable is
+// cached (network outage). The last value repeats until recovery.
+const NET_RETRY_BACKOFFS_MS = [1000, 2000, 5000];
 
 export type PlaylistTab = "playlist" | "history";
 
@@ -56,13 +62,22 @@ export class AppState {
   autoPlaylistActive = $state(false);
   autoAdvance = $state(true);
   isPlaying = $state(false);
+  isBuffering = $state(false);
   volume = $state(1);
   currentTime = $state(0);
   duration = $state(0);
+  // Track ids currently resident in the backend prefetch cache. Drives
+  // skip-to-cached advancement during a network outage; membership is updated
+  // by cache-state events.
+  cachedIds = $state<Set<number>>(new Set());
+  // True while no upcoming track is cached and we are waiting for the share to
+  // recover (drives the "Reconnecting…" banner). Cleared on resume.
+  awaitingNetwork = $state(false);
 
   // Cue deck (independent transport on a separate audio device)
   cueTrack = $state<Track | null>(null);
   cueIsPlaying = $state(false);
+  cueIsBuffering = $state(false);
   cueCurrentTime = $state(0);
   cueDuration = $state(0);
   cueVolume = $state(1);
@@ -82,6 +97,8 @@ export class AppState {
 
   private throttledSave: Throttled;
   private sessionLoaded = false;
+  private netRetryTimer: ReturnType<typeof setTimeout> | null = null;
+  private netRetryAttempt = 0;
 
   constructor(backend?: DeckBackend, cueBackend?: DeckBackend) {
     this.backend = backend ?? new NativeBackend("main");
@@ -106,8 +123,25 @@ export class AppState {
         case "ended":
           void this.handleEnded();
           break;
+        case "buffering":
+          this.isBuffering = event.buffering;
+          break;
+        case "cache-state":
+          this.cachedIds = new Set(event.ids);
+          // Cache membership changed — if we were stalled waiting for the
+          // share, a newly-cached track may now be playable.
+          if (this.awaitingNetwork) this.advancePlan(true);
+          break;
         case "error":
+          this.isBuffering = false;
           logger.error("Audio error:", event.message);
+          break;
+        case "load-failed":
+          // Read failed after retries or watchdog timeout. Skip to the next
+          // cached track (or wait for the share) instead of dead air.
+          this.isBuffering = false;
+          logger.error("Audio load failed for track:", event.id);
+          if (this.autoAdvance) this.advancePlan(true);
           break;
       }
     });
@@ -127,9 +161,19 @@ export class AppState {
           this.cueIsPlaying = false;
           this.cueCurrentTime = 0;
           break;
+        case "buffering":
+          this.cueIsBuffering = event.buffering;
+          break;
         case "error":
+          this.cueIsBuffering = false;
           logger.error("Cue audio error:", event.message);
           this.cueError = event.message;
+          break;
+        case "load-failed":
+          // Read failed after retries or watchdog timeout. Clear buffering;
+          // skip-to-cached handling is a later issue.
+          this.cueIsBuffering = false;
+          logger.error("Cue audio load failed for track:", event.id);
           break;
       }
     });
@@ -192,11 +236,13 @@ export class AppState {
 
   addToPlaylist(track: Track): void {
     this.playlist.push(trackItem(track));
+    this.updatePrefetch();
     this.scheduleSave();
   }
 
   addStopMarker(): void {
     this.playlist.push(stopMarker());
+    this.updatePrefetch();
     this.scheduleSave();
   }
 
@@ -204,6 +250,7 @@ export class AppState {
     const track = await api.pickFiller(contentType);
     if (!track) return;
     this.playlist.push(trackItem(track));
+    this.updatePrefetch();
     this.scheduleSave();
   }
 
@@ -213,6 +260,7 @@ export class AppState {
 
   removeFromPlaylist(index: number): void {
     this.playlist.splice(index, 1);
+    this.updatePrefetch();
     this.scheduleSave();
   }
 
@@ -220,11 +268,13 @@ export class AppState {
     if (from === to) return;
     const [item] = this.playlist.splice(from, 1);
     this.playlist.splice(to, 0, item);
+    this.updatePrefetch();
     this.scheduleSave();
   }
 
   clearPlaylist(): void {
     this.playlist.length = 0;
+    this.updatePrefetch();
     this.scheduleSave();
   }
 
@@ -274,6 +324,7 @@ export class AppState {
     const track = this.history[i];
     if (!track) return;
     this.playlist.push(trackItem(track));
+    this.updatePrefetch();
     this.scheduleSave();
   }
 
@@ -285,6 +336,7 @@ export class AppState {
     void api.trackPlayed(track.id);
     document.title = `${track.title} - ${track.artist} | DiodeDJ`;
     void this.maybeRefillPlaylist();
+    this.updatePrefetch();
     this.scheduleSave();
   }
 
@@ -312,6 +364,7 @@ export class AppState {
   }
 
   stop(): void {
+    this.clearNetRetry();
     if (this.currentTrack) this.appendHistory(this.currentTrack);
     void this.backend.stop();
     this.currentTrack = null;
@@ -320,6 +373,7 @@ export class AppState {
     this.duration = 0;
     this.isPlaying = false;
     document.title = "DiodeDJ";
+    this.updatePrefetch();
     this.scheduleSave();
   }
 
@@ -373,8 +427,30 @@ export class AppState {
       const count = AUTO_PLAYLIST_BUFFER - this.playlist.length;
       const tracks = await api.generatePlaylist(count);
       this.playlist.push(...tracks.map(trackItem));
+      this.updatePrefetch();
       this.scheduleSave();
     }
+  }
+
+  /**
+   * Push the upcoming-track window to the backend prefetch cache: the current
+   * track followed by the next `PREFETCH_WINDOW` playlist tracks (stop markers
+   * skipped). Called after every playlist mutation and on track changes.
+   */
+  private updatePrefetch(): void {
+    const upcoming: number[] = [];
+    for (const item of this.playlist) {
+      if (isTrackItem(item)) {
+        upcoming.push(item.track.id);
+        if (upcoming.length >= PREFETCH_WINDOW) break;
+      }
+    }
+    const ids = this.currentTrack
+      ? [this.currentTrack.id, ...upcoming]
+      : upcoming;
+    void api
+      .prefetch(ids)
+      .catch((err) => logger.error("Prefetch failed:", err));
   }
 
   setHover(track: Track, rect: DOMRect): void {
@@ -455,6 +531,7 @@ export class AppState {
   promoteCueToMain(): void {
     if (!this.cueTrack) return;
     this.playlist.unshift(trackItem(this.cueTrack));
+    this.updatePrefetch();
     this.scheduleSave();
   }
 
@@ -527,6 +604,7 @@ export class AppState {
     }
 
     this.sessionLoaded = true;
+    this.updatePrefetch();
   }
 
   private rebuildPlaylist(
@@ -628,7 +706,82 @@ export class AppState {
     }
 
     await this.maybeRefillPlaylist();
-    if (this.playlist.length > 0) this.playIndex(0);
+    this.advancePlan(false);
+  }
+
+  /**
+   * Decide what to play next given the current cache membership.
+   *
+   * - `empty`: nothing queued.
+   * - `fallback`: no cache knowledge yet (cold start / tests) — use the legacy
+   *   "play the head" behavior.
+   * - `stop`: a stop marker is the next barrier; honor it.
+   * - `play`: the first upcoming cached track (skipping uncached tracks ahead
+   *   of it, which stay queued for when the share recovers).
+   * - `wait`: cache is known but nothing upcoming is cached — an outage.
+   */
+  private planAdvance():
+    | { kind: "empty" | "fallback" | "wait" }
+    | { kind: "stop" | "play"; index: number } {
+    if (this.playlist.length === 0) return { kind: "empty" };
+    if (this.cachedIds.size === 0) return { kind: "fallback" };
+    for (let i = 0; i < this.playlist.length; i++) {
+      const item = this.playlist[i];
+      if (isStopMarker(item)) return { kind: "stop", index: i };
+      if (this.cachedIds.has(item.track.id)) return { kind: "play", index: i };
+    }
+    return { kind: "wait" };
+  }
+
+  /**
+   * Advance to the next playable track, skipping uncached ones during an
+   * outage. `afterFailure` is set when a load just failed or timed out: in that
+   * case an empty cache means "wait for the share" rather than blindly retrying
+   * the head (which would burn through the queue on a cold offline start).
+   */
+  private advancePlan(afterFailure: boolean): void {
+    const plan = this.planAdvance();
+    switch (plan.kind) {
+      case "empty":
+        this.clearNetRetry();
+        return;
+      case "fallback":
+        if (afterFailure) {
+          this.scheduleNetRetry();
+          return;
+        }
+        this.clearNetRetry();
+        this.playIndex(0);
+        return;
+      case "stop":
+      case "play":
+        this.clearNetRetry();
+        this.playIndex(plan.index);
+        return;
+      case "wait":
+        this.scheduleNetRetry();
+        return;
+    }
+  }
+
+  private scheduleNetRetry(): void {
+    this.awaitingNetwork = true;
+    if (this.netRetryTimer !== null) return;
+    const i = Math.min(this.netRetryAttempt, NET_RETRY_BACKOFFS_MS.length - 1);
+    this.netRetryAttempt += 1;
+    this.netRetryTimer = setTimeout(() => {
+      this.netRetryTimer = null;
+      this.advancePlan(true);
+    }, NET_RETRY_BACKOFFS_MS[i]);
+  }
+
+  private clearNetRetry(): void {
+    if (this.netRetryTimer !== null) {
+      clearTimeout(this.netRetryTimer);
+      this.netRetryTimer = null;
+    }
+    this.netRetryAttempt = 0;
+    this.awaitingNetwork = false;
   }
 }
 

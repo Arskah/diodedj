@@ -68,6 +68,9 @@ export const api = {
   trackPlayed(id: number): Promise<void> {
     return invoke<void>("track_played", { id });
   },
+  prefetch(ids: number[]): Promise<void> {
+    return invoke<void>("main_deck_prefetch", { ids });
+  },
   generatePlaylist(count: number): Promise<Track[]> {
     return invoke<Track[]>("generate_playlist", { count });
   },
