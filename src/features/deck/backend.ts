@@ -4,6 +4,7 @@ export type DeckEvent =
   | { type: "pause-state"; paused: boolean }
   | { type: "ended" }
   | { type: "buffering"; buffering: boolean }
+  | { type: "cache-state"; ids: number[] }
   | { type: "error"; message: string };
 
 export type DeckEventHandler = (event: DeckEvent) => void;

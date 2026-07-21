@@ -8,6 +8,8 @@ use std::thread;
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter};
 
+use super::cache::Cache;
+
 const TICK_INTERVAL: Duration = Duration::from_millis(50);
 const TIME_EMIT_INTERVAL: Duration = Duration::from_millis(100);
 
@@ -18,6 +20,9 @@ type Bytes = Arc<[u8]>;
 
 pub enum Cmd {
     Load {
+        /// Track id, used to consult the shared prefetch cache before falling
+        /// back to a filesystem read.
+        id: i64,
         path: PathBuf,
         duration: Option<f64>,
     },
@@ -64,11 +69,16 @@ pub struct PlayerHandle {
 }
 
 impl PlayerHandle {
-    pub fn spawn(app: AppHandle, device: Option<cpal::Device>, event_prefix: &'static str) -> Self {
+    pub fn spawn(
+        app: AppHandle,
+        device: Option<cpal::Device>,
+        event_prefix: &'static str,
+        cache: Arc<Cache>,
+    ) -> Self {
         let (tx, rx) = channel();
         let topics = Topics::new(event_prefix);
         thread::spawn(move || {
-            if let Err(e) = run(app.clone(), rx, device, &topics) {
+            if let Err(e) = run(app.clone(), rx, device, &topics, cache) {
                 log::error!("[{}] player thread exited: {}", event_prefix, e);
                 let _ = app.emit(&topics.error, e.to_string());
             }
@@ -115,6 +125,7 @@ fn run(
     rx: std::sync::mpsc::Receiver<Cmd>,
     device: Option<cpal::Device>,
     topics: &Topics,
+    cache: Arc<Cache>,
 ) -> Result<()> {
     let stream = open_stream(device)?;
     let mut sink = Sink::connect_new(stream.mixer());
@@ -137,7 +148,9 @@ fn run(
     loop {
         loop {
             match rx.try_recv() {
-                Ok(cmd) => apply(&app, &stream, &mut sink, &mut state, topics, &load_tx, cmd),
+                Ok(cmd) => apply(
+                    &app, &stream, &mut sink, &mut state, topics, &load_tx, &cache, cmd,
+                ),
                 Err(std::sync::mpsc::TryRecvError::Empty) => break,
                 Err(std::sync::mpsc::TryRecvError::Disconnected) => return Ok(()),
             }
@@ -164,6 +177,7 @@ fn run(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn apply(
     app: &AppHandle,
     stream: &OutputStream,
@@ -171,10 +185,11 @@ fn apply(
     state: &mut State,
     topics: &Topics,
     load_tx: &Sender<LoadMsg>,
+    cache: &Arc<Cache>,
     cmd: Cmd,
 ) {
     match cmd {
-        Cmd::Load { path, duration } => {
+        Cmd::Load { id, path, duration } => {
             // Stop current audio immediately; the new source arrives once the
             // background read completes.
             sink.stop();
@@ -190,18 +205,28 @@ fn apply(
             state.loading = true;
             let _ = app.emit(&topics.buffering, true);
 
-            // Read the whole file off the worker thread so a slow/networked
-            // read never blocks transport commands.
             let generation = state.generation;
             let tx = load_tx.clone();
-            thread::spawn(move || {
-                let bytes = read_file(&path);
+            if let Some(bytes) = cache.get(id) {
+                // Cache hit: route the resident bytes through the same
+                // completion path as a background read — no filesystem access.
                 let _ = tx.send(LoadMsg {
                     generation,
                     duration,
-                    bytes,
+                    bytes: Ok(bytes),
                 });
-            });
+            } else {
+                // Miss: read the whole file off the worker thread so a
+                // slow/networked read never blocks transport commands.
+                thread::spawn(move || {
+                    let bytes = read_file(&path);
+                    let _ = tx.send(LoadMsg {
+                        generation,
+                        duration,
+                        bytes,
+                    });
+                });
+            }
         }
         Cmd::Play => {
             sink.play();

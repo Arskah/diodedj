@@ -10,6 +10,7 @@ const { api } = vi.hoisted(() => {
     loadSession: vi.fn(),
     saveSession: vi.fn(),
     trackPlayed: vi.fn(),
+    prefetch: vi.fn(),
     generatePlaylist: vi.fn(),
     pickFiller: vi.fn(),
     getStats: vi.fn(),
@@ -83,6 +84,7 @@ function resetApi(): void {
   vi.clearAllMocks();
   api.search.mockResolvedValue([]);
   api.trackPlayed.mockResolvedValue(undefined);
+  api.prefetch.mockResolvedValue(undefined);
   api.generatePlaylist.mockResolvedValue([]);
   api.getStats.mockResolvedValue({
     totalTracks: 0,
@@ -507,6 +509,46 @@ describe("AppState backend events", () => {
     mock.emitEnded();
     await flushAsync();
     expect(app.currentTrack).toBeNull();
+  });
+
+  it("cache-state event populates cachedIds as a Set", () => {
+    expect(app.cachedIds.size).toBe(0);
+    mock.emitCacheState([3, 7, 9]);
+    expect([...app.cachedIds].sort((a, b) => a - b)).toEqual([3, 7, 9]);
+    mock.emitCacheState([7]);
+    expect([...app.cachedIds]).toEqual([7]);
+  });
+});
+
+describe("AppState prefetch window", () => {
+  let app: AppState;
+  beforeEach(() => {
+    resetApi();
+    app = makeApp().app;
+  });
+
+  it("prefetches upcoming playlist track ids after a mutation", () => {
+    app.addToPlaylist(t(1));
+    app.addToPlaylist(t(2));
+    expect(api.prefetch).toHaveBeenLastCalledWith([1, 2]);
+  });
+
+  it("prepends the current track id and skips stop markers", () => {
+    app.addToPlaylist(t(1));
+    app.addToPlaylist(t(2));
+    app.addToPlaylist(t(3));
+    // playIndex(0) removes t(1) and makes it current; playlist is [2, 3].
+    app.playIndex(0);
+    app.addStopMarker();
+    expect(api.prefetch).toHaveBeenLastCalledWith([1, 2, 3]);
+  });
+
+  it("caps the prefetch window at PREFETCH_WINDOW upcoming tracks", () => {
+    for (let i = 1; i <= 20; i++) app.addToPlaylist(t(i));
+    const last = api.prefetch.mock.calls.at(-1)?.[0] as number[];
+    expect(last).toHaveLength(15);
+    expect(last[0]).toBe(1);
+    expect(last[14]).toBe(15);
   });
 });
 

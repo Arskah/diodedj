@@ -48,6 +48,9 @@ export class NativeBackend implements DeckBackend {
       listen<boolean>(`${p}:buffering`, (e) =>
         this.emit({ type: "buffering", buffering: e.payload }),
       ),
+      listen<number[]>(`${p}:cache-state`, (e) =>
+        this.emit({ type: "cache-state", ids: e.payload }),
+      ),
       listen<string>(`${p}:error`, (e) =>
         this.emit({ type: "error", message: e.payload }),
       ),

@@ -252,6 +252,33 @@ impl Db {
         Ok(ids.iter().filter_map(|i| by_id.get(i).cloned()).collect())
     }
 
+    /// Resolve `(id, path)` for the given ids, preserving the input order and
+    /// skipping ids with no matching row. Used by the prefetch cache to build
+    /// its residency window without loading full track rows.
+    pub fn get_paths_by_ids(&self, ids: &[i64]) -> Result<Vec<(i64, String)>> {
+        if ids.is_empty() {
+            return Ok(vec![]);
+        }
+        let conn = self.conn.lock();
+        let placeholders = std::iter::repeat("?")
+            .take(ids.len())
+            .collect::<Vec<_>>()
+            .join(",");
+        let sql = format!("SELECT id, path FROM tracks WHERE id IN ({})", placeholders);
+        let mut stmt = conn.prepare(&sql)?;
+        let rows = stmt.query_map(params_from_iter(ids.iter()), |r| {
+            Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?))
+        })?;
+        let by_id: HashMap<i64, String> = rows
+            .collect::<rusqlite::Result<Vec<_>>>()?
+            .into_iter()
+            .collect();
+        Ok(ids
+            .iter()
+            .filter_map(|i| by_id.get(i).map(|p| (*i, p.clone())))
+            .collect())
+    }
+
     pub fn insert_track(&self, t: &TrackInsert) -> Result<()> {
         let conn = self.conn.lock();
         conn.execute(

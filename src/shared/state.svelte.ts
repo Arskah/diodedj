@@ -31,6 +31,9 @@ const AUTO_PLAYLIST_BUFFER = 20;
 const AUTO_PLAYLIST_THRESHOLD = 5;
 const HISTORY_CAP = 100;
 const SESSION_SAVE_THROTTLE_MS = 500;
+// Number of upcoming playlist tracks to prefetch ahead of the current track.
+// Mirrors the backend cache keep-window (audio/cache.rs WINDOW_SIZE).
+const PREFETCH_WINDOW = 15;
 
 export type PlaylistTab = "playlist" | "history";
 
@@ -60,6 +63,9 @@ export class AppState {
   volume = $state(1);
   currentTime = $state(0);
   duration = $state(0);
+  // Track ids currently resident in the backend prefetch cache. Exposed for
+  // future skip/availability logic; membership is driven by cache-state events.
+  cachedIds = $state<Set<number>>(new Set());
 
   // Cue deck (independent transport on a separate audio device)
   cueTrack = $state<Track | null>(null);
@@ -110,6 +116,9 @@ export class AppState {
           break;
         case "buffering":
           this.isBuffering = event.buffering;
+          break;
+        case "cache-state":
+          this.cachedIds = new Set(event.ids);
           break;
         case "error":
           this.isBuffering = false;
@@ -202,11 +211,13 @@ export class AppState {
 
   addToPlaylist(track: Track): void {
     this.playlist.push(trackItem(track));
+    this.updatePrefetch();
     this.scheduleSave();
   }
 
   addStopMarker(): void {
     this.playlist.push(stopMarker());
+    this.updatePrefetch();
     this.scheduleSave();
   }
 
@@ -214,6 +225,7 @@ export class AppState {
     const track = await api.pickFiller(contentType);
     if (!track) return;
     this.playlist.push(trackItem(track));
+    this.updatePrefetch();
     this.scheduleSave();
   }
 
@@ -223,6 +235,7 @@ export class AppState {
 
   removeFromPlaylist(index: number): void {
     this.playlist.splice(index, 1);
+    this.updatePrefetch();
     this.scheduleSave();
   }
 
@@ -230,11 +243,13 @@ export class AppState {
     if (from === to) return;
     const [item] = this.playlist.splice(from, 1);
     this.playlist.splice(to, 0, item);
+    this.updatePrefetch();
     this.scheduleSave();
   }
 
   clearPlaylist(): void {
     this.playlist.length = 0;
+    this.updatePrefetch();
     this.scheduleSave();
   }
 
@@ -284,6 +299,7 @@ export class AppState {
     const track = this.history[i];
     if (!track) return;
     this.playlist.push(trackItem(track));
+    this.updatePrefetch();
     this.scheduleSave();
   }
 
@@ -295,6 +311,7 @@ export class AppState {
     void api.trackPlayed(track.id);
     document.title = `${track.title} - ${track.artist} | DiodeDJ`;
     void this.maybeRefillPlaylist();
+    this.updatePrefetch();
     this.scheduleSave();
   }
 
@@ -330,6 +347,7 @@ export class AppState {
     this.duration = 0;
     this.isPlaying = false;
     document.title = "DiodeDJ";
+    this.updatePrefetch();
     this.scheduleSave();
   }
 
@@ -383,8 +401,30 @@ export class AppState {
       const count = AUTO_PLAYLIST_BUFFER - this.playlist.length;
       const tracks = await api.generatePlaylist(count);
       this.playlist.push(...tracks.map(trackItem));
+      this.updatePrefetch();
       this.scheduleSave();
     }
+  }
+
+  /**
+   * Push the upcoming-track window to the backend prefetch cache: the current
+   * track followed by the next `PREFETCH_WINDOW` playlist tracks (stop markers
+   * skipped). Called after every playlist mutation and on track changes.
+   */
+  private updatePrefetch(): void {
+    const upcoming: number[] = [];
+    for (const item of this.playlist) {
+      if (isTrackItem(item)) {
+        upcoming.push(item.track.id);
+        if (upcoming.length >= PREFETCH_WINDOW) break;
+      }
+    }
+    const ids = this.currentTrack
+      ? [this.currentTrack.id, ...upcoming]
+      : upcoming;
+    void api
+      .prefetch(ids)
+      .catch((err) => logger.error("Prefetch failed:", err));
   }
 
   setHover(track: Track, rect: DOMRect): void {
@@ -465,6 +505,7 @@ export class AppState {
   promoteCueToMain(): void {
     if (!this.cueTrack) return;
     this.playlist.unshift(trackItem(this.cueTrack));
+    this.updatePrefetch();
     this.scheduleSave();
   }
 
@@ -537,6 +578,7 @@ export class AppState {
     }
 
     this.sessionLoaded = true;
+    this.updatePrefetch();
   }
 
   private rebuildPlaylist(

@@ -93,6 +93,15 @@ describe("NativeBackend (deckId='main' default)", () => {
       { type: "buffering", buffering: false },
     ]);
   });
+
+  it("forwards main-deck:cache-state events to handlers", async () => {
+    const b = new NativeBackend();
+    const events: DeckEvent[] = [];
+    b.on((e) => events.push(e));
+    await b.load(1); // ensure ready
+    listeners["main-deck:cache-state"]({ payload: [1, 2, 3] });
+    expect(events).toEqual([{ type: "cache-state", ids: [1, 2, 3] }]);
+  });
 });
 
 describe("NativeBackend (deckId='cue')", () => {

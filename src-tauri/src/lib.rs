@@ -10,6 +10,7 @@ mod library;
 mod persist;
 mod playlist;
 
+use audio::cache::Cache;
 use audio::devices::{list_output_devices, resolve_device, resolve_main_device, DeviceInfo};
 use audio::player::{Cmd, PlayerHandle};
 use broadcast::{service::default_now_playing_dir, BroadcastService};
@@ -25,6 +26,8 @@ pub struct AppState {
     scan: Arc<ScanState>,
     main_deck: Arc<PlayerHandle>,
     cue: Arc<Mutex<Option<PlayerHandle>>>,
+    /// Shared prefetch byte cache, resident in both deck players.
+    cache: Arc<Cache>,
     broadcast: Arc<BroadcastService>,
     app_handle: AppHandle,
 }
@@ -155,9 +158,26 @@ fn main_deck_load(app_state: State<'_, AppState>, id: i64) -> Result<(), String>
     let duration = track.duration;
     app_state.broadcast.set_pending_track(track.into());
     app_state.main_deck.send(Cmd::Load {
+        id,
         path: std::path::PathBuf::from(path),
         duration: if duration > 0.0 { Some(duration) } else { None },
     });
+    Ok(())
+}
+
+/// Update the prefetch residency window from the renderer's upcoming-track list.
+/// Resolves each id's path from the DB and hands the window to the shared cache,
+/// which evicts out-of-window entries and prefetches missing ones.
+#[tauri::command(rename_all = "camelCase")]
+fn main_deck_prefetch(app_state: State<'_, AppState>, ids: Vec<i64>) -> Result<(), String> {
+    let window: Vec<(i64, std::path::PathBuf)> = app_state
+        .db
+        .get_paths_by_ids(&ids)
+        .map_err(err)?
+        .into_iter()
+        .map(|(id, path)| (id, std::path::PathBuf::from(path)))
+        .collect();
+    app_state.cache.set_window(window);
     Ok(())
 }
 
@@ -240,6 +260,7 @@ where
             state.app_handle.clone(),
             Some(device),
             "cue",
+            Arc::clone(&state.cache),
         ));
     }
     if let Some(handle) = guard.as_ref() {
@@ -257,6 +278,7 @@ fn cue_load(state: State<'_, AppState>, id: i64) -> Result<(), String> {
         .ok_or_else(|| "track not found".to_string())?;
     with_cue(&state, |h| {
         h.send(Cmd::Load {
+            id,
             path: std::path::PathBuf::from(track.path),
             duration: if track.duration > 0.0 {
                 Some(track.duration)
@@ -380,7 +402,13 @@ pub fn run() {
             let config = Config::open(&data_dir)?;
             let session = Session::open(&data_dir);
             let main_device = resolve_main_device(config.get_main_device().as_ref());
-            let main_deck = PlayerHandle::spawn(app.handle().clone(), main_device, "main-deck");
+            let cache = Cache::new(app.handle().clone());
+            let main_deck = PlayerHandle::spawn(
+                app.handle().clone(),
+                main_device,
+                "main-deck",
+                Arc::clone(&cache),
+            );
             let config = Arc::new(config);
             let broadcast = Arc::new(BroadcastService::new(
                 Arc::clone(&config),
@@ -394,6 +422,7 @@ pub fn run() {
                 scan: Arc::new(ScanState::default()),
                 main_deck: Arc::new(main_deck),
                 cue: Arc::new(Mutex::new(None)),
+                cache,
                 broadcast,
                 app_handle: app.handle().clone(),
             });
@@ -428,6 +457,7 @@ pub fn run() {
             cue_seek,
             cue_set_volume,
             main_deck_load,
+            main_deck_prefetch,
             main_deck_play,
             main_deck_pause,
             main_deck_stop,
