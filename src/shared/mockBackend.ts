@@ -84,6 +84,10 @@ export class MockBackend implements DeckBackend {
     this.emit({ type: "cache-state", ids });
   }
 
+  emitLoadFailed(id: number): void {
+    this.emit({ type: "load-failed", id });
+  }
+
   get lastLoadedId(): number | undefined {
     return this.loadedIds[this.loadedIds.length - 1];
   }

@@ -34,6 +34,9 @@ const SESSION_SAVE_THROTTLE_MS = 500;
 // Number of upcoming playlist tracks to prefetch ahead of the current track.
 // Mirrors the backend cache keep-window (audio/cache.rs WINDOW_SIZE).
 const PREFETCH_WINDOW = 15;
+// Backoff schedule (ms) for retrying advancement while nothing playable is
+// cached (network outage). The last value repeats until recovery.
+const NET_RETRY_BACKOFFS_MS = [1000, 2000, 5000];
 
 export type PlaylistTab = "playlist" | "history";
 
@@ -63,9 +66,13 @@ export class AppState {
   volume = $state(1);
   currentTime = $state(0);
   duration = $state(0);
-  // Track ids currently resident in the backend prefetch cache. Exposed for
-  // future skip/availability logic; membership is driven by cache-state events.
+  // Track ids currently resident in the backend prefetch cache. Drives
+  // skip-to-cached advancement during a network outage; membership is updated
+  // by cache-state events.
   cachedIds = $state<Set<number>>(new Set());
+  // True while no upcoming track is cached and we are waiting for the share to
+  // recover (drives the "Reconnecting…" banner). Cleared on resume.
+  awaitingNetwork = $state(false);
 
   // Cue deck (independent transport on a separate audio device)
   cueTrack = $state<Track | null>(null);
@@ -90,6 +97,8 @@ export class AppState {
 
   private throttledSave: Throttled;
   private sessionLoaded = false;
+  private netRetryTimer: ReturnType<typeof setTimeout> | null = null;
+  private netRetryAttempt = 0;
 
   constructor(backend?: DeckBackend, cueBackend?: DeckBackend) {
     this.backend = backend ?? new NativeBackend("main");
@@ -119,16 +128,20 @@ export class AppState {
           break;
         case "cache-state":
           this.cachedIds = new Set(event.ids);
+          // Cache membership changed — if we were stalled waiting for the
+          // share, a newly-cached track may now be playable.
+          if (this.awaitingNetwork) this.advancePlan(true);
           break;
         case "error":
           this.isBuffering = false;
           logger.error("Audio error:", event.message);
           break;
         case "load-failed":
-          // Read failed after retries or watchdog timeout. Clear buffering;
-          // skip-to-cached handling is a later issue.
+          // Read failed after retries or watchdog timeout. Skip to the next
+          // cached track (or wait for the share) instead of dead air.
           this.isBuffering = false;
           logger.error("Audio load failed for track:", event.id);
+          if (this.autoAdvance) this.advancePlan(true);
           break;
       }
     });
@@ -351,6 +364,7 @@ export class AppState {
   }
 
   stop(): void {
+    this.clearNetRetry();
     if (this.currentTrack) this.appendHistory(this.currentTrack);
     void this.backend.stop();
     this.currentTrack = null;
@@ -692,7 +706,82 @@ export class AppState {
     }
 
     await this.maybeRefillPlaylist();
-    if (this.playlist.length > 0) this.playIndex(0);
+    this.advancePlan(false);
+  }
+
+  /**
+   * Decide what to play next given the current cache membership.
+   *
+   * - `empty`: nothing queued.
+   * - `fallback`: no cache knowledge yet (cold start / tests) — use the legacy
+   *   "play the head" behavior.
+   * - `stop`: a stop marker is the next barrier; honor it.
+   * - `play`: the first upcoming cached track (skipping uncached tracks ahead
+   *   of it, which stay queued for when the share recovers).
+   * - `wait`: cache is known but nothing upcoming is cached — an outage.
+   */
+  private planAdvance():
+    | { kind: "empty" | "fallback" | "wait" }
+    | { kind: "stop" | "play"; index: number } {
+    if (this.playlist.length === 0) return { kind: "empty" };
+    if (this.cachedIds.size === 0) return { kind: "fallback" };
+    for (let i = 0; i < this.playlist.length; i++) {
+      const item = this.playlist[i];
+      if (isStopMarker(item)) return { kind: "stop", index: i };
+      if (this.cachedIds.has(item.track.id)) return { kind: "play", index: i };
+    }
+    return { kind: "wait" };
+  }
+
+  /**
+   * Advance to the next playable track, skipping uncached ones during an
+   * outage. `afterFailure` is set when a load just failed or timed out: in that
+   * case an empty cache means "wait for the share" rather than blindly retrying
+   * the head (which would burn through the queue on a cold offline start).
+   */
+  private advancePlan(afterFailure: boolean): void {
+    const plan = this.planAdvance();
+    switch (plan.kind) {
+      case "empty":
+        this.clearNetRetry();
+        return;
+      case "fallback":
+        if (afterFailure) {
+          this.scheduleNetRetry();
+          return;
+        }
+        this.clearNetRetry();
+        this.playIndex(0);
+        return;
+      case "stop":
+      case "play":
+        this.clearNetRetry();
+        this.playIndex(plan.index);
+        return;
+      case "wait":
+        this.scheduleNetRetry();
+        return;
+    }
+  }
+
+  private scheduleNetRetry(): void {
+    this.awaitingNetwork = true;
+    if (this.netRetryTimer !== null) return;
+    const i = Math.min(this.netRetryAttempt, NET_RETRY_BACKOFFS_MS.length - 1);
+    this.netRetryAttempt += 1;
+    this.netRetryTimer = setTimeout(() => {
+      this.netRetryTimer = null;
+      this.advancePlan(true);
+    }, NET_RETRY_BACKOFFS_MS[i]);
+  }
+
+  private clearNetRetry(): void {
+    if (this.netRetryTimer !== null) {
+      clearTimeout(this.netRetryTimer);
+      this.netRetryTimer = null;
+    }
+    this.netRetryAttempt = 0;
+    this.awaitingNetwork = false;
   }
 }
 

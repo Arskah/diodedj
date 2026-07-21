@@ -520,6 +520,82 @@ describe("AppState backend events", () => {
   });
 });
 
+describe("AppState outage recovery (skip-to-cached)", () => {
+  let app: AppState;
+  let mock: MockBackend;
+  beforeEach(() => {
+    resetApi();
+    ({ app, mock } = makeApp());
+  });
+
+  it("on ended, skips an uncached track to the first cached one and keeps the skipped track queued", async () => {
+    app.addToPlaylist(t(1));
+    app.addToPlaylist(t(2));
+    app.addToPlaylist(t(3));
+    app.playIndex(0); // current = 1, playlist = [2, 3]
+    await flushAsync();
+    mock.emitCacheState([3]); // 2 uncached, 3 cached
+    mock.emitEnded();
+    await flushAsync();
+    expect(app.currentTrack?.id).toBe(3);
+    expect(mock.lastLoadedId).toBe(3);
+    // The skipped, still-uncached track stays queued for when the share recovers.
+    expect(app.playlist.map(pid)).toEqual([2]);
+    expect(app.awaitingNetwork).toBe(false);
+  });
+
+  it("waits with a reconnecting banner when nothing upcoming is cached, then resumes on cache-state", async () => {
+    app.addToPlaylist(t(1));
+    app.addToPlaylist(t(2));
+    app.playIndex(0); // current = 1, playlist = [2]
+    await flushAsync();
+    mock.emitCacheState([9]); // nothing in the queue is cached
+    mock.emitEnded();
+    await flushAsync();
+    expect(app.awaitingNetwork).toBe(true);
+    expect(app.currentTrack?.id).toBe(1); // did not advance
+    expect(mock.loadedIds).toEqual([1]); // no doomed load of track 2
+
+    mock.emitCacheState([2]); // share recovered, track 2 now cached
+    await flushAsync();
+    expect(app.awaitingNetwork).toBe(false);
+    expect(app.currentTrack?.id).toBe(2);
+    expect(mock.lastLoadedId).toBe(2);
+  });
+
+  it("on load-failed, skips to the next cached track", async () => {
+    app.addToPlaylist(t(5));
+    app.addToPlaylist(t(6));
+    app.playIndex(0); // current = 5, playlist = [6]
+    await flushAsync();
+    mock.emitCacheState([6]);
+    mock.emitLoadFailed(5);
+    await flushAsync();
+    expect(app.currentTrack?.id).toBe(6);
+    expect(mock.lastLoadedId).toBe(6);
+  });
+
+  it("on load-failed with no cache knowledge (cold offline start), waits instead of burning the queue", async () => {
+    app.addToPlaylist(t(1));
+    app.addToPlaylist(t(2));
+    app.playIndex(0); // current = 1, playlist = [2]
+    await flushAsync();
+    // cachedIds is empty (never received a cache-state) — a failed head load
+    // must not blindly advance through the queue.
+    mock.emitLoadFailed(1);
+    await flushAsync();
+    expect(app.awaitingNetwork).toBe(true);
+    expect(app.playlist.map(pid)).toEqual([2]);
+    expect(mock.loadedIds).toEqual([1]);
+
+    // Recovery clears the wait and cancels the pending retry timer.
+    mock.emitCacheState([2]);
+    await flushAsync();
+    expect(app.awaitingNetwork).toBe(false);
+    expect(app.currentTrack?.id).toBe(2);
+  });
+});
+
 describe("AppState prefetch window", () => {
   let app: AppState;
   beforeEach(() => {
