@@ -56,6 +56,7 @@ export class AppState {
   autoPlaylistActive = $state(false);
   autoAdvance = $state(true);
   isPlaying = $state(false);
+  isBuffering = $state(false);
   volume = $state(1);
   currentTime = $state(0);
   duration = $state(0);
@@ -63,6 +64,7 @@ export class AppState {
   // Cue deck (independent transport on a separate audio device)
   cueTrack = $state<Track | null>(null);
   cueIsPlaying = $state(false);
+  cueIsBuffering = $state(false);
   cueCurrentTime = $state(0);
   cueDuration = $state(0);
   cueVolume = $state(1);
@@ -106,7 +108,11 @@ export class AppState {
         case "ended":
           void this.handleEnded();
           break;
+        case "buffering":
+          this.isBuffering = event.buffering;
+          break;
         case "error":
+          this.isBuffering = false;
           logger.error("Audio error:", event.message);
           break;
       }
@@ -127,7 +133,11 @@ export class AppState {
           this.cueIsPlaying = false;
           this.cueCurrentTime = 0;
           break;
+        case "buffering":
+          this.cueIsBuffering = event.buffering;
+          break;
         case "error":
+          this.cueIsBuffering = false;
           logger.error("Cue audio error:", event.message);
           this.cueError = event.message;
           break;

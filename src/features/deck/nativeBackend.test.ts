@@ -80,6 +80,19 @@ describe("NativeBackend (deckId='main' default)", () => {
       { type: "error", message: "boom" },
     ]);
   });
+
+  it("forwards main-deck:buffering events to handlers", async () => {
+    const b = new NativeBackend();
+    const events: DeckEvent[] = [];
+    b.on((e) => events.push(e));
+    await b.load(1); // ensure ready
+    listeners["main-deck:buffering"]({ payload: true });
+    listeners["main-deck:buffering"]({ payload: false });
+    expect(events).toEqual([
+      { type: "buffering", buffering: true },
+      { type: "buffering", buffering: false },
+    ]);
+  });
 });
 
 describe("NativeBackend (deckId='cue')", () => {
