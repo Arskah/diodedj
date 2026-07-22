@@ -1,10 +1,10 @@
-coverage/
-node_modules/
+.claude/
 .pnpm-store/
+coverage/
 dist/
-*.db
-*.tgz
+e2e-results/
+node_modules/
 src-tauri/target/
 src-tauri/gen/schemas/
-e2e-results/
-.claude/
+*.db
+*.tgz
