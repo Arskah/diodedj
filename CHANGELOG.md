@@ -1,5 +1,48 @@
 # Changelog
 
+## [0.11.0](https://github.com/Arskah/diodedj/compare/v0.10.2...v0.11.0) (2026-07-22)
+
+
+### ⚠ BREAKING CHANGES
+
+* rm log breaking .app ([#121](https://github.com/Arskah/diodedj/issues/121))
+
+### Features
+
+* **audio:** network-resilient audio player (SMB/NFS share hardening) ([#241](https://github.com/Arskah/diodedj/issues/241)) ([760189f](https://github.com/Arskah/diodedj/commit/760189fbb885702cb8a37e79ba21c081d40ca7c4))
+
+
+### Bug Fixes
+
+* **deps:** update dependency @tauri-apps/plugin-dialog to v2.7.2 ([#243](https://github.com/Arskah/diodedj/issues/243)) ([0d68075](https://github.com/Arskah/diodedj/commit/0d68075032da149a14160c08bbc7bf4a4a4af9ee))
+* **deps:** update rust crate anyhow to v1.0.104 ([#245](https://github.com/Arskah/diodedj/issues/245)) ([42272ee](https://github.com/Arskah/diodedj/commit/42272ee70fb34105a355181b5f9d928ffda50ea5))
+* **deps:** update rust crate serde to v1.0.229 ([#246](https://github.com/Arskah/diodedj/issues/246)) ([9f47c6f](https://github.com/Arskah/diodedj/commit/9f47c6f27b7a9b30063fdf45a5fe08b0b090b800))
+* **deps:** update rust crate tauri-plugin-dialog to v2.7.2 ([#244](https://github.com/Arskah/diodedj/issues/244)) ([ab86935](https://github.com/Arskah/diodedj/commit/ab86935d2e6c2d109fbe9c1ad462e4318827f1ac))
+* **deps:** update rust crate tokio to v1.53.0 ([#232](https://github.com/Arskah/diodedj/issues/232)) ([c078fcf](https://github.com/Arskah/diodedj/commit/c078fcff27387072d3638242f0dc265c3f789236))
+* rm log breaking .app ([#121](https://github.com/Arskah/diodedj/issues/121)) ([a04e08a](https://github.com/Arskah/diodedj/commit/a04e08acd349f18b3d35275c91f3830be0f38c60))
+
+
+### Miscellaneous Chores
+
+* add AGENTS.md ([5a65be0](https://github.com/Arskah/diodedj/commit/5a65be0ab0e487b521af6a7fcd4c65b6001d1e61))
+* **deps:** lock file maintenance ([#247](https://github.com/Arskah/diodedj/issues/247)) ([79bc39a](https://github.com/Arskah/diodedj/commit/79bc39ae65486987bf12854761f41d4ef8ddd184))
+* **deps:** update actions/setup-node action to v7 ([#230](https://github.com/Arskah/diodedj/issues/230)) ([eb025ca](https://github.com/Arskah/diodedj/commit/eb025cab08df393914f39426229f1f58142031ed))
+* **deps:** update dependency @commitlint/cli to v21.2.1 ([#219](https://github.com/Arskah/diodedj/issues/219)) ([a8b3392](https://github.com/Arskah/diodedj/commit/a8b33922ab5c8238ab0d7f39e411941ec065bc37))
+* **deps:** update dependency @sveltejs/vite-plugin-svelte to v7.2.0 ([#215](https://github.com/Arskah/diodedj/issues/215)) ([56c2491](https://github.com/Arskah/diodedj/commit/56c24914142768e56875ce8f5e7c5db4e21067c8))
+* **deps:** update dependency @types/node to v25.9.5 ([#218](https://github.com/Arskah/diodedj/issues/218)) ([99b9dc5](https://github.com/Arskah/diodedj/commit/99b9dc5dd5b426de5af5522fec160f5fe26fcabb))
+* **deps:** update dependency eslint to v10.7.0 ([#224](https://github.com/Arskah/diodedj/issues/224)) ([003612b](https://github.com/Arskah/diodedj/commit/003612bf543a51a443ab84a3a81c1d3bc75a9c61))
+* **deps:** update dependency lint-staged to v17.1.0 ([#242](https://github.com/Arskah/diodedj/issues/242)) ([406dc2e](https://github.com/Arskah/diodedj/commit/406dc2e26a5a3c6fe6526e2e7fb76ce9329488d0))
+* **deps:** update dependency prettier to v3.9.5 ([#223](https://github.com/Arskah/diodedj/issues/223)) ([20f727f](https://github.com/Arskah/diodedj/commit/20f727fe6d3d1428f6adca8fd642b17e9e1dd695))
+* **deps:** update dependency rust to v1.97.1 ([#222](https://github.com/Arskah/diodedj/issues/222)) ([c7ca812](https://github.com/Arskah/diodedj/commit/c7ca8121df1c738fcbb1d059e6c75ee4fae63454))
+* **deps:** update dependency svelte to v5.56.6 ([#231](https://github.com/Arskah/diodedj/issues/231)) ([7304c5e](https://github.com/Arskah/diodedj/commit/7304c5e9cd5354effd3653ae74241350dfad1e27))
+* **deps:** update dependency svelte-check to v4.7.3 ([#217](https://github.com/Arskah/diodedj/issues/217)) ([96e4eb6](https://github.com/Arskah/diodedj/commit/96e4eb6ae1b66d0cb7676f0367cd5f19695db435))
+* **deps:** update dependency tsx to v4.23.1 ([#226](https://github.com/Arskah/diodedj/issues/226)) ([fbd0fcb](https://github.com/Arskah/diodedj/commit/fbd0fcbd8c3eae3dad73040a88d1c19291e39ad1))
+* **deps:** update dependency typescript-eslint to v8.64.0 ([#216](https://github.com/Arskah/diodedj/issues/216)) ([d0764e2](https://github.com/Arskah/diodedj/commit/d0764e2fdcb75105d04a1e6978944c75b4eba4f1))
+* **deps:** update dependency vite to v8.1.5 ([#221](https://github.com/Arskah/diodedj/issues/221)) ([9e2cd0b](https://github.com/Arskah/diodedj/commit/9e2cd0bdec706c076e23e4cee5bda4db5b284ac6))
+* **deps:** update pnpm to v11.15.0 ([#213](https://github.com/Arskah/diodedj/issues/213)) ([5b94a7b](https://github.com/Arskah/diodedj/commit/5b94a7bc5154df6ac07b2d122489ff11f1b2c6f8))
+* **deps:** update vitest monorepo to v4.1.10 ([#214](https://github.com/Arskah/diodedj/issues/214)) ([5f9184a](https://github.com/Arskah/diodedj/commit/5f9184aceffdbf00c44e0d38aeb3a972584d3a5f))
+* sort gitignore ([791ce44](https://github.com/Arskah/diodedj/commit/791ce44bf87a7a421bfa2f0fdd1c6815ca6275f7))
+
 ## [0.10.2](https://github.com/Arskah/diodedj/compare/v0.10.1...v0.10.2) (2026-07-07)
 
 
