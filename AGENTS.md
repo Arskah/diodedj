@@ -1,6 +1,4 @@
-# CLAUDE.md
-
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+# AGENTS.md
 
 ## Build & Run Commands
 
@@ -16,10 +14,6 @@ pnpm lint                                         # eslint
 pnpm format                                       # prettier --write .
 pnpm format:check                                 # prettier --check .
 ```
-
-Pre-commit hook runs lint-staged (prettier + eslint fix) then vitest.
-
-CI gates Rust with `cargo fmt --check` + `cargo clippy --all-targets -- -D warnings` (`.github/workflows/rust.yml`); run both locally before pushing.
 
 ## Architecture
 
@@ -62,12 +56,28 @@ Tauri 2 app. Two process boundaries: a Rust backend and a Svelte 5 / Vite render
 - `release-please-config.json` bumps `package.json`, `src-tauri/tauri.conf.json` (jsonpath `$.version`), and `src-tauri/Cargo.toml` (`# x-release-please-version` annotation) on each release. Keep all three in sync.
 - `tauri-plugin-log` is initialized first in the builder chain so panics before later plugin setup still reach the file sink. Renderer `console.*` is intercepted by `attachConsole()` in `main.ts`; vitest must not import `main.ts` (it doesn't — tests use `mockBackend`). Log level honors `RUST_LOG` (whole-app level only — no module syntax) and falls back to `Debug` in `cfg!(debug_assertions)` / `Info` in release. `symphonia*` modules are forced to `Warn` to keep the webview console readable.
 
-## Types
+## Data files
 
-Shared TS types in `src/shared/types.ts`: `Track`, `LibraryStats`, `ContentType`, `SortColumn`, `SortDir`, `SortOption`, `ScanResult`. Rust mirrors these with `#[serde(rename_all = "camelCase")]` structs in `library/db.rs` / `lib.rs` / `library/scan_state.rs`.
+DiodeDJ stores its database (`diodedj.db`), config (`config.json`), session
+state (`session.json`), and default now-playing output in a per-user data
+directory.
 
-## Workflows (`.github/workflows/`)
+- macOS: `~/Library/Application Support/com.diodedj.app/`
+- Linux: `~/.local/share/com.diodedj.app/` (or `$XDG_DATA_HOME/com.diodedj.app/`)
+- Windows: `%APPDATA%\com.diodedj.app\` (typically `C:\Users\<you>\AppData\Roaming\com.diodedj.app\`)
 
-- `ci.yml` calls `lint.yml`, `typecheck.yml`, `unit-test.yml`, `rust.yml`, and `build.yml` (Linux x64) on PR
-- `build.yml` is a reusable workflow that wraps `tauri-apps/tauri-action` and uploads bundle paths as artifacts (consumed by future e2e + by release upload)
-- `release-please.yml` runs release-please then matrix-calls `build.yml` per platform (macOS arm64/x64, Linux x64, Windows x64), then uploads artifacts to the GitHub Release with `gh release upload`
+## Logs
+
+DiodeDJ writes a rotating log file (`DiodeDJ.log`, 1 MB max, one prior file kept).
+
+- macOS: `~/Library/Logs/com.diodedj.app/DiodeDJ.log`
+- Linux: `~/.local/share/com.diodedj.app/logs/DiodeDJ.log` (or `$XDG_DATA_HOME/com.diodedj.app/logs/`)
+- Windows: `%LOCALAPPDATA%\com.diodedj.app\logs\DiodeDJ.log`
+
+Set `RUST_LOG=debug` (or `trace`) before launching to raise verbosity. Default is `info` (release) or `debug` (dev).
+
+## Testing
+
+Pre-commit hook runs lint-staged (prettier + eslint fix) then vitest.
+
+CI gates Rust with `cargo fmt --check` + `cargo clippy --all-targets -- -D warnings` (`.github/workflows/rust.yml`); run both locally before pushing.
