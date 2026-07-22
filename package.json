@@ -45,7 +45,7 @@
     "@tauri-apps/plugin-log": "2.8.0"
   },
   "devDependencies": {
-    "@commitlint/cli": "21.2.0",
+    "@commitlint/cli": "21.2.1",
     "@commitlint/config-conventional": "21.2.0",
     "@commitlint/types": "21.2.0",
     "@eslint/js": "10.0.1",
