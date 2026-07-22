@@ -115,11 +115,11 @@ sends.
 If no directory is set the files land in `<app-data-dir>/now-playing/`,
 where `<app-data-dir>` resolves to:
 
-- macOS: `~/Library/Application Support/com.diodedj.app/`
-- Linux: `~/.local/share/com.diodedj.app/` (or
-  `$XDG_DATA_HOME/com.diodedj.app/`)
-- Windows: `%APPDATA%\com.diodedj.app\` (typically
-  `C:\Users\<you>\AppData\Roaming\com.diodedj.app\`)
+- macOS: `~/Library/Application Support/com.diodedj/`
+- Linux: `~/.local/share/com.diodedj/` (or
+  `$XDG_DATA_HOME/com.diodedj/`)
+- Windows: `%APPDATA%\com.diodedj\` (typically
+  `C:\Users\<you>\AppData\Roaming\com.diodedj\`)
 
 The same directory holds DiodeDJ's `config.json`, `session.json`, and
 `diodedj.db`.

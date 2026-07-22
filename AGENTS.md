@@ -62,17 +62,17 @@ DiodeDJ stores its database (`diodedj.db`), config (`config.json`), session
 state (`session.json`), and default now-playing output in a per-user data
 directory.
 
-- macOS: `~/Library/Application Support/com.diodedj.app/`
-- Linux: `~/.local/share/com.diodedj.app/` (or `$XDG_DATA_HOME/com.diodedj.app/`)
-- Windows: `%APPDATA%\com.diodedj.app\` (typically `C:\Users\<you>\AppData\Roaming\com.diodedj.app\`)
+- macOS: `~/Library/Application Support/com.diodedj/`
+- Linux: `~/.local/share/com.diodedj/` (or `$XDG_DATA_HOME/com.diodedj/`)
+- Windows: `%APPDATA%\com.diodedj\` (typically `C:\Users\<you>\AppData\Roaming\com.diodedj\`)
 
 ## Logs
 
 DiodeDJ writes a rotating log file (`DiodeDJ.log`, 1 MB max, one prior file kept).
 
-- macOS: `~/Library/Logs/com.diodedj.app/DiodeDJ.log`
-- Linux: `~/.local/share/com.diodedj.app/logs/DiodeDJ.log` (or `$XDG_DATA_HOME/com.diodedj.app/logs/`)
-- Windows: `%LOCALAPPDATA%\com.diodedj.app\logs\DiodeDJ.log`
+- macOS: `~/Library/Logs/com.diodedj/DiodeDJ.log`
+- Linux: `~/.local/share/com.diodedj/logs/DiodeDJ.log` (or `$XDG_DATA_HOME/com.diodedj/logs/`)
+- Windows: `%LOCALAPPDATA%\com.diodedj\logs\DiodeDJ.log`
 
 Set `RUST_LOG=debug` (or `trace`) before launching to raise verbosity. Default is `info` (release) or `debug` (dev).
 

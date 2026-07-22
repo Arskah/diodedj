@@ -13,7 +13,7 @@ export const APP_BINARY: string = path.join(
   "diodedj",
 );
 const RESULTS_DIR = path.join(REPO_ROOT, "e2e-results");
-const APP_IDENTIFIER = "com.diodedj.app";
+const APP_IDENTIFIER = "com.diodedj";
 
 // Fixed XDG_DATA_HOME for the whole run. Each test rewrites
 // `${XDG_DATA_HOME}/${APP_IDENTIFIER}/config.json` and forces an app respawn via
