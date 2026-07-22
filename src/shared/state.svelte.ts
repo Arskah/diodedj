@@ -18,6 +18,7 @@ import {
 import type { DeckBackend } from "../features/deck/backend";
 import { NativeBackend } from "../features/deck/nativeBackend";
 import { throttle, type Throttled } from "./throttle";
+import { isStrictNever } from "./isStrictNever";
 
 const logger = {
   error: (...args: unknown[]) => console.error(...args),
@@ -143,6 +144,8 @@ export class AppState {
           logger.error("Audio load failed for track:", event.id);
           if (this.autoAdvance) this.advancePlan(true);
           break;
+        default:
+          return isStrictNever(event);
       }
     });
 
@@ -175,6 +178,10 @@ export class AppState {
           this.cueIsBuffering = false;
           logger.error("Cue audio load failed for track:", event.id);
           break;
+        case "cache-state":
+          break; // cue deck doesn't use the cache, ignore
+        default:
+          return isStrictNever(event);
       }
     });
 
@@ -438,13 +445,10 @@ export class AppState {
    * skipped). Called after every playlist mutation and on track changes.
    */
   private updatePrefetch(): void {
-    const upcoming: number[] = [];
-    for (const item of this.playlist) {
-      if (isTrackItem(item)) {
-        upcoming.push(item.track.id);
-        if (upcoming.length >= PREFETCH_WINDOW) break;
-      }
-    }
+    const upcoming: number[] = this.playlist
+      .filter(isTrackItem)
+      .slice(0, PREFETCH_WINDOW)
+      .map((i) => i.track.id);
     const ids = this.currentTrack
       ? [this.currentTrack.id, ...upcoming]
       : upcoming;
@@ -761,6 +765,8 @@ export class AppState {
       case "wait":
         this.scheduleNetRetry();
         return;
+      default:
+        return isStrictNever(plan);
     }
   }
 
