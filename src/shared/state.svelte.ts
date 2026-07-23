@@ -355,6 +355,11 @@ export class AppState {
   }
 
   private setCurrent(track: Track): void {
+    // Any explicit track change (manual next/prev, playIndex, session restore)
+    // supersedes a pending outage retry. Without this, an armed retry timer —
+    // or a cache-state arriving while awaitingNetwork is still set — fires after
+    // the new track loads and advances again, skipping it.
+    this.clearNetRetry();
     this.currentTrack = track;
     this.duration = track.duration ?? 0;
     this.currentTime = 0;
@@ -796,6 +801,11 @@ export class AppState {
     this.netRetryAttempt += 1;
     this.netRetryTimer = setTimeout(() => {
       this.netRetryTimer = null;
+      // Re-push the prefetch window so the cache worker retries its reads — it
+      // only wakes on set_window, so without this an outage never recovers on
+      // its own (the share could come back but nothing would re-read it). On a
+      // successful read the resulting cache-state advances playback.
+      this.updatePrefetch();
       this.advancePlan(true);
     }, NET_RETRY_BACKOFFS_MS[i]);
   }
