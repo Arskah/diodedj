@@ -38,7 +38,9 @@
       >
       <span id="np-artist">{app.currentTrack?.artist ?? ""}</span>
       {#if app.isBuffering}
-        <span id="np-buffering" aria-live="polite">Buffering…</span>
+        <!-- Shimmer on the progress bar is the visual cue; keep a
+             screen-reader-only announcement since CSS is invisible to AT. -->
+        <span class="sr-only" aria-live="polite">Buffering…</span>
       {/if}
     </div>
     <div id="player-controls">
