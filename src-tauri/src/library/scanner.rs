@@ -58,11 +58,9 @@ pub fn should_rescan(
     if prev_ct != content_type {
         return true;
     }
-    // Backfill: a music row missing its waveform is rescanned even when
-    // unchanged, so tracks indexed before the waveform column gain one on the
-    // next scan. Only music carries a waveform, so non-music rows never trigger
-    // this (otherwise they would rescan on every pass).
-    if content_type == "music" && !has_waveform {
+    // Backfill: a row missing its waveform is rescanned even when unchanged, so
+    // tracks indexed before the waveform column gain one on the next scan.
+    if !has_waveform {
         return true;
     }
     prev_mtime != file_mtime_ms
@@ -172,14 +170,10 @@ fn parse_track(path: &str, content_type: &str, mtime_ms: i64) -> Result<TrackIns
     let sample_rate = props.sample_rate().map(|x| x as i64);
     let bitrate = props.audio_bitrate().map(|x| x as i64);
 
-    // Amplitude curve for the seek UI — music only (jingles/commercials show a
-    // plain progress bar). Best-effort: a decode failure (unsupported codec,
-    // corrupt file) leaves the waveform empty and the scan proceeds.
-    let waveform = if content_type == "music" {
-        compute_waveform(path, duration)
-    } else {
-        None
-    };
+    // Amplitude curve for the seek UI. Best-effort: a decode failure (unsupported
+    // codec, corrupt file) leaves the waveform empty and the scan proceeds — the
+    // deck falls back to a plain progress bar for that track.
+    let waveform = compute_waveform(path, duration);
 
     Ok(TrackInsert {
         path: path.to_string(),
@@ -245,22 +239,9 @@ mod tests {
     }
 
     #[test]
-    fn should_rescan_when_music_waveform_missing() {
-        // Unchanged music with no stored waveform → rescan to backfill.
+    fn should_rescan_when_waveform_missing() {
+        // Unchanged content/mtime but no stored waveform → rescan to backfill.
         assert!(should_rescan(Some("music"), Some(100), 100, "music", false));
-    }
-
-    #[test]
-    fn should_skip_non_music_without_waveform() {
-        // Non-music never carries a waveform, so a missing one must not force a
-        // rescan every pass.
-        assert!(!should_rescan(
-            Some("jingle"),
-            Some(100),
-            100,
-            "jingle",
-            false
-        ));
     }
 
     #[test]
