@@ -1134,16 +1134,15 @@ body {
 
 /* --- Scan Status Bar --- */
 
-/* Stack of status bars pinned to the window bottom: the metadata-scan bar and,
-   under it, the background waveform-pass bar. */
+/* Stack of status bars at the window bottom: the metadata-scan bar and, under
+   it, the background waveform-pass bar. A normal flow child of the #app column
+   (not fixed) so it reserves its own row and shrinks #content instead of
+   overlaying the library/playlist lists — otherwise the last rows hide behind
+   it. Rendered only while a bar is visible, so it costs no space when idle. */
 #status-bars {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  flex: 0 0 auto;
   display: flex;
   flex-direction: column;
-  z-index: 90;
 }
 
 .scan-status-bar {
