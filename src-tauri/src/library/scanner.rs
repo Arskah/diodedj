@@ -3,12 +3,20 @@ use lofty::file::TaggedFileExt;
 use lofty::prelude::*;
 use lofty::probe::Probe;
 use lofty::tag::ItemKey;
+use parking_lot::Mutex;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::UNIX_EPOCH;
 use walkdir::WalkDir;
 
 use super::db::{Db, TrackInsert};
 use crate::audio::formats;
+
+/// Upper bound on parallel tag-read workers. A scan is dominated by per-file
+/// I/O (stat + header read), which on a networked share is latency-bound —
+/// reading several files at once hides that latency. Capped so a scan does not
+/// hammer the share.
+const SCAN_CONCURRENCY: usize = 4;
 
 pub struct ScanRunResult {
     pub total: usize,
@@ -64,52 +72,78 @@ pub fn scan_directory<F>(
     db: &Db,
     dir: &Path,
     content_type: &str,
-    cancel: &impl Fn() -> bool,
-    mut on_progress: F,
+    cancel: &(impl Fn() -> bool + Sync),
+    on_progress: F,
 ) -> Result<ScanRunResult>
 where
-    F: FnMut(usize, usize),
+    F: Fn(usize, usize) + Sync,
 {
     let files = find_audio_files(dir);
     let total = files.len();
-    let mut added = 0usize;
-    let mut processed = 0usize;
-    let mut live: Vec<String> = Vec::with_capacity(total);
+    // All discovered paths — used for prune bookkeeping regardless of how many
+    // we get through (a cancel just skips the prune step upstream).
+    let live: Vec<String> = files
+        .iter()
+        .map(|p| p.to_string_lossy().into_owned())
+        .collect();
 
-    for path in &files {
-        if cancel() {
-            break;
+    // One query for all existing rows under this directory instead of a SELECT
+    // per file.
+    let existing = db.track_meta_under(&dir.to_string_lossy())?;
+
+    // Tag reads are I/O-bound, so fan the files out across a small pool; each
+    // worker claims the next index via `next`. Parsed rows collect in `pending`
+    // and are upserted in a single transaction at the end — a per-row
+    // autocommit is the other thing that makes a big scan slow.
+    let next = AtomicUsize::new(0);
+    let processed = AtomicUsize::new(0);
+    let pending: Mutex<Vec<TrackInsert>> = Mutex::new(Vec::new());
+    let concurrency = std::thread::available_parallelism()
+        .map(|n| n.get())
+        .unwrap_or(1)
+        .min(SCAN_CONCURRENCY);
+
+    std::thread::scope(|scope| {
+        for _ in 0..concurrency {
+            scope.spawn(|| loop {
+                if cancel() {
+                    break;
+                }
+                let i = next.fetch_add(1, Ordering::Relaxed);
+                let Some(path) = files.get(i) else {
+                    break;
+                };
+                let path_str = &live[i];
+
+                let mtime_ms = std::fs::metadata(path)
+                    .and_then(|m| m.modified())
+                    .ok()
+                    .and_then(|t| t.duration_since(UNIX_EPOCH).ok())
+                    .map(|d| d.as_millis() as i64)
+                    .unwrap_or(0);
+
+                let prev = existing.get(path_str);
+                let need = should_rescan(
+                    prev.map(|r| r.content_type.as_str()),
+                    prev.and_then(|r| r.mtime),
+                    mtime_ms,
+                    content_type,
+                );
+                if need {
+                    match parse_track(path_str, content_type, mtime_ms) {
+                        Ok(track) => pending.lock().push(track),
+                        Err(e) => log::error!("scan: failed to parse {}: {}", path_str, e),
+                    }
+                }
+                let done = processed.fetch_add(1, Ordering::Relaxed) + 1;
+                on_progress(done, total);
+            });
         }
-        let path_str = path.to_string_lossy().into_owned();
-        live.push(path_str.clone());
+    });
 
-        let mtime_ms = std::fs::metadata(path)
-            .and_then(|m| m.modified())
-            .ok()
-            .and_then(|t| t.duration_since(UNIX_EPOCH).ok())
-            .map(|d| d.as_millis() as i64)
-            .unwrap_or(0);
-
-        let existing = db.get_track_by_path(&path_str)?;
-        let existing_ct = existing.as_ref().map(|r| r.content_type.as_str());
-        let existing_mtime = existing.as_ref().and_then(|r| r.mtime);
-
-        if !should_rescan(existing_ct, existing_mtime, mtime_ms, content_type) {
-            processed += 1;
-            on_progress(processed, total);
-            continue;
-        }
-
-        match parse_track(&path_str, content_type, mtime_ms) {
-            Ok(track) => {
-                db.insert_track(&track)?;
-                added += 1;
-            }
-            Err(e) => log::error!("scan: failed to parse {}: {}", path_str, e),
-        }
-        processed += 1;
-        on_progress(processed, total);
-    }
+    let pending = pending.into_inner();
+    let added = pending.len();
+    db.insert_tracks(&pending)?;
 
     Ok(ScanRunResult {
         total,

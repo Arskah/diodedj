@@ -20,7 +20,7 @@
 use parking_lot::Mutex;
 use serde::Serialize;
 use std::collections::HashSet;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter};
@@ -35,6 +35,10 @@ const WAVEFORM_PROGRESS_EVENT: &str = "waveform-progress";
 /// Running/idle transitions.
 const WAVEFORM_STATE_EVENT: &str = "waveform-state-changed";
 const PROGRESS_THROTTLE: Duration = Duration::from_millis(200);
+/// Upper bound on parallel decode workers. Decoding is CPU-heavy and each file
+/// is independent, so we fan out across cores — capped so a bulk backfill does
+/// not saturate a (possibly networked) share with reads.
+const MAX_CONCURRENCY: usize = 4;
 
 /// Progress of the background waveform pass, mirrored to the UI. Cumulative
 /// across all libraries.
@@ -94,13 +98,21 @@ impl WaveformJob {
 
 fn run(job: &WaveformJob, app: &AppHandle, db: &Db) {
     // Ids that failed to decode this run — skipped on subsequent passes so a
-    // permanently-broken file cannot wedge the drain loop.
-    let mut failed: HashSet<i64> = HashSet::new();
-    let mut processed = 0usize;
+    // permanently-broken file cannot wedge the drain loop. Shared across the
+    // decode threads.
+    let failed: Mutex<HashSet<i64>> = Mutex::new(HashSet::new());
+    // Total files processed across all passes; drives the progress numerator.
+    let processed = AtomicUsize::new(0);
+    let last_emit = Mutex::new(
+        Instant::now()
+            .checked_sub(PROGRESS_THROTTLE)
+            .unwrap_or_else(Instant::now),
+    );
+    let concurrency = std::thread::available_parallelism()
+        .map(|n| n.get())
+        .unwrap_or(1)
+        .min(MAX_CONCURRENCY);
     let mut started = false;
-    let mut last_emit = Instant::now()
-        .checked_sub(PROGRESS_THROTTLE)
-        .unwrap_or_else(Instant::now);
 
     loop {
         if job.cancel.load(Ordering::SeqCst) {
@@ -113,10 +125,13 @@ fn run(job: &WaveformJob, app: &AppHandle, db: &Db) {
                 break;
             }
         };
-        let pending: Vec<(i64, String, Option<f64>)> = missing
-            .into_iter()
-            .filter(|(id, _, _)| !failed.contains(id))
-            .collect();
+        let pending: Vec<(i64, String, Option<f64>)> = {
+            let f = failed.lock();
+            missing
+                .into_iter()
+                .filter(|(id, _, _)| !f.contains(id))
+                .collect()
+        };
         if pending.is_empty() {
             break;
         }
@@ -136,34 +151,52 @@ fn run(job: &WaveformJob, app: &AppHandle, db: &Db) {
 
         // Total for this pass. It can grow across passes if a concurrent scan
         // adds tracks; `processed` only ever climbs.
-        let total = processed + pending.len();
-        for (id, path, duration) in pending {
-            if job.cancel.load(Ordering::SeqCst) {
-                break;
-            }
-            match compute(&path, duration) {
-                Some(peaks) => {
-                    if let Err(e) = db.set_waveform(id, &peaks) {
-                        log::error!("waveform: store {} failed: {}", id, e);
-                        failed.insert(id);
-                    } else {
-                        let _ = app.emit(WAVEFORM_READY_EVENT, id);
+        let total = processed.load(Ordering::Relaxed) + pending.len();
+        // Shared cursor into `pending`; each worker claims the next index.
+        let next = AtomicUsize::new(0);
+        std::thread::scope(|scope| {
+            for _ in 0..concurrency {
+                scope.spawn(|| loop {
+                    if job.cancel.load(Ordering::SeqCst) {
+                        break;
                     }
-                }
-                None => {
-                    failed.insert(id);
-                }
+                    let i = next.fetch_add(1, Ordering::Relaxed);
+                    let Some((id, path, duration)) = pending.get(i) else {
+                        break;
+                    };
+                    match compute(path, *duration) {
+                        Some(peaks) => {
+                            if let Err(e) = db.set_waveform(*id, &peaks) {
+                                log::error!("waveform: store {} failed: {}", id, e);
+                                failed.lock().insert(*id);
+                            } else {
+                                let _ = app.emit(WAVEFORM_READY_EVENT, *id);
+                            }
+                        }
+                        None => {
+                            failed.lock().insert(*id);
+                        }
+                    }
+                    let done = processed.fetch_add(1, Ordering::Relaxed) + 1;
+                    *job.status.lock() = WaveformStatus::Running {
+                        processed: done,
+                        total,
+                    };
+                    let mut le = last_emit.lock();
+                    if le.elapsed() >= PROGRESS_THROTTLE {
+                        *le = Instant::now();
+                        drop(le);
+                        let _ = app.emit(
+                            WAVEFORM_PROGRESS_EVENT,
+                            WaveformProgress {
+                                processed: done,
+                                total,
+                            },
+                        );
+                    }
+                });
             }
-            processed += 1;
-            *job.status.lock() = WaveformStatus::Running { processed, total };
-            if last_emit.elapsed() >= PROGRESS_THROTTLE {
-                last_emit = Instant::now();
-                let _ = app.emit(
-                    WAVEFORM_PROGRESS_EVENT,
-                    WaveformProgress { processed, total },
-                );
-            }
-        }
+        });
     }
 
     if started {

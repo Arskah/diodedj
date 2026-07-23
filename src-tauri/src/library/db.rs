@@ -334,55 +334,51 @@ impl Db {
         rows.collect::<rusqlite::Result<_>>().map_err(Into::into)
     }
 
+    /// Single-track upsert. Only the tests need this; the scanner batches via
+    /// [`Db::insert_tracks`].
+    #[cfg(test)]
     pub fn insert_track(&self, t: &TrackInsert) -> Result<()> {
-        let conn = self.conn.lock();
-        // NB: the waveform column is deliberately not written here. Metadata
-        // scans run tag-only and fast; the waveform is filled asynchronously by
-        // the waveform worker (`set_waveform`). Leaving it out of this upsert
-        // means a metadata rescan never clobbers an already-computed waveform.
-        conn.execute(
-            "INSERT INTO tracks \
-             (path, content_type, title, artist, album, genre, year, duration, bpm, \
-              sample_rate, bitrate, format, mtime) \
-             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?) \
-             ON CONFLICT(path) DO UPDATE SET \
-                content_type=excluded.content_type, \
-                title=excluded.title, artist=excluded.artist, album=excluded.album, \
-                genre=excluded.genre, year=excluded.year, duration=excluded.duration, \
-                bpm=excluded.bpm, sample_rate=excluded.sample_rate, \
-                bitrate=excluded.bitrate, format=excluded.format, mtime=excluded.mtime",
-            params![
-                t.path,
-                t.content_type,
-                t.title,
-                t.artist,
-                t.album,
-                t.genre,
-                t.year,
-                t.duration,
-                t.bpm,
-                t.sample_rate,
-                t.bitrate,
-                t.format,
-                t.mtime,
-            ],
-        )?;
+        self.insert_tracks(std::slice::from_ref(t))
+    }
+
+    /// Upsert many tracks in a single transaction with one prepared statement.
+    /// Used by the scanner: a per-row autocommit costs a WAL commit each, which
+    /// dominates a large scan — one transaction turns thousands of commits into
+    /// one. A no-op for an empty slice.
+    pub fn insert_tracks(&self, tracks: &[TrackInsert]) -> Result<()> {
+        if tracks.is_empty() {
+            return Ok(());
+        }
+        let mut conn = self.conn.lock();
+        let tx = conn.transaction()?;
+        {
+            let mut stmt = tx.prepare(UPSERT_TRACK_SQL)?;
+            for t in tracks {
+                stmt.execute(upsert_params(t))?;
+            }
+        }
+        tx.commit()?;
         Ok(())
     }
 
-    pub fn get_track_by_path(&self, path: &str) -> Result<Option<TrackMtimeRow>> {
+    /// Map of `path -> (content_type, mtime)` for every track under `root`, in a
+    /// single query. Lets the scanner decide what to re-parse without a
+    /// per-file SELECT.
+    pub fn track_meta_under(&self, root: &str) -> Result<HashMap<String, TrackMtimeRow>> {
         let conn = self.conn.lock();
-        let mut stmt = conn.prepare("SELECT content_type, mtime FROM tracks WHERE path = ?")?;
-        let mut rows = stmt.query_map([path], |r| {
-            Ok(TrackMtimeRow {
-                content_type: r.get(0)?,
-                mtime: r.get::<_, Option<i64>>(1)?,
-            })
+        let pattern = format!("{}%", root);
+        let mut stmt =
+            conn.prepare("SELECT path, content_type, mtime FROM tracks WHERE path LIKE ?")?;
+        let rows = stmt.query_map([pattern], |r| {
+            Ok((
+                r.get::<_, String>(0)?,
+                TrackMtimeRow {
+                    content_type: r.get(1)?,
+                    mtime: r.get::<_, Option<i64>>(2)?,
+                },
+            ))
         })?;
-        match rows.next() {
-            Some(r) => r.map(Some).map_err(Into::into),
-            None => Ok(None),
-        }
+        rows.collect::<rusqlite::Result<_>>().map_err(Into::into)
     }
 
     pub fn get_paths_under(&self, root: &str) -> Result<Vec<String>> {
@@ -504,6 +500,26 @@ impl Db {
     }
 }
 
+/// Bind params for [`UPSERT_TRACK_SQL`], in column order. Shared by the single
+/// and batch insert paths so the two never drift.
+fn upsert_params(t: &TrackInsert) -> [&dyn rusqlite::ToSql; 13] {
+    [
+        &t.path,
+        &t.content_type,
+        &t.title,
+        &t.artist,
+        &t.album,
+        &t.genre,
+        &t.year,
+        &t.duration,
+        &t.bpm,
+        &t.sample_rate,
+        &t.bitrate,
+        &t.format,
+        &t.mtime,
+    ]
+}
+
 fn order_clause(sort_by: Option<&str>, sort_dir: Option<&str>) -> Option<String> {
     let col = sort_by?;
     if !matches!(col, "title" | "artist" | "album" | "play_count") {
@@ -584,6 +600,21 @@ END;
 
 /// Current schema version. Bump alongside every new `MIGRATION_00N`.
 const SCHEMA_VERSION: i64 = 3;
+
+/// Upsert one track's metadata by path. The waveform column is deliberately
+/// absent: metadata scans run tag-only and fast, and the waveform is filled
+/// asynchronously by the waveform worker (`set_waveform`). Omitting it here
+/// means a metadata rescan never clobbers an already-computed waveform.
+const UPSERT_TRACK_SQL: &str = "INSERT INTO tracks \
+     (path, content_type, title, artist, album, genre, year, duration, bpm, \
+      sample_rate, bitrate, format, mtime) \
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?) \
+     ON CONFLICT(path) DO UPDATE SET \
+        content_type=excluded.content_type, \
+        title=excluded.title, artist=excluded.artist, album=excluded.album, \
+        genre=excluded.genre, year=excluded.year, duration=excluded.duration, \
+        bpm=excluded.bpm, sample_rate=excluded.sample_rate, \
+        bitrate=excluded.bitrate, format=excluded.format, mtime=excluded.mtime";
 
 const MIGRATION_002: &str = "ALTER TABLE tracks ADD COLUMN mtime INTEGER;";
 
