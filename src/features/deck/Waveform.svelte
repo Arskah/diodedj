@@ -1,13 +1,15 @@
 <script lang="ts">
   /**
-   * Amplitude-curve overlay for a deck seek bar. Renders the stored peak curve
-   * as centered vertical bars: a dim layer for the whole track and an
-   * accent-coloured layer clipped to the played portion, giving the DJ a visual
-   * map of song structure to seek against.
+   * Amplitude-curve overlay for a deck seek bar. The stored peak curve is
+   * symmetric, so only the top half is drawn: bars rise from the bar's baseline,
+   * giving the DJ a visual map of song structure to seek against. A dim layer
+   * covers the whole track; an accent layer clipped to the played portion tracks
+   * the playhead.
    *
    * Bars are drawn once per track (they depend only on `peaks`); only the clip
    * width tracks `progressPct` as playback advances, so the 100 ms time tick
-   * stays cheap.
+   * stays cheap. `height`/`width` are pinned to 100% so the SVG fills its bar
+   * instead of falling back to the viewBox's intrinsic aspect ratio.
    */
   interface Props {
     peaks: number[] | null;
@@ -18,16 +20,17 @@
 
   const { peaks, progressPct, id }: Props = $props();
 
-  // viewBox units: one x-unit per bucket, 0..100 vertical. preserveAspectRatio
-  // "none" lets the fixed bucket grid stretch to the bar's real pixel width.
+  // viewBox units: one x-unit per bucket, 0..100 vertical (bars grow up from the
+  // baseline at y=100). preserveAspectRatio "none" stretches the grid to the
+  // bar's real pixel size.
   const HEIGHT = 100;
-  const MIN_BAR = 2; // keep silent buckets visible as a thin baseline
+  const MIN_BAR = 3; // keep silent buckets visible as a thin baseline
 
   const count = $derived(peaks?.length ?? 0);
   const bars = $derived(
     (peaks ?? []).map((v, i) => {
       const h = Math.max(MIN_BAR, (v / 255) * HEIGHT);
-      return { x: i, y: (HEIGHT - h) / 2, h };
+      return { x: i, y: HEIGHT - h, h };
     }),
   );
   const playedWidth = $derived(
