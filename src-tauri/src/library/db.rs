@@ -101,18 +101,28 @@ impl Db {
     }
 
     fn migrate(&self) -> Result<()> {
-        let conn = self.conn.lock();
+        let mut conn = self.conn.lock();
         let v: i64 = conn.pragma_query_value(None, "user_version", |r| r.get(0))?;
+        if v >= SCHEMA_VERSION {
+            return Ok(());
+        }
+        // Apply pending steps and bump user_version in a single transaction so
+        // the schema change and its version bump commit together. An interrupted
+        // migration rolls back cleanly instead of leaving the DB half-applied
+        // (schema ahead of version), which on the next launch would re-run an
+        // ADD COLUMN and fail with "duplicate column name".
+        let tx = conn.transaction()?;
         if v < 1 {
-            conn.execute_batch(MIGRATION_001)?;
+            tx.execute_batch(MIGRATION_001)?;
         }
         if v < 2 {
-            conn.execute_batch(MIGRATION_002)?;
+            tx.execute_batch(MIGRATION_002)?;
         }
         if v < 3 {
-            conn.execute_batch(MIGRATION_003)?;
+            tx.execute_batch(MIGRATION_003)?;
         }
-        conn.pragma_update(None, "user_version", 3)?;
+        tx.pragma_update(None, "user_version", SCHEMA_VERSION)?;
+        tx.commit()?;
         Ok(())
     }
 
@@ -572,6 +582,9 @@ CREATE TRIGGER IF NOT EXISTS tracks_au AFTER UPDATE ON tracks BEGIN
 END;
 "#;
 
+/// Current schema version. Bump alongside every new `MIGRATION_00N`.
+const SCHEMA_VERSION: i64 = 3;
+
 const MIGRATION_002: &str = "ALTER TABLE tracks ADD COLUMN mtime INTEGER;";
 
 /// Amplitude-curve peaks for the seek UI, one byte per bucket. Nullable so rows
@@ -607,6 +620,28 @@ mod tests {
     #[test]
     fn migrate_sets_user_version() {
         let db = Db::open_in_memory().unwrap();
+        let conn = db.conn.lock();
+        let v: i64 = conn
+            .pragma_query_value(None, "user_version", |r| r.get(0))
+            .unwrap();
+        assert_eq!(v, 3);
+    }
+
+    #[test]
+    fn migrate_from_v2_adds_waveform_and_bumps_version() {
+        // A released v2 DB (has mtime, no waveform) migrates cleanly to v3.
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch(MIGRATION_001).unwrap();
+        conn.execute_batch(MIGRATION_002).unwrap();
+        conn.pragma_update(None, "user_version", 2).unwrap();
+
+        let db = Db::with_connection(conn).expect("migrate v2 -> v3");
+        db.insert_track(&TrackInsert {
+            path: "/a.mp3".into(),
+            content_type: "music".into(),
+            ..Default::default()
+        })
+        .unwrap();
         let conn = db.conn.lock();
         let v: i64 = conn
             .pragma_query_value(None, "user_version", |r| r.get(0))
