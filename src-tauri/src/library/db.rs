@@ -53,19 +53,11 @@ pub struct TrackInsert {
     pub bitrate: Option<i64>,
     pub format: Option<String>,
     pub mtime: Option<i64>,
-    /// Quantised amplitude-curve peaks (one byte per bucket). `None` when the
-    /// track could not be decoded for a waveform; the seek bar falls back to a
-    /// plain progress bar in that case.
-    pub waveform: Option<Vec<u8>>,
 }
 
 pub struct TrackMtimeRow {
     pub content_type: String,
     pub mtime: Option<i64>,
-    /// Whether the row already has a stored waveform. Lets a rescan backfill
-    /// waveforms for tracks scanned before the column existed without needing
-    /// the file's mtime to change.
-    pub has_waveform: bool,
 }
 
 pub struct MediaTrack {
@@ -291,8 +283,8 @@ impl Db {
     }
 
     /// Fetch a track's stored amplitude-curve peaks, or `None` when the track is
-    /// unknown or has no waveform (e.g. it predates the column or failed to
-    /// decode at scan time).
+    /// unknown or has no waveform yet (the async waveform worker fills it after
+    /// the metadata scan).
     pub fn get_waveform(&self, id: i64) -> Result<Option<Vec<u8>>> {
         let conn = self.conn.lock();
         let mut stmt = conn.prepare("SELECT waveform FROM tracks WHERE id = ?")?;
@@ -303,20 +295,52 @@ impl Db {
         }
     }
 
+    /// Store a track's computed amplitude-curve peaks. Written by the async
+    /// waveform worker, separately from the metadata upsert.
+    pub fn set_waveform(&self, id: i64, peaks: &[u8]) -> Result<()> {
+        let conn = self.conn.lock();
+        conn.execute(
+            "UPDATE tracks SET waveform = ? WHERE id = ?",
+            params![peaks, id],
+        )?;
+        Ok(())
+    }
+
+    /// `(id, path, duration)` for every track still missing a waveform, ordered
+    /// by id. Drives the background waveform worker's work list (backfill
+    /// included); the duration seeds the peak-bucket sizing so the worker
+    /// decodes each file only once.
+    pub fn tracks_missing_waveform(&self) -> Result<Vec<(i64, String, Option<f64>)>> {
+        let conn = self.conn.lock();
+        let mut stmt = conn
+            .prepare("SELECT id, path, duration FROM tracks WHERE waveform IS NULL ORDER BY id")?;
+        let rows = stmt.query_map([], |r| {
+            Ok((
+                r.get::<_, i64>(0)?,
+                r.get::<_, String>(1)?,
+                r.get::<_, Option<f64>>(2)?,
+            ))
+        })?;
+        rows.collect::<rusqlite::Result<_>>().map_err(Into::into)
+    }
+
     pub fn insert_track(&self, t: &TrackInsert) -> Result<()> {
         let conn = self.conn.lock();
+        // NB: the waveform column is deliberately not written here. Metadata
+        // scans run tag-only and fast; the waveform is filled asynchronously by
+        // the waveform worker (`set_waveform`). Leaving it out of this upsert
+        // means a metadata rescan never clobbers an already-computed waveform.
         conn.execute(
             "INSERT INTO tracks \
              (path, content_type, title, artist, album, genre, year, duration, bpm, \
-              sample_rate, bitrate, format, mtime, waveform) \
-             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?) \
+              sample_rate, bitrate, format, mtime) \
+             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?) \
              ON CONFLICT(path) DO UPDATE SET \
                 content_type=excluded.content_type, \
                 title=excluded.title, artist=excluded.artist, album=excluded.album, \
                 genre=excluded.genre, year=excluded.year, duration=excluded.duration, \
                 bpm=excluded.bpm, sample_rate=excluded.sample_rate, \
-                bitrate=excluded.bitrate, format=excluded.format, mtime=excluded.mtime, \
-                waveform=excluded.waveform",
+                bitrate=excluded.bitrate, format=excluded.format, mtime=excluded.mtime",
             params![
                 t.path,
                 t.content_type,
@@ -331,7 +355,6 @@ impl Db {
                 t.bitrate,
                 t.format,
                 t.mtime,
-                t.waveform,
             ],
         )?;
         Ok(())
@@ -339,14 +362,11 @@ impl Db {
 
     pub fn get_track_by_path(&self, path: &str) -> Result<Option<TrackMtimeRow>> {
         let conn = self.conn.lock();
-        let mut stmt = conn.prepare(
-            "SELECT content_type, mtime, waveform IS NOT NULL FROM tracks WHERE path = ?",
-        )?;
+        let mut stmt = conn.prepare("SELECT content_type, mtime FROM tracks WHERE path = ?")?;
         let mut rows = stmt.query_map([path], |r| {
             Ok(TrackMtimeRow {
                 content_type: r.get(0)?,
                 mtime: r.get::<_, Option<i64>>(1)?,
-                has_waveform: r.get::<_, bool>(2)?,
             })
         })?;
         match rows.next() {
@@ -594,45 +614,78 @@ mod tests {
         assert_eq!(v, 3);
     }
 
-    #[test]
-    fn waveform_roundtrips_through_insert_and_get() {
-        let db = Db::open_in_memory().unwrap();
-        let peaks = vec![0u8, 64, 128, 255];
-        db.insert_track(&TrackInsert {
-            path: "/wave.mp3".into(),
-            content_type: "music".into(),
-            waveform: Some(peaks.clone()),
-            ..Default::default()
-        })
-        .unwrap();
-        let id = db.get_track_by_path("/wave.mp3").unwrap();
-        assert!(id.is_some());
-        let stored = db
-            .search("", Some("music"), None, None)
+    fn only_id(db: &Db) -> i64 {
+        db.search("", Some("music"), None, None)
             .unwrap()
             .first()
             .map(|t| t.id)
-            .unwrap();
-        assert_eq!(db.get_waveform(stored).unwrap(), Some(peaks));
+            .unwrap()
     }
 
     #[test]
-    fn get_waveform_is_none_when_absent() {
+    fn waveform_is_none_until_set_then_roundtrips() {
         let db = Db::open_in_memory().unwrap();
         db.insert_track(&TrackInsert {
-            path: "/plain.mp3".into(),
+            path: "/wave.mp3".into(),
             content_type: "music".into(),
-            waveform: None,
             ..Default::default()
         })
         .unwrap();
-        let id = db
-            .search("", Some("music"), None, None)
-            .unwrap()
-            .first()
-            .map(|t| t.id)
-            .unwrap();
+        let id = only_id(&db);
+        // Metadata insert leaves the waveform empty.
         assert_eq!(db.get_waveform(id).unwrap(), None);
+
+        let peaks = vec![0u8, 64, 128, 255];
+        db.set_waveform(id, &peaks).unwrap();
+        assert_eq!(db.get_waveform(id).unwrap(), Some(peaks));
+    }
+
+    #[test]
+    fn metadata_reinsert_preserves_waveform() {
+        let db = Db::open_in_memory().unwrap();
+        db.insert_track(&TrackInsert {
+            path: "/wave.mp3".into(),
+            content_type: "music".into(),
+            title: Some("Old".into()),
+            ..Default::default()
+        })
+        .unwrap();
+        let id = only_id(&db);
+        db.set_waveform(id, &[1, 2, 3]).unwrap();
+
+        // A metadata rescan (upsert on the same path) must not wipe the waveform.
+        db.insert_track(&TrackInsert {
+            path: "/wave.mp3".into(),
+            content_type: "music".into(),
+            title: Some("New".into()),
+            ..Default::default()
+        })
+        .unwrap();
+        assert_eq!(db.get_waveform(id).unwrap(), Some(vec![1u8, 2, 3]));
+    }
+
+    #[test]
+    fn tracks_missing_waveform_lists_only_unfilled() {
+        let db = Db::open_in_memory().unwrap();
+        db.insert_track(&TrackInsert {
+            path: "/a.mp3".into(),
+            content_type: "music".into(),
+            ..Default::default()
+        })
+        .unwrap();
+        db.insert_track(&TrackInsert {
+            path: "/b.mp3".into(),
+            content_type: "music".into(),
+            ..Default::default()
+        })
+        .unwrap();
+        assert_eq!(db.tracks_missing_waveform().unwrap().len(), 2);
+
+        let first = db.tracks_missing_waveform().unwrap()[0].0;
+        db.set_waveform(first, &[9]).unwrap();
+        let remaining = db.tracks_missing_waveform().unwrap();
+        assert_eq!(remaining.len(), 1);
+        assert_ne!(remaining[0].0, first);
     }
 
     #[test]

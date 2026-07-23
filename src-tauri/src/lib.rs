@@ -16,6 +16,7 @@ use audio::player::{Cmd, PlayerHandle};
 use broadcast::{service::default_now_playing_dir, BroadcastService};
 use library::db::{Db, LibraryStats, Track};
 use library::scan_state::{ScanState, ScanStatus, StartResult};
+use library::waveform_scan::WaveformJob;
 use persist::config::{Config, DeviceRef, NowPlayingConfig};
 use persist::session::{PlaylistItem, Session, SessionState};
 
@@ -24,6 +25,8 @@ pub struct AppState {
     config: Arc<Config>,
     session: Arc<Session>,
     scan: Arc<ScanState>,
+    /// Background job that fills track waveforms after a metadata scan.
+    waveform: Arc<WaveformJob>,
     main_deck: Arc<PlayerHandle>,
     cue: Arc<Mutex<Option<PlayerHandle>>>,
     /// Shared prefetch byte cache, resident in both deck players.
@@ -347,12 +350,18 @@ fn broadcast_shutdown(state: State<'_, AppState>) {
 
 #[tauri::command(rename_all = "camelCase")]
 fn scan_libraries(app: AppHandle, state: State<'_, AppState>) -> StartResult {
-    Arc::clone(&state.scan).start(app, Arc::clone(&state.db), Arc::clone(&state.config))
+    Arc::clone(&state.scan).start(
+        app,
+        Arc::clone(&state.db),
+        Arc::clone(&state.config),
+        Arc::clone(&state.waveform),
+    )
 }
 
 #[tauri::command(rename_all = "camelCase")]
 fn cancel_scan(state: State<'_, AppState>) {
     state.scan.cancel();
+    state.waveform.cancel();
 }
 
 #[tauri::command(rename_all = "camelCase")]
@@ -423,11 +432,17 @@ pub fn run() {
                 default_now_playing_dir(&data_dir),
             )?);
             broadcast.attach_to_app(app.handle());
+            let db = Arc::new(db);
+            let waveform = Arc::new(WaveformJob::default());
+            // Backfill waveforms for any already-indexed tracks that lack one,
+            // without waiting for the next scan. No-op on an empty library.
+            Arc::clone(&waveform).start(app.handle().clone(), Arc::clone(&db));
             app.manage(AppState {
-                db: Arc::new(db),
+                db,
                 config,
                 session: Arc::new(session),
                 scan: Arc::new(ScanState::default()),
+                waveform,
                 main_deck: Arc::new(main_deck),
                 cue: Arc::new(Mutex::new(None)),
                 cache,

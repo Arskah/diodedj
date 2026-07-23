@@ -218,6 +218,14 @@ export class AppState {
         void this.loadStats();
       }
     });
+
+    // A waveform the background worker just computed may belong to a track that
+    // was already loaded (its earlier fetch came back empty). Refetch so the
+    // seek bar fills in without a reload.
+    api.onWaveformReady((id) => {
+      if (this.currentTrack?.id === id) this.loadWaveform(id);
+      if (this.cueTrack?.id === id) this.loadCueWaveform(id);
+    });
   }
 
   get progressPct(): number {

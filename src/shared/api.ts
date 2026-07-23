@@ -119,6 +119,13 @@ export const api = {
   ): Promise<UnlistenFn> {
     return listen<ScanStatus>("scan-state-changed", (e) => callback(e.payload));
   },
+  /**
+   * Fires when the background worker has stored a track's waveform. Payload is
+   * the track id; the renderer refetches the curve if that track is loaded.
+   */
+  onWaveformReady(callback: (id: number) => void): Promise<UnlistenFn> {
+    return listen<number>("waveform-ready", (e) => callback(e.payload));
+  },
   listAudioDevices(): Promise<DeviceInfo[]> {
     return invoke<DeviceInfo[]>("audio_list_devices");
   },
