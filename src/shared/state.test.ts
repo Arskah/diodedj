@@ -595,6 +595,59 @@ describe("AppState outage recovery (skip-to-cached)", () => {
     expect(app.currentTrack?.id).toBe(2);
   });
 
+  it("manual next during an outage wait cancels the pending retry (no skip after load)", async () => {
+    vi.useFakeTimers();
+    try {
+      app.addToPlaylist(t(1));
+      app.addToPlaylist(t(2));
+      app.addToPlaylist(t(3));
+      app.playIndex(0); // current = 1, playlist = [2, 3]
+      await vi.advanceTimersByTimeAsync(0);
+      mock.emitCacheState([9]); // nothing upcoming cached → outage
+      mock.emitEnded();
+      await vi.advanceTimersByTimeAsync(0);
+      expect(app.awaitingNetwork).toBe(true);
+      expect(app.currentTrack?.id).toBe(1);
+
+      // User clicks next → track 2 loads directly; the pending retry is dropped.
+      app.next();
+      await vi.advanceTimersByTimeAsync(0);
+      expect(app.currentTrack?.id).toBe(2);
+      expect(app.awaitingNetwork).toBe(false);
+
+      // Share recovers: track 3 is cached and the old backoff would have fired.
+      // Neither must skip the track the user just started.
+      mock.emitCacheState([3]);
+      await vi.advanceTimersByTimeAsync(6000);
+      expect(app.currentTrack?.id).toBe(2);
+      expect(mock.lastLoadedId).toBe(2);
+      expect(app.playlist.map(pid)).toEqual([3]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("re-kicks prefetch on each retry tick so recovery needs no manual next", async () => {
+    vi.useFakeTimers();
+    try {
+      app.addToPlaylist(t(1));
+      app.addToPlaylist(t(2));
+      app.playIndex(0); // current = 1, playlist = [2]
+      await vi.advanceTimersByTimeAsync(0);
+      mock.emitCacheState([9]); // nothing upcoming cached → outage
+      mock.emitEnded();
+      await vi.advanceTimersByTimeAsync(0);
+      expect(app.awaitingNetwork).toBe(true);
+      api.prefetch.mockClear();
+
+      // The backoff tick re-pushes the prefetch window to wake the cache worker.
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(api.prefetch).toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("prefetch-failed flags the share unreachable while playback continues, cleared on cache-state", async () => {
     app.addToPlaylist(t(1));
     app.addToPlaylist(t(2));
