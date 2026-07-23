@@ -1,5 +1,6 @@
 <script lang="ts">
   import { app, formatTime } from "../../shared/state.svelte";
+  import Waveform from "./Waveform.svelte";
 
   let progressBar: HTMLDivElement;
   let scrubbing = false;
@@ -116,6 +117,7 @@
     onpointerup={onPointerUp}
     onpointercancel={onPointerCancel}
   >
+    <Waveform peaks={app.waveform} progressPct={app.progressPct} id="main" />
     <div id="progress-fill" style:width="{app.progressPct}%"></div>
   </div>
 </section>

@@ -206,6 +206,14 @@ fn main_deck_set_volume(app_state: State<'_, AppState>, volume: f32) {
     app_state.main_deck.send(Cmd::SetVolume(volume));
 }
 
+/// Return a track's stored amplitude-curve peaks (one byte per bucket) for the
+/// seek UI, or `None` when the track has no waveform. Deck-agnostic — both the
+/// main and cue decks render the same per-track curve.
+#[tauri::command(rename_all = "camelCase")]
+fn get_waveform(app_state: State<'_, AppState>, id: i64) -> Result<Option<Vec<u8>>, String> {
+    app_state.db.get_waveform(id).map_err(err)
+}
+
 #[tauri::command(rename_all = "camelCase")]
 fn audio_list_devices() -> Vec<DeviceInfo> {
     list_output_devices()
@@ -463,6 +471,7 @@ pub fn run() {
             main_deck_stop,
             main_deck_seek,
             main_deck_set_volume,
+            get_waveform,
             get_now_playing_config,
             set_now_playing_config,
             now_playing_test,

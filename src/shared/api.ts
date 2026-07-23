@@ -59,6 +59,13 @@ export const api = {
   getTracksByIds(ids: number[]): Promise<Track[]> {
     return invoke<Track[]>("get_tracks_by_ids", { ids });
   },
+  /**
+   * Fetch a track's amplitude-curve peaks (one byte per bucket, 0..=255) for
+   * the seek UI, or `null` when the track has no stored waveform.
+   */
+  getWaveform(id: number): Promise<number[] | null> {
+    return invoke<number[] | null>("get_waveform", { id });
+  },
   loadSession(): Promise<SessionLoadResult> {
     return invoke<SessionLoadResult>("load_session");
   },

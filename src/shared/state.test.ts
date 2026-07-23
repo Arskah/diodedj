@@ -7,6 +7,7 @@ const { api } = vi.hoisted(() => {
     search: vi.fn(),
     getTrack: vi.fn(),
     getTracksByIds: vi.fn(),
+    getWaveform: vi.fn(),
     loadSession: vi.fn(),
     saveSession: vi.fn(),
     trackPlayed: vi.fn(),
@@ -103,6 +104,7 @@ function resetApi(): void {
   api.cancelScan.mockResolvedValue(undefined);
   api.getScanStatus.mockResolvedValue({ status: "idle", lastResult: null });
   api.getTracksByIds.mockResolvedValue([]);
+  api.getWaveform.mockResolvedValue(null);
   api.loadSession.mockResolvedValue({
     state: {
       playlistIds: [],
@@ -463,6 +465,59 @@ describe("AppState playback control", () => {
     expect(app.progressPct).toBe(25);
     app.duration = 0;
     expect(app.progressPct).toBe(0);
+  });
+});
+
+describe("AppState waveform", () => {
+  let app: AppState;
+  beforeEach(() => {
+    resetApi();
+    app = makeApp().app;
+  });
+
+  it("loads and stores the waveform when a track starts", async () => {
+    api.getWaveform.mockResolvedValue([0, 128, 255]);
+    app.playNow(t(7));
+    expect(api.getWaveform).toHaveBeenCalledWith(7);
+    await flushAsync();
+    expect(app.waveform).toEqual([0, 128, 255]);
+  });
+
+  it("clears the waveform on stop", async () => {
+    api.getWaveform.mockResolvedValue([1, 2, 3]);
+    app.playNow(t(7));
+    await flushAsync();
+    app.stop();
+    expect(app.waveform).toBeNull();
+  });
+
+  it("ignores a stale fetch after the track changed", async () => {
+    // First track's fetch is slow; second resolves immediately. The stale
+    // first result must not clobber the current waveform.
+    let resolveFirst!: (v: number[] | null) => void;
+    api.getWaveform.mockImplementationOnce(
+      () => new Promise((r) => (resolveFirst = r)),
+    );
+    api.getWaveform.mockResolvedValueOnce([9, 9, 9]);
+
+    app.playNow(t(1));
+    app.playNow(t(2));
+    await flushAsync();
+    expect(app.waveform).toEqual([9, 9, 9]);
+
+    resolveFirst([1, 1, 1]);
+    await flushAsync();
+    expect(app.waveform).toEqual([9, 9, 9]);
+  });
+
+  it("loads the cue waveform independently", async () => {
+    api.getWaveform.mockResolvedValue([5, 6, 7]);
+    app.cueLoadAndPlay(t(3));
+    expect(api.getWaveform).toHaveBeenCalledWith(3);
+    await flushAsync();
+    expect(app.cueWaveform).toEqual([5, 6, 7]);
+    app.cueStop();
+    expect(app.cueWaveform).toBeNull();
   });
 });
 

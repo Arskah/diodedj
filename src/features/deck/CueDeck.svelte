@@ -1,5 +1,6 @@
 <script lang="ts">
   import { app, formatTime } from "../../shared/state.svelte";
+  import Waveform from "./Waveform.svelte";
 
   let progressBar: HTMLDivElement | undefined = $state();
   let scrubbing = false;
@@ -99,6 +100,11 @@
       onpointerup={onPointerUp}
       onpointercancel={onPointerCancel}
     >
+      <Waveform
+        peaks={app.cueWaveform}
+        progressPct={app.cueProgressPct}
+        id="cue"
+      />
       <div class="cue-progress-fill" style:width="{app.cueProgressPct}%"></div>
     </div>
     {#if app.cueError}

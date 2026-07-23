@@ -53,11 +53,19 @@ pub struct TrackInsert {
     pub bitrate: Option<i64>,
     pub format: Option<String>,
     pub mtime: Option<i64>,
+    /// Quantised amplitude-curve peaks (one byte per bucket). `None` when the
+    /// track could not be decoded for a waveform; the seek bar falls back to a
+    /// plain progress bar in that case.
+    pub waveform: Option<Vec<u8>>,
 }
 
 pub struct TrackMtimeRow {
     pub content_type: String,
     pub mtime: Option<i64>,
+    /// Whether the row already has a stored waveform. Lets a rescan backfill
+    /// waveforms for tracks scanned before the column existed without needing
+    /// the file's mtime to change.
+    pub has_waveform: bool,
 }
 
 pub struct MediaTrack {
@@ -109,7 +117,10 @@ impl Db {
         if v < 2 {
             conn.execute_batch(MIGRATION_002)?;
         }
-        conn.pragma_update(None, "user_version", 2)?;
+        if v < 3 {
+            conn.execute_batch(MIGRATION_003)?;
+        }
+        conn.pragma_update(None, "user_version", 3)?;
         Ok(())
     }
 
@@ -279,19 +290,33 @@ impl Db {
             .collect())
     }
 
+    /// Fetch a track's stored amplitude-curve peaks, or `None` when the track is
+    /// unknown or has no waveform (e.g. it predates the column or failed to
+    /// decode at scan time).
+    pub fn get_waveform(&self, id: i64) -> Result<Option<Vec<u8>>> {
+        let conn = self.conn.lock();
+        let mut stmt = conn.prepare("SELECT waveform FROM tracks WHERE id = ?")?;
+        let mut rows = stmt.query_map([id], |r| r.get::<_, Option<Vec<u8>>>(0))?;
+        match rows.next() {
+            Some(r) => r.map_err(Into::into),
+            None => Ok(None),
+        }
+    }
+
     pub fn insert_track(&self, t: &TrackInsert) -> Result<()> {
         let conn = self.conn.lock();
         conn.execute(
             "INSERT INTO tracks \
              (path, content_type, title, artist, album, genre, year, duration, bpm, \
-              sample_rate, bitrate, format, mtime) \
-             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?) \
+              sample_rate, bitrate, format, mtime, waveform) \
+             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?) \
              ON CONFLICT(path) DO UPDATE SET \
                 content_type=excluded.content_type, \
                 title=excluded.title, artist=excluded.artist, album=excluded.album, \
                 genre=excluded.genre, year=excluded.year, duration=excluded.duration, \
                 bpm=excluded.bpm, sample_rate=excluded.sample_rate, \
-                bitrate=excluded.bitrate, format=excluded.format, mtime=excluded.mtime",
+                bitrate=excluded.bitrate, format=excluded.format, mtime=excluded.mtime, \
+                waveform=excluded.waveform",
             params![
                 t.path,
                 t.content_type,
@@ -306,6 +331,7 @@ impl Db {
                 t.bitrate,
                 t.format,
                 t.mtime,
+                t.waveform,
             ],
         )?;
         Ok(())
@@ -313,11 +339,14 @@ impl Db {
 
     pub fn get_track_by_path(&self, path: &str) -> Result<Option<TrackMtimeRow>> {
         let conn = self.conn.lock();
-        let mut stmt = conn.prepare("SELECT content_type, mtime FROM tracks WHERE path = ?")?;
+        let mut stmt = conn.prepare(
+            "SELECT content_type, mtime, waveform IS NOT NULL FROM tracks WHERE path = ?",
+        )?;
         let mut rows = stmt.query_map([path], |r| {
             Ok(TrackMtimeRow {
                 content_type: r.get(0)?,
                 mtime: r.get::<_, Option<i64>>(1)?,
+                has_waveform: r.get::<_, bool>(2)?,
             })
         })?;
         match rows.next() {
@@ -525,6 +554,11 @@ END;
 
 const MIGRATION_002: &str = "ALTER TABLE tracks ADD COLUMN mtime INTEGER;";
 
+/// Amplitude-curve peaks for the seek UI, one byte per bucket. Nullable so rows
+/// scanned before this column (or files that failed to decode) simply have no
+/// waveform.
+const MIGRATION_003: &str = "ALTER TABLE tracks ADD COLUMN waveform BLOB;";
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -557,7 +591,48 @@ mod tests {
         let v: i64 = conn
             .pragma_query_value(None, "user_version", |r| r.get(0))
             .unwrap();
-        assert_eq!(v, 2);
+        assert_eq!(v, 3);
+    }
+
+    #[test]
+    fn waveform_roundtrips_through_insert_and_get() {
+        let db = Db::open_in_memory().unwrap();
+        let peaks = vec![0u8, 64, 128, 255];
+        db.insert_track(&TrackInsert {
+            path: "/wave.mp3".into(),
+            content_type: "music".into(),
+            waveform: Some(peaks.clone()),
+            ..Default::default()
+        })
+        .unwrap();
+        let id = db.get_track_by_path("/wave.mp3").unwrap();
+        assert!(id.is_some());
+        let stored = db
+            .search("", Some("music"), None, None)
+            .unwrap()
+            .first()
+            .map(|t| t.id)
+            .unwrap();
+        assert_eq!(db.get_waveform(stored).unwrap(), Some(peaks));
+    }
+
+    #[test]
+    fn get_waveform_is_none_when_absent() {
+        let db = Db::open_in_memory().unwrap();
+        db.insert_track(&TrackInsert {
+            path: "/plain.mp3".into(),
+            content_type: "music".into(),
+            waveform: None,
+            ..Default::default()
+        })
+        .unwrap();
+        let id = db
+            .search("", Some("music"), None, None)
+            .unwrap()
+            .first()
+            .map(|t| t.id)
+            .unwrap();
+        assert_eq!(db.get_waveform(id).unwrap(), None);
     }
 
     #[test]

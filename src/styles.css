@@ -600,6 +600,28 @@ body {
   color: #ff6666;
 }
 
+/* Amplitude curve behind a seek bar. Fills the bar's content area (inset by the
+   5px vertical padding) so it sits inside the track; the progress-fill line and
+   buffering shimmer paint on top as later siblings. */
+.waveform {
+  position: absolute;
+  top: 5px;
+  bottom: 5px;
+  left: 0;
+  right: 0;
+  display: block;
+  pointer-events: none;
+}
+
+.waveform .wf-base rect {
+  fill: var(--text-secondary);
+  opacity: 0.35;
+}
+
+.waveform .wf-played rect {
+  fill: var(--accent);
+}
+
 #progress-bar {
   height: 14px;
   padding: 5px 0;

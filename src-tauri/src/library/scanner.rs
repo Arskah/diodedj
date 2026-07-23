@@ -8,7 +8,7 @@ use std::time::UNIX_EPOCH;
 use walkdir::WalkDir;
 
 use super::db::{Db, TrackInsert};
-use crate::audio::formats;
+use crate::audio::{formats, waveform};
 
 pub struct ScanRunResult {
     pub total: usize,
@@ -47,6 +47,7 @@ pub fn should_rescan(
     existing_mtime: Option<i64>,
     file_mtime_ms: i64,
     content_type: &str,
+    has_waveform: bool,
 ) -> bool {
     let Some(prev_ct) = existing_content_type else {
         return true;
@@ -55,6 +56,11 @@ pub fn should_rescan(
         return true;
     };
     if prev_ct != content_type {
+        return true;
+    }
+    // Backfill: a row missing its waveform is rescanned even when unchanged, so
+    // tracks indexed before the waveform column gain one on the next scan.
+    if !has_waveform {
         return true;
     }
     prev_mtime != file_mtime_ms
@@ -93,8 +99,15 @@ where
         let existing = db.get_track_by_path(&path_str)?;
         let existing_ct = existing.as_ref().map(|r| r.content_type.as_str());
         let existing_mtime = existing.as_ref().and_then(|r| r.mtime);
+        let has_waveform = existing.as_ref().map(|r| r.has_waveform).unwrap_or(false);
 
-        if !should_rescan(existing_ct, existing_mtime, mtime_ms, content_type) {
+        if !should_rescan(
+            existing_ct,
+            existing_mtime,
+            mtime_ms,
+            content_type,
+            has_waveform,
+        ) {
             processed += 1;
             on_progress(processed, total);
             continue;
@@ -157,6 +170,11 @@ fn parse_track(path: &str, content_type: &str, mtime_ms: i64) -> Result<TrackIns
     let sample_rate = props.sample_rate().map(|x| x as i64);
     let bitrate = props.audio_bitrate().map(|x| x as i64);
 
+    // Amplitude curve for the seek UI. Best-effort: a decode failure (unsupported
+    // codec, corrupt file) leaves the waveform empty and the scan proceeds — the
+    // deck falls back to a plain progress bar for that track.
+    let waveform = compute_waveform(path, duration);
+
     Ok(TrackInsert {
         path: path.to_string(),
         content_type: content_type.to_string(),
@@ -171,7 +189,29 @@ fn parse_track(path: &str, content_type: &str, mtime_ms: i64) -> Result<TrackIns
         bitrate,
         format,
         mtime: Some(mtime_ms),
+        waveform,
     })
+}
+
+/// Decode `path` into the fixed-size peak curve for the seek UI. Returns `None`
+/// (logged) on any read/decode failure so a single unreadable file never aborts
+/// a scan.
+fn compute_waveform(path: &str, duration: f64) -> Option<Vec<u8>> {
+    let bytes = match std::fs::read(path) {
+        Ok(v) => std::sync::Arc::from(v.into_boxed_slice()),
+        Err(e) => {
+            log::warn!("scan: waveform read {} failed: {}", path, e);
+            return None;
+        }
+    };
+    let hint = if duration > 0.0 { Some(duration) } else { None };
+    match waveform::compute_peaks(bytes, hint) {
+        Ok(peaks) => Some(peaks),
+        Err(e) => {
+            log::warn!("scan: waveform decode {} failed: {}", path, e);
+            None
+        }
+    }
 }
 
 #[cfg(test)]
@@ -180,26 +220,32 @@ mod tests {
 
     #[test]
     fn should_rescan_when_no_existing_row() {
-        assert!(should_rescan(None, None, 100, "music"));
+        assert!(should_rescan(None, None, 100, "music", false));
     }
 
     #[test]
     fn should_rescan_when_existing_lacks_mtime() {
-        assert!(should_rescan(Some("music"), None, 100, "music"));
+        assert!(should_rescan(Some("music"), None, 100, "music", true));
     }
 
     #[test]
     fn should_rescan_when_content_type_changed() {
-        assert!(should_rescan(Some("jingle"), Some(100), 100, "music"));
+        assert!(should_rescan(Some("jingle"), Some(100), 100, "music", true));
     }
 
     #[test]
     fn should_rescan_when_mtime_differs() {
-        assert!(should_rescan(Some("music"), Some(99), 100, "music"));
+        assert!(should_rescan(Some("music"), Some(99), 100, "music", true));
+    }
+
+    #[test]
+    fn should_rescan_when_waveform_missing() {
+        // Unchanged content/mtime but no stored waveform → rescan to backfill.
+        assert!(should_rescan(Some("music"), Some(100), 100, "music", false));
     }
 
     #[test]
     fn should_skip_when_unchanged() {
-        assert!(!should_rescan(Some("music"), Some(100), 100, "music"));
+        assert!(!should_rescan(Some("music"), Some(100), 100, "music", true));
     }
 }
