@@ -37,9 +37,7 @@
         >{app.currentTrack ? app.currentTrack.title : "No track loaded"}</span
       >
       <span id="np-artist">{app.currentTrack?.artist ?? ""}</span>
-      {#if app.awaitingNetwork}
-        <span id="np-reconnecting" aria-live="polite">Reconnecting…</span>
-      {:else if app.isBuffering}
+      {#if app.isBuffering}
         <span id="np-buffering" aria-live="polite">Buffering…</span>
       {/if}
     </div>
@@ -103,6 +101,7 @@
   </div>
   <div
     id="progress-bar"
+    class:buffering={app.isBuffering}
     bind:this={progressBar}
     role="slider"
     tabindex="0"

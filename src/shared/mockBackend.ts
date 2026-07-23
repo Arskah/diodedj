@@ -88,6 +88,10 @@ export class MockBackend implements DeckBackend {
     this.emit({ type: "load-failed", id });
   }
 
+  emitPrefetchFailed(): void {
+    this.emit({ type: "prefetch-failed" });
+  }
+
   get lastLoadedId(): number | undefined {
     return this.loadedIds[this.loadedIds.length - 1];
   }
