@@ -37,10 +37,10 @@
         >{app.currentTrack ? app.currentTrack.title : "No track loaded"}</span
       >
       <span id="np-artist">{app.currentTrack?.artist ?? ""}</span>
-      {#if app.awaitingNetwork}
-        <span id="np-reconnecting" aria-live="polite">Reconnecting…</span>
-      {:else if app.isBuffering}
-        <span id="np-buffering" aria-live="polite">Buffering…</span>
+      {#if app.isBuffering}
+        <!-- Shimmer on the progress bar is the visual cue; keep a
+             screen-reader-only announcement since CSS is invisible to AT. -->
+        <span class="sr-only" aria-live="polite">Buffering…</span>
       {/if}
     </div>
     <div id="player-controls">
@@ -103,6 +103,7 @@
   </div>
   <div
     id="progress-bar"
+    class:buffering={app.isBuffering}
     bind:this={progressBar}
     role="slider"
     tabindex="0"

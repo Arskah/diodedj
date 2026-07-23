@@ -624,6 +624,56 @@ body {
   top: 4px;
 }
 
+/* Buffering: indeterminate shimmer sweeping the track — neutral loading, not a fault. */
+#progress-bar.buffering::after {
+  content: "";
+  position: absolute;
+  top: 5px;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--accent) 50%,
+    transparent 100%
+  );
+  background-size: 40% 100%;
+  background-repeat: no-repeat;
+  opacity: 0.6;
+  animation: buffer-sweep 1.1s linear infinite;
+  pointer-events: none;
+}
+
+@keyframes buffer-sweep {
+  from {
+    background-position: -40% 0;
+  }
+  to {
+    background-position: 140% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #progress-bar.buffering::after {
+    animation: none;
+    background-position: 50% 0;
+  }
+}
+
+/* Visually hidden but announced by screen readers. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 #player-info {
   display: flex;
   align-items: center;

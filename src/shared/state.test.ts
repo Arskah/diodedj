@@ -594,6 +594,27 @@ describe("AppState outage recovery (skip-to-cached)", () => {
     expect(app.awaitingNetwork).toBe(false);
     expect(app.currentTrack?.id).toBe(2);
   });
+
+  it("prefetch-failed flags the share unreachable while playback continues, cleared on cache-state", async () => {
+    app.addToPlaylist(t(1));
+    app.addToPlaylist(t(2));
+    app.playIndex(0); // current = 1, in RAM and playing
+    await flushAsync();
+
+    // Share drops mid-track: prefetch of an upcoming track fails, but the
+    // current in-RAM track keeps playing — playback is not blocked.
+    mock.emitPrefetchFailed();
+    expect(app.shareUnreachable).toBe(true);
+    expect(app.reconnecting).toBe(true);
+    expect(app.currentTrack?.id).toBe(1); // playback undisturbed
+
+    // A successful read (cache-state) signals recovery.
+    mock.emitCacheState([2]);
+    await flushAsync();
+    expect(app.shareUnreachable).toBe(false);
+    expect(app.reconnecting).toBe(false);
+    expect(app.currentTrack?.id).toBe(1); // still not interrupted
+  });
 });
 
 describe("AppState prefetch window", () => {

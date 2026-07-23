@@ -35,6 +35,11 @@ pub const MAX_CACHE_BYTES: usize = 150 * 1024 * 1024;
 /// main-deck concept, so the cache-state event carries the main-deck prefix.
 const CACHE_STATE_EVENT: &str = "main-deck:cache-state";
 
+/// Event topic raised when a prefetch read fails — the share is (probably)
+/// unreachable. Drives the reconnecting indicator; a later cache-state emit
+/// (a read succeeded) signals recovery and clears it on the frontend.
+const PREFETCH_FAILED_EVENT: &str = "main-deck:prefetch-failed";
+
 /// Whole track file resident in RAM. Cheaply cloned (Arc) between the cache and
 /// the decoder.
 type Bytes = Arc<[u8]>;
@@ -206,6 +211,10 @@ fn run_prefetch(inner: &Arc<Mutex<Inner>>, app: &AppHandle) {
             Ok(b) => b,
             Err(e) => {
                 log::warn!("cache: prefetch read {} failed: {}", path.display(), e);
+                // Surface the failure so the UI can flag the share as
+                // unreachable. Idempotent on the frontend; cleared by the next
+                // successful cache-state emit below.
+                let _ = app.emit(PREFETCH_FAILED_EVENT, ());
                 continue;
             }
         };

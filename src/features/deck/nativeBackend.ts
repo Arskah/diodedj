@@ -57,6 +57,9 @@ export class NativeBackend implements DeckBackend {
       listen<number>(`${p}:load-failed`, (e) =>
         this.emit({ type: "load-failed", id: e.payload }),
       ),
+      listen<null>(`${p}:prefetch-failed`, () =>
+        this.emit({ type: "prefetch-failed" }),
+      ),
     ]);
     this.unlisteners.push(...subs);
   }

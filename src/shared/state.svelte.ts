@@ -72,8 +72,13 @@ export class AppState {
   // by cache-state events.
   cachedIds = $state<Set<number>>(new Set());
   // True while no upcoming track is cached and we are waiting for the share to
-  // recover (drives the "Reconnecting…" banner). Cleared on resume.
+  // recover. Set by the playback-advancement state machine when playback is
+  // actually blocked. Cleared on resume.
   awaitingNetwork = $state(false);
+  // True while a prefetch read is failing — the share looks unreachable even
+  // if the current in-RAM track keeps playing. Set by prefetch-failed events,
+  // cleared by the next successful cache-state (a read succeeded).
+  shareUnreachable = $state(false);
 
   // Cue deck (independent transport on a separate audio device)
   cueTrack = $state<Track | null>(null);
@@ -129,9 +134,16 @@ export class AppState {
           break;
         case "cache-state":
           this.cachedIds = new Set(event.ids);
+          // A read succeeded, so the share is reachable again.
+          this.shareUnreachable = false;
           // Cache membership changed — if we were stalled waiting for the
           // share, a newly-cached track may now be playable.
           if (this.awaitingNetwork) this.advancePlan(true);
+          break;
+        case "prefetch-failed":
+          // A prefetch read failed — flag the share as unreachable so the UI
+          // can warn even while an in-RAM track keeps playing.
+          this.shareUnreachable = true;
           break;
         case "error":
           this.isBuffering = false;
@@ -179,6 +191,7 @@ export class AppState {
           logger.error("Cue audio load failed for track:", event.id);
           break;
         case "cache-state":
+        case "prefetch-failed":
           break; // cue deck doesn't use the cache, ignore
         default:
           return isStrictNever(event);
@@ -203,6 +216,12 @@ export class AppState {
 
   get progressPct(): number {
     return this.duration ? (this.currentTime / this.duration) * 100 : 0;
+  }
+
+  // Drives the "Reconnecting…" banner: playback is blocked waiting for the
+  // share, or a prefetch read is currently failing.
+  get reconnecting(): boolean {
+    return this.awaitingNetwork || this.shareUnreachable;
   }
 
   get cueProgressPct(): number {

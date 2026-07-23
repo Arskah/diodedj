@@ -6,6 +6,7 @@ export type DeckEvent =
   | { type: "buffering"; buffering: boolean }
   | { type: "cache-state"; ids: number[] }
   | { type: "load-failed"; id: number }
+  | { type: "prefetch-failed" }
   | { type: "error"; message: string };
 
 export type DeckEventHandler = (event: DeckEvent) => void;
