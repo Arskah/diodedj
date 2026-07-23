@@ -625,10 +625,23 @@ body {
 .waveform .wf-base rect {
   fill: var(--text-secondary);
   opacity: 0.35;
+  transition: opacity 0.1s ease;
 }
 
 .waveform .wf-played rect {
   fill: var(--accent);
+}
+
+/* Seek preview marker following the cursor. */
+.waveform .wf-cursor {
+  stroke: var(--accent-hover);
+  stroke-width: 1.5;
+}
+
+/* Brighten the unplayed curve while hovering the bar — signals it is seekable. */
+#progress-bar:hover .waveform .wf-base rect,
+.cue-progress-bar:hover .waveform .wf-base rect {
+  opacity: 0.6;
 }
 
 /* Seek bar tall enough to hold the waveform. `overflow: hidden` clips the

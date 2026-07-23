@@ -4,11 +4,15 @@
 
   let progressBar: HTMLDivElement;
   let scrubbing = false;
+  let hoverPct = $state<number | null>(null);
+
+  function pctFromClientX(clientX: number): number {
+    const rect = progressBar.getBoundingClientRect();
+    return ((clientX - rect.left) / rect.width) * 100;
+  }
 
   function seekToClientX(clientX: number): void {
-    const rect = progressBar.getBoundingClientRect();
-    const pct = (clientX - rect.left) / rect.width;
-    app.seekToPct(pct);
+    app.seekToPct(pctFromClientX(clientX) / 100);
   }
 
   function onPointerDown(e: PointerEvent): void {
@@ -18,6 +22,7 @@
   }
 
   function onPointerMove(e: PointerEvent): void {
+    hoverPct = pctFromClientX(e.clientX);
     if (scrubbing) seekToClientX(e.clientX);
   }
 
@@ -28,6 +33,11 @@
 
   function onPointerCancel(): void {
     scrubbing = false;
+    hoverPct = null;
+  }
+
+  function onPointerLeave(): void {
+    hoverPct = null;
   }
 </script>
 
@@ -116,8 +126,14 @@
     onpointermove={onPointerMove}
     onpointerup={onPointerUp}
     onpointercancel={onPointerCancel}
+    onpointerleave={onPointerLeave}
   >
-    <Waveform peaks={app.waveform} progressPct={app.progressPct} id="main" />
+    <Waveform
+      peaks={app.waveform}
+      progressPct={app.progressPct}
+      {hoverPct}
+      id="main"
+    />
     <div id="progress-fill" style:width="{app.progressPct}%"></div>
   </div>
 </section>

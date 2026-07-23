@@ -14,11 +14,13 @@
   interface Props {
     peaks: number[] | null;
     progressPct: number;
+    /** Cursor position (0..100) while hovering the bar, or null when away. */
+    hoverPct?: number | null;
     /** Unique per instance — clipPath ids must not collide across decks. */
     id: string;
   }
 
-  const { peaks, progressPct, id }: Props = $props();
+  const { peaks, progressPct, hoverPct = null, id }: Props = $props();
 
   // viewBox units: one x-unit per bucket, 0..100 vertical (bars grow up from the
   // baseline at y=100). preserveAspectRatio "none" stretches the grid to the
@@ -35,6 +37,11 @@
   );
   const playedWidth = $derived(
     (Math.min(100, Math.max(0, progressPct)) / 100) * count,
+  );
+  const hoverX = $derived(
+    hoverPct == null
+      ? null
+      : (Math.min(100, Math.max(0, hoverPct)) / 100) * count,
   );
   const clipId = $derived(`wf-clip-${id}`);
 </script>
@@ -61,5 +68,17 @@
         <rect x={b.x + 0.1} y={b.y} width="0.8" height={b.h} />
       {/each}
     </g>
+    {#if hoverX != null}
+      <!-- Seek preview marker: a 1px line at the cursor (non-scaling so it stays
+           crisp under the preserveAspectRatio="none" stretch). -->
+      <line
+        class="wf-cursor"
+        x1={hoverX}
+        y1="0"
+        x2={hoverX}
+        y2={HEIGHT}
+        vector-effect="non-scaling-stroke"
+      />
+    {/if}
   </svg>
 {/if}
