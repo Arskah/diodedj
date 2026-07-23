@@ -16,7 +16,7 @@ use audio::player::{Cmd, PlayerHandle};
 use broadcast::{service::default_now_playing_dir, BroadcastService};
 use library::db::{Db, LibraryStats, Track};
 use library::scan_state::{ScanState, ScanStatus, StartResult};
-use library::waveform_scan::WaveformJob;
+use library::waveform_scan::{WaveformJob, WaveformStatus};
 use persist::config::{Config, DeviceRef, NowPlayingConfig};
 use persist::session::{PlaylistItem, Session, SessionState};
 
@@ -369,6 +369,11 @@ fn get_scan_status(state: State<'_, AppState>) -> ScanStatus {
     state.scan.status()
 }
 
+#[tauri::command(rename_all = "camelCase")]
+fn get_waveform_status(state: State<'_, AppState>) -> WaveformStatus {
+    state.waveform.status()
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let log_level = std::env::var("RUST_LOG")
@@ -468,6 +473,7 @@ pub fn run() {
             scan_libraries,
             cancel_scan,
             get_scan_status,
+            get_waveform_status,
             audio_list_devices,
             get_main_device,
             set_main_device,

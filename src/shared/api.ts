@@ -44,6 +44,9 @@ export interface ScanProgress {
   total: number;
 }
 
+export type WaveformStatus =
+  { status: "idle" } | { status: "running"; processed: number; total: number };
+
 export const api = {
   search(
     query: string,
@@ -125,6 +128,23 @@ export const api = {
    */
   onWaveformReady(callback: (id: number) => void): Promise<UnlistenFn> {
     return listen<number>("waveform-ready", (e) => callback(e.payload));
+  },
+  getWaveformStatus(): Promise<WaveformStatus> {
+    return invoke<WaveformStatus>("get_waveform_status");
+  },
+  onWaveformProgress(
+    callback: (data: ScanProgress) => void,
+  ): Promise<UnlistenFn> {
+    return listen<ScanProgress>("waveform-progress", (e) =>
+      callback(e.payload),
+    );
+  },
+  onWaveformStateChanged(
+    callback: (data: WaveformStatus) => void,
+  ): Promise<UnlistenFn> {
+    return listen<WaveformStatus>("waveform-state-changed", (e) =>
+      callback(e.payload),
+    );
   },
   listAudioDevices(): Promise<DeviceInfo[]> {
     return invoke<DeviceInfo[]>("audio_list_devices");

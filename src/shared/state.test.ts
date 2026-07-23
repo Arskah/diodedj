@@ -25,6 +25,9 @@ const { api } = vi.hoisted(() => {
     onScanProgress: vi.fn(),
     onScanStateChanged: vi.fn(),
     onWaveformReady: vi.fn(),
+    onWaveformProgress: vi.fn(),
+    onWaveformStateChanged: vi.fn(),
+    getWaveformStatus: vi.fn(),
     listAudioDevices: vi.fn(),
     getMainDevice: vi.fn(),
     setMainDevice: vi.fn(),
@@ -106,6 +109,7 @@ function resetApi(): void {
   api.getScanStatus.mockResolvedValue({ status: "idle", lastResult: null });
   api.getTracksByIds.mockResolvedValue([]);
   api.getWaveform.mockResolvedValue(null);
+  api.getWaveformStatus.mockResolvedValue({ status: "idle" });
   api.loadSession.mockResolvedValue({
     state: {
       playlistIds: [],
@@ -549,6 +553,31 @@ describe("AppState waveform", () => {
     ) => void;
     onReady(999);
     expect(api.getWaveform).not.toHaveBeenCalled();
+  });
+
+  it("tracks waveform-pass progress via state + progress events", () => {
+    const onState = api.onWaveformStateChanged.mock.calls[0][0] as (s: {
+      status: string;
+      processed?: number;
+      total?: number;
+    }) => void;
+    const onProgress = api.onWaveformProgress.mock.calls[0][0] as (p: {
+      processed: number;
+      total: number;
+    }) => void;
+
+    onState({ status: "running", processed: 0, total: 10 });
+    onProgress({ processed: 4, total: 10 });
+    expect(app.waveformStatus).toEqual({
+      status: "running",
+      processed: 4,
+      total: 10,
+    });
+
+    // Progress arriving after idle is ignored (no resurrecting the bar).
+    onState({ status: "idle" });
+    onProgress({ processed: 9, total: 10 });
+    expect(app.waveformStatus).toEqual({ status: "idle" });
   });
 });
 

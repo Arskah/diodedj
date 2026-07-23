@@ -59,6 +59,22 @@
     return "";
   });
 
+  // Background waveform pass — its own bar, shown under the tag-scan bar only
+  // while it is actively computing.
+  let wfVisible = $derived(app.waveformStatus.status === "running");
+  let wfPct = $derived.by(() => {
+    const s = app.waveformStatus;
+    return s.status === "running" && s.total > 0
+      ? Math.min(100, (s.processed / s.total) * 100)
+      : 0;
+  });
+  let wfLabel = $derived.by(() => {
+    const s = app.waveformStatus;
+    return s.status === "running"
+      ? `Computing waveforms… ${s.processed} / ${s.total}`
+      : "";
+  });
+
   function onCancel(): void {
     void app.cancelScan();
   }
@@ -69,25 +85,43 @@
   }
 </script>
 
-{#if visible}
-  <div
-    id="scan-status-bar"
-    role="status"
-    aria-live="polite"
-    data-state={app.scanStatus.status}
-  >
-    <span class="scan-status-label">{label}</span>
-    {#if app.scanStatus.status === "running"}
-      <div class="scan-status-bar-track">
-        <div class="scan-status-bar-fill" style:width="{pct}%"></div>
+{#if visible || wfVisible}
+  <div id="status-bars">
+    {#if visible}
+      <div
+        id="scan-status-bar"
+        class="scan-status-bar"
+        role="status"
+        aria-live="polite"
+        data-state={app.scanStatus.status}
+      >
+        <span class="scan-status-label">{label}</span>
+        {#if app.scanStatus.status === "running"}
+          <div class="scan-status-bar-track">
+            <div class="scan-status-bar-fill" style:width="{pct}%"></div>
+          </div>
+          <button type="button" class="scan-status-cancel" onclick={onCancel}>
+            Cancel
+          </button>
+        {:else}
+          <button type="button" class="scan-status-cancel" onclick={onDismiss}>
+            Dismiss
+          </button>
+        {/if}
       </div>
-      <button type="button" class="scan-status-cancel" onclick={onCancel}>
-        Cancel
-      </button>
-    {:else}
-      <button type="button" class="scan-status-cancel" onclick={onDismiss}>
-        Dismiss
-      </button>
+    {/if}
+    {#if wfVisible}
+      <div
+        id="waveform-status-bar"
+        class="scan-status-bar"
+        role="status"
+        aria-live="polite"
+      >
+        <span class="scan-status-label">{wfLabel}</span>
+        <div class="scan-status-bar-track">
+          <div class="scan-status-bar-fill" style:width="{wfPct}%"></div>
+        </div>
+      </div>
     {/if}
   </div>
 {/if}

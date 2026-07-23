@@ -1134,11 +1134,19 @@ body {
 
 /* --- Scan Status Bar --- */
 
-#scan-status-bar {
+/* Stack of status bars pinned to the window bottom: the metadata-scan bar and,
+   under it, the background waveform-pass bar. */
+#status-bars {
   position: fixed;
   left: 0;
   right: 0;
   bottom: 0;
+  display: flex;
+  flex-direction: column;
+  z-index: 90;
+}
+
+.scan-status-bar {
   display: flex;
   align-items: center;
   gap: 12px;
@@ -1146,7 +1154,6 @@ body {
   background: var(--bg-secondary);
   border-top: 1px solid var(--border);
   font-size: 13px;
-  z-index: 90;
 }
 
 #scan-status-bar[data-state="error"] {

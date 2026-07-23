@@ -14,6 +14,7 @@ import {
   type PersistedPlaylistItem,
   type ScanStatus,
   type SessionLoadResult,
+  type WaveformStatus,
 } from "./api";
 import type { DeckBackend } from "../features/deck/backend";
 import { NativeBackend } from "../features/deck/nativeBackend";
@@ -56,6 +57,8 @@ export class AppState {
   });
   settingsOpen = $state(false);
   scanStatus = $state<ScanStatus>({ status: "idle", lastResult: null });
+  // Progress of the background waveform pass (runs after the metadata scan).
+  waveformStatus = $state<WaveformStatus>({ status: "idle" });
 
   playlist = $state<PlaylistItem[]>([]);
   history = $state<Track[]>([]);
@@ -225,6 +228,15 @@ export class AppState {
     api.onWaveformReady((id) => {
       if (this.currentTrack?.id === id) this.loadWaveform(id);
       if (this.cueTrack?.id === id) this.loadCueWaveform(id);
+    });
+
+    api.onWaveformProgress(({ processed, total }) => {
+      if (this.waveformStatus.status === "running") {
+        this.waveformStatus = { status: "running", processed, total };
+      }
+    });
+    api.onWaveformStateChanged((next) => {
+      this.waveformStatus = next;
     });
   }
 
@@ -770,6 +782,10 @@ export class AppState {
 
   async hydrateScanStatus(): Promise<void> {
     this.scanStatus = await api.getScanStatus();
+  }
+
+  async hydrateWaveformStatus(): Promise<void> {
+    this.waveformStatus = await api.getWaveformStatus();
   }
 
   private async handleEnded(): Promise<void> {
