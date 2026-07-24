@@ -11,9 +11,20 @@
   import { app } from "./shared/state.svelte";
 </script>
 
-{#if app.reconnecting}
+{#if app.outputUnavailable || app.cueOutputUnavailable || app.reconnecting}
   <div id="network-toast">
-    <ErrorBanner message="Reconnecting…" type="warning" />
+    {#if app.outputUnavailable}
+      <ErrorBanner
+        message="Audio output unavailable — retrying…"
+        type="error"
+      />
+    {/if}
+    {#if app.cueOutputUnavailable}
+      <ErrorBanner message="Cue output unavailable — retrying…" type="error" />
+    {/if}
+    {#if app.reconnecting}
+      <ErrorBanner message="Reconnecting…" type="warning" />
+    {/if}
   </div>
 {/if}
 
@@ -39,5 +50,9 @@
     transform: translateX(-50%);
     z-index: 1000;
     pointer-events: none;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    align-items: center;
   }
 </style>

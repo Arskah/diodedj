@@ -638,9 +638,10 @@ describe("AppState backend events", () => {
 describe("AppState outage recovery (skip-to-cached)", () => {
   let app: AppState;
   let mock: MockBackend;
+  let cueMock: MockBackend;
   beforeEach(() => {
     resetApi();
-    ({ app, mock } = makeApp());
+    ({ app, mock, cueMock } = makeApp());
   });
 
   it("on ended, skips an uncached track to the first cached one and keeps the skipped track queued", async () => {
@@ -782,6 +783,29 @@ describe("AppState outage recovery (skip-to-cached)", () => {
     expect(app.shareUnreachable).toBe(false);
     expect(app.reconnecting).toBe(false);
     expect(app.currentTrack?.id).toBe(1); // still not interrupted
+  });
+
+  it("output-unavailable toggles the main-deck flag and clears on recovery", () => {
+    expect(app.outputUnavailable).toBe(false);
+
+    // No audio device could be opened.
+    mock.emitOutputUnavailable(true);
+    expect(app.outputUnavailable).toBe(true);
+    // Distinct from a network outage — the media share is fine.
+    expect(app.reconnecting).toBe(false);
+
+    // Backend auto-retry recovered a device.
+    mock.emitOutputUnavailable(false);
+    expect(app.outputUnavailable).toBe(false);
+  });
+
+  it("output-unavailable on the cue deck sets only the cue flag", () => {
+    cueMock.emitOutputUnavailable(true);
+    expect(app.cueOutputUnavailable).toBe(true);
+    expect(app.outputUnavailable).toBe(false); // main deck unaffected
+
+    cueMock.emitOutputUnavailable(false);
+    expect(app.cueOutputUnavailable).toBe(false);
   });
 });
 

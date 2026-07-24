@@ -92,6 +92,10 @@ export class MockBackend implements DeckBackend {
     this.emit({ type: "prefetch-failed" });
   }
 
+  emitOutputUnavailable(unavailable: boolean): void {
+    this.emit({ type: "output-unavailable", unavailable });
+  }
+
   get lastLoadedId(): number | undefined {
     return this.loadedIds[this.loadedIds.length - 1];
   }

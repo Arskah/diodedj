@@ -86,6 +86,7 @@ struct Topics {
     error: String,
     buffering: String,
     load_failed: String,
+    output_unavailable: String,
 }
 
 impl Topics {
@@ -98,6 +99,7 @@ impl Topics {
             error: format!("{prefix}:error"),
             buffering: format!("{prefix}:buffering"),
             load_failed: format!("{prefix}:load-failed"),
+            output_unavailable: format!("{prefix}:output-unavailable"),
         }
     }
 }
@@ -154,6 +156,10 @@ struct State {
     /// Last time the idle loop attempted to (re)open a failed output. Paces the
     /// retry to `OPEN_RETRY_INTERVAL`.
     last_open_retry: Option<Instant>,
+    /// Whether the output is currently believed openable. Tracked so the
+    /// `output-unavailable` event fires only on transitions (no per-retry spam).
+    /// Optimistic at start — nothing is emitted until the first real failure.
+    output_ok: bool,
 }
 
 const AUDIO_BUFFER_FRAMES: u32 = 4096;
@@ -232,21 +238,35 @@ fn open_audio(device: &Option<DeviceRef>, volume: f32) -> Result<(OutputStream, 
 fn ensure_output<'a>(
     output: &'a mut Option<(OutputStream, Sink)>,
     device: &Option<DeviceRef>,
-    volume: f32,
+    state: &mut State,
     app: &AppHandle,
     topics: &Topics,
 ) -> Option<&'a mut (OutputStream, Sink)> {
     if output.is_none() {
-        match open_audio(device, volume) {
-            Ok(o) => *output = Some(o),
+        match open_audio(device, state.volume) {
+            Ok(o) => {
+                *output = Some(o);
+                report_output(app, topics, state, true);
+            }
             Err(e) => {
                 log::error!("player: no audio output available: {}", e);
                 let _ = app.emit(&topics.error, format!("audio output unavailable: {}", e));
+                report_output(app, topics, state, false);
                 return None;
             }
         }
     }
     output.as_mut()
+}
+
+/// Emit an `output-unavailable` event only when the availability actually
+/// changes, so the idle retry loop's repeated failures don't spam the UI and a
+/// recovery reliably clears the banner.
+fn report_output(app: &AppHandle, topics: &Topics, state: &mut State, ok: bool) {
+    if state.output_ok != ok {
+        state.output_ok = ok;
+        let _ = app.emit(&topics.output_unavailable, !ok);
+    }
 }
 
 fn run(
@@ -279,6 +299,7 @@ fn run(
         volume: 1.0,
         pending_load: None,
         last_open_retry: None,
+        output_ok: true,
     };
 
     loop {
@@ -313,7 +334,11 @@ fn run(
             if output.is_none() && open_retry_due(state.last_open_retry, Instant::now()) {
                 state.last_open_retry = Some(Instant::now());
                 match open_audio(&device, state.volume) {
-                    Ok(o) => output = Some(o),
+                    Ok(o) => {
+                        output = Some(o);
+                        report_output(&app, topics, &mut state, true);
+                    }
+                    // Quiet: the initial failure already reported unavailable.
                     Err(e) => log::debug!("player: output reopen retry failed: {}", e),
                 }
             }
@@ -365,7 +390,7 @@ fn start_load(
     path: PathBuf,
     duration: Option<f64>,
 ) {
-    let Some((stream, sink)) = ensure_output(output, device, state.volume, app, topics) else {
+    let Some((stream, sink)) = ensure_output(output, device, state, app, topics) else {
         // No device yet: remember the intent and let the idle loop retry the
         // open. `ensure_output` already emitted the error; keep the buffering
         // indicator up while we wait for the device.
@@ -443,7 +468,7 @@ fn apply(
         Cmd::Play => {
             // Play is also a self-heal trigger: re-open the output if a launch
             // failure left it closed. Drop silently if no device is available.
-            let Some((_, sink)) = ensure_output(output, device, state.volume, app, topics) else {
+            let Some((_, sink)) = ensure_output(output, device, state, app, topics) else {
                 return;
             };
             sink.play();
@@ -487,7 +512,7 @@ fn apply(
             let Some(bytes) = state.current_bytes.clone() else {
                 return;
             };
-            let Some((stream, sink)) = ensure_output(output, device, state.volume, app, topics)
+            let Some((stream, sink)) = ensure_output(output, device, state, app, topics)
             else {
                 return;
             };
@@ -579,7 +604,7 @@ fn apply_load(
             // The output should already be open (Load opened it), but re-open
             // defensively in case the device dropped while the read was in
             // flight. Treat an unopenable output as a load failure.
-            let Some((_, sink)) = ensure_output(output, device, state.volume, app, topics) else {
+            let Some((_, sink)) = ensure_output(output, device, state, app, topics) else {
                 reset_after_failure(state);
                 let _ = app.emit(&topics.load_failed, msg.id);
                 let _ = app.emit(&topics.pause_state, true);
