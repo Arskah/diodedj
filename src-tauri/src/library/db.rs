@@ -83,7 +83,17 @@ pub struct Db {
 impl Db {
     pub fn open(path: &Path) -> Result<Self> {
         let conn = Connection::open(path).context("open sqlite")?;
-        conn.execute_batch("PRAGMA journal_mode = WAL;")?;
+        // WAL for concurrent read/write; `synchronous = NORMAL` drops the fsync
+        // on every autocommit (e.g. the per-track waveform writes) — safe under
+        // WAL since only a crash mid-commit can lose the last transaction, and
+        // all our writes (waveforms especially) are recomputable. `busy_timeout`
+        // lets a writer wait briefly rather than erroring when the background
+        // waveform threads contend for the connection.
+        conn.execute_batch(
+            "PRAGMA journal_mode = WAL;
+             PRAGMA synchronous = NORMAL;
+             PRAGMA busy_timeout = 5000;",
+        )?;
         Self::with_connection(conn)
     }
 
@@ -101,15 +111,28 @@ impl Db {
     }
 
     fn migrate(&self) -> Result<()> {
-        let conn = self.conn.lock();
+        let mut conn = self.conn.lock();
         let v: i64 = conn.pragma_query_value(None, "user_version", |r| r.get(0))?;
+        if v >= SCHEMA_VERSION {
+            return Ok(());
+        }
+        // Apply pending steps and bump user_version in a single transaction so
+        // the schema change and its version bump commit together. An interrupted
+        // migration rolls back cleanly instead of leaving the DB half-applied
+        // (schema ahead of version), which on the next launch would re-run an
+        // ADD COLUMN and fail with "duplicate column name".
+        let tx = conn.transaction()?;
         if v < 1 {
-            conn.execute_batch(MIGRATION_001)?;
+            tx.execute_batch(MIGRATION_001)?;
         }
         if v < 2 {
-            conn.execute_batch(MIGRATION_002)?;
+            tx.execute_batch(MIGRATION_002)?;
         }
-        conn.pragma_update(None, "user_version", 2)?;
+        if v < 3 {
+            tx.execute_batch(MIGRATION_003)?;
+        }
+        tx.pragma_update(None, "user_version", SCHEMA_VERSION)?;
+        tx.commit()?;
         Ok(())
     }
 
@@ -279,51 +302,93 @@ impl Db {
             .collect())
     }
 
-    pub fn insert_track(&self, t: &TrackInsert) -> Result<()> {
+    /// Fetch a track's stored amplitude-curve peaks, or `None` when the track is
+    /// unknown or has no waveform yet (the async waveform worker fills it after
+    /// the metadata scan).
+    pub fn get_waveform(&self, id: i64) -> Result<Option<Vec<u8>>> {
+        let conn = self.conn.lock();
+        let mut stmt = conn.prepare("SELECT waveform FROM tracks WHERE id = ?")?;
+        let mut rows = stmt.query_map([id], |r| r.get::<_, Option<Vec<u8>>>(0))?;
+        match rows.next() {
+            Some(r) => r.map_err(Into::into),
+            None => Ok(None),
+        }
+    }
+
+    /// Store a track's computed amplitude-curve peaks. Written by the async
+    /// waveform worker, separately from the metadata upsert.
+    pub fn set_waveform(&self, id: i64, peaks: &[u8]) -> Result<()> {
         let conn = self.conn.lock();
         conn.execute(
-            "INSERT INTO tracks \
-             (path, content_type, title, artist, album, genre, year, duration, bpm, \
-              sample_rate, bitrate, format, mtime) \
-             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?) \
-             ON CONFLICT(path) DO UPDATE SET \
-                content_type=excluded.content_type, \
-                title=excluded.title, artist=excluded.artist, album=excluded.album, \
-                genre=excluded.genre, year=excluded.year, duration=excluded.duration, \
-                bpm=excluded.bpm, sample_rate=excluded.sample_rate, \
-                bitrate=excluded.bitrate, format=excluded.format, mtime=excluded.mtime",
-            params![
-                t.path,
-                t.content_type,
-                t.title,
-                t.artist,
-                t.album,
-                t.genre,
-                t.year,
-                t.duration,
-                t.bpm,
-                t.sample_rate,
-                t.bitrate,
-                t.format,
-                t.mtime,
-            ],
+            "UPDATE tracks SET waveform = ? WHERE id = ?",
+            params![peaks, id],
         )?;
         Ok(())
     }
 
-    pub fn get_track_by_path(&self, path: &str) -> Result<Option<TrackMtimeRow>> {
+    /// `(id, path, duration)` for every track still missing a waveform, ordered
+    /// by id. Drives the background waveform worker's work list (backfill
+    /// included); the duration seeds the peak-bucket sizing so the worker
+    /// decodes each file only once.
+    pub fn tracks_missing_waveform(&self) -> Result<Vec<(i64, String, Option<f64>)>> {
         let conn = self.conn.lock();
-        let mut stmt = conn.prepare("SELECT content_type, mtime FROM tracks WHERE path = ?")?;
-        let mut rows = stmt.query_map([path], |r| {
-            Ok(TrackMtimeRow {
-                content_type: r.get(0)?,
-                mtime: r.get::<_, Option<i64>>(1)?,
-            })
+        let mut stmt = conn
+            .prepare("SELECT id, path, duration FROM tracks WHERE waveform IS NULL ORDER BY id")?;
+        let rows = stmt.query_map([], |r| {
+            Ok((
+                r.get::<_, i64>(0)?,
+                r.get::<_, String>(1)?,
+                r.get::<_, Option<f64>>(2)?,
+            ))
         })?;
-        match rows.next() {
-            Some(r) => r.map(Some).map_err(Into::into),
-            None => Ok(None),
+        rows.collect::<rusqlite::Result<_>>().map_err(Into::into)
+    }
+
+    /// Single-track upsert. Only the tests need this; the scanner batches via
+    /// [`Db::insert_tracks`].
+    #[cfg(test)]
+    pub fn insert_track(&self, t: &TrackInsert) -> Result<()> {
+        self.insert_tracks(std::slice::from_ref(t))
+    }
+
+    /// Upsert many tracks in a single transaction with one prepared statement.
+    /// Used by the scanner: a per-row autocommit costs a WAL commit each, which
+    /// dominates a large scan — one transaction turns thousands of commits into
+    /// one. A no-op for an empty slice.
+    pub fn insert_tracks(&self, tracks: &[TrackInsert]) -> Result<()> {
+        if tracks.is_empty() {
+            return Ok(());
         }
+        let mut conn = self.conn.lock();
+        let tx = conn.transaction()?;
+        {
+            let mut stmt = tx.prepare(UPSERT_TRACK_SQL)?;
+            for t in tracks {
+                stmt.execute(upsert_params(t))?;
+            }
+        }
+        tx.commit()?;
+        Ok(())
+    }
+
+    /// Map of `path -> (content_type, mtime)` for every track under `root`, in a
+    /// single query. Lets the scanner decide what to re-parse without a
+    /// per-file SELECT.
+    pub fn track_meta_under(&self, root: &str) -> Result<HashMap<String, TrackMtimeRow>> {
+        let conn = self.conn.lock();
+        let pattern = format!("{}%", root);
+        let mut stmt =
+            conn.prepare("SELECT path, content_type, mtime FROM tracks WHERE path LIKE ?")?;
+        let rows = stmt.query_map([pattern], |r| {
+            Ok((
+                r.get::<_, String>(0)?,
+                TrackMtimeRow {
+                    content_type: r.get(1)?,
+                    mtime: r.get::<_, Option<i64>>(2)?,
+                },
+            ))
+        })?;
+        rows.collect::<rusqlite::Result<_>>().map_err(Into::into)
     }
 
     pub fn get_paths_under(&self, root: &str) -> Result<Vec<String>> {
@@ -445,6 +510,26 @@ impl Db {
     }
 }
 
+/// Bind params for [`UPSERT_TRACK_SQL`], in column order. Shared by the single
+/// and batch insert paths so the two never drift.
+fn upsert_params(t: &TrackInsert) -> [&dyn rusqlite::ToSql; 13] {
+    [
+        &t.path,
+        &t.content_type,
+        &t.title,
+        &t.artist,
+        &t.album,
+        &t.genre,
+        &t.year,
+        &t.duration,
+        &t.bpm,
+        &t.sample_rate,
+        &t.bitrate,
+        &t.format,
+        &t.mtime,
+    ]
+}
+
 fn order_clause(sort_by: Option<&str>, sort_dir: Option<&str>) -> Option<String> {
     let col = sort_by?;
     if !matches!(col, "title" | "artist" | "album" | "play_count") {
@@ -523,7 +608,30 @@ CREATE TRIGGER IF NOT EXISTS tracks_au AFTER UPDATE ON tracks BEGIN
 END;
 "#;
 
+/// Current schema version. Bump alongside every new `MIGRATION_00N`.
+const SCHEMA_VERSION: i64 = 3;
+
+/// Upsert one track's metadata by path. The waveform column is deliberately
+/// absent: metadata scans run tag-only and fast, and the waveform is filled
+/// asynchronously by the waveform worker (`set_waveform`). Omitting it here
+/// means a metadata rescan never clobbers an already-computed waveform.
+const UPSERT_TRACK_SQL: &str = "INSERT INTO tracks \
+     (path, content_type, title, artist, album, genre, year, duration, bpm, \
+      sample_rate, bitrate, format, mtime) \
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?) \
+     ON CONFLICT(path) DO UPDATE SET \
+        content_type=excluded.content_type, \
+        title=excluded.title, artist=excluded.artist, album=excluded.album, \
+        genre=excluded.genre, year=excluded.year, duration=excluded.duration, \
+        bpm=excluded.bpm, sample_rate=excluded.sample_rate, \
+        bitrate=excluded.bitrate, format=excluded.format, mtime=excluded.mtime";
+
 const MIGRATION_002: &str = "ALTER TABLE tracks ADD COLUMN mtime INTEGER;";
+
+/// Amplitude-curve peaks for the seek UI, one byte per bucket. Nullable so rows
+/// scanned before this column (or files that failed to decode) simply have no
+/// waveform.
+const MIGRATION_003: &str = "ALTER TABLE tracks ADD COLUMN waveform BLOB;";
 
 #[cfg(test)]
 mod tests {
@@ -557,7 +665,103 @@ mod tests {
         let v: i64 = conn
             .pragma_query_value(None, "user_version", |r| r.get(0))
             .unwrap();
-        assert_eq!(v, 2);
+        assert_eq!(v, 3);
+    }
+
+    #[test]
+    fn migrate_from_v2_adds_waveform_and_bumps_version() {
+        // A released v2 DB (has mtime, no waveform) migrates cleanly to v3.
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch(MIGRATION_001).unwrap();
+        conn.execute_batch(MIGRATION_002).unwrap();
+        conn.pragma_update(None, "user_version", 2).unwrap();
+
+        let db = Db::with_connection(conn).expect("migrate v2 -> v3");
+        db.insert_track(&TrackInsert {
+            path: "/a.mp3".into(),
+            content_type: "music".into(),
+            ..Default::default()
+        })
+        .unwrap();
+        let conn = db.conn.lock();
+        let v: i64 = conn
+            .pragma_query_value(None, "user_version", |r| r.get(0))
+            .unwrap();
+        assert_eq!(v, 3);
+    }
+
+    fn only_id(db: &Db) -> i64 {
+        db.search("", Some("music"), None, None)
+            .unwrap()
+            .first()
+            .map(|t| t.id)
+            .unwrap()
+    }
+
+    #[test]
+    fn waveform_is_none_until_set_then_roundtrips() {
+        let db = Db::open_in_memory().unwrap();
+        db.insert_track(&TrackInsert {
+            path: "/wave.mp3".into(),
+            content_type: "music".into(),
+            ..Default::default()
+        })
+        .unwrap();
+        let id = only_id(&db);
+        // Metadata insert leaves the waveform empty.
+        assert_eq!(db.get_waveform(id).unwrap(), None);
+
+        let peaks = vec![0u8, 64, 128, 255];
+        db.set_waveform(id, &peaks).unwrap();
+        assert_eq!(db.get_waveform(id).unwrap(), Some(peaks));
+    }
+
+    #[test]
+    fn metadata_reinsert_preserves_waveform() {
+        let db = Db::open_in_memory().unwrap();
+        db.insert_track(&TrackInsert {
+            path: "/wave.mp3".into(),
+            content_type: "music".into(),
+            title: Some("Old".into()),
+            ..Default::default()
+        })
+        .unwrap();
+        let id = only_id(&db);
+        db.set_waveform(id, &[1, 2, 3]).unwrap();
+
+        // A metadata rescan (upsert on the same path) must not wipe the waveform.
+        db.insert_track(&TrackInsert {
+            path: "/wave.mp3".into(),
+            content_type: "music".into(),
+            title: Some("New".into()),
+            ..Default::default()
+        })
+        .unwrap();
+        assert_eq!(db.get_waveform(id).unwrap(), Some(vec![1u8, 2, 3]));
+    }
+
+    #[test]
+    fn tracks_missing_waveform_lists_only_unfilled() {
+        let db = Db::open_in_memory().unwrap();
+        db.insert_track(&TrackInsert {
+            path: "/a.mp3".into(),
+            content_type: "music".into(),
+            ..Default::default()
+        })
+        .unwrap();
+        db.insert_track(&TrackInsert {
+            path: "/b.mp3".into(),
+            content_type: "music".into(),
+            ..Default::default()
+        })
+        .unwrap();
+        assert_eq!(db.tracks_missing_waveform().unwrap().len(), 2);
+
+        let first = db.tracks_missing_waveform().unwrap()[0].0;
+        db.set_waveform(first, &[9]).unwrap();
+        let remaining = db.tracks_missing_waveform().unwrap();
+        assert_eq!(remaining.len(), 1);
+        assert_ne!(remaining[0].0, first);
     }
 
     #[test]

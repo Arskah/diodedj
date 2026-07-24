@@ -14,6 +14,7 @@ import {
   type PersistedPlaylistItem,
   type ScanStatus,
   type SessionLoadResult,
+  type WaveformStatus,
 } from "./api";
 import type { DeckBackend } from "../features/deck/backend";
 import { NativeBackend } from "../features/deck/nativeBackend";
@@ -56,6 +57,8 @@ export class AppState {
   });
   settingsOpen = $state(false);
   scanStatus = $state<ScanStatus>({ status: "idle", lastResult: null });
+  // Progress of the background waveform pass (runs after the metadata scan).
+  waveformStatus = $state<WaveformStatus>({ status: "idle" });
 
   playlist = $state<PlaylistItem[]>([]);
   history = $state<Track[]>([]);
@@ -67,6 +70,10 @@ export class AppState {
   volume = $state(1);
   currentTime = $state(0);
   duration = $state(0);
+  // Amplitude-curve peaks (0..=255 per bucket) for the current main-deck track,
+  // rendered behind the seek bar. `null` while none is loaded or the track has
+  // no stored waveform (falls back to a plain progress bar).
+  waveform = $state<number[] | null>(null);
   // Track ids currently resident in the backend prefetch cache. Drives
   // skip-to-cached advancement during a network outage; membership is updated
   // by cache-state events.
@@ -88,6 +95,8 @@ export class AppState {
   cueDuration = $state(0);
   cueVolume = $state(1);
   cueError = $state<string | null>(null);
+  // Amplitude-curve peaks for the current cue-deck track (see `waveform`).
+  cueWaveform = $state<number[] | null>(null);
 
   // Audio device config
   audioDevices = $state<DeviceInfo[]>([]);
@@ -211,6 +220,23 @@ export class AppState {
         void this.search();
         void this.loadStats();
       }
+    });
+
+    // A waveform the background worker just computed may belong to a track that
+    // was already loaded (its earlier fetch came back empty). Refetch so the
+    // seek bar fills in without a reload.
+    api.onWaveformReady((id) => {
+      if (this.currentTrack?.id === id) this.loadWaveform(id);
+      if (this.cueTrack?.id === id) this.loadCueWaveform(id);
+    });
+
+    api.onWaveformProgress(({ processed, total }) => {
+      if (this.waveformStatus.status === "running") {
+        this.waveformStatus = { status: "running", processed, total };
+      }
+    });
+    api.onWaveformStateChanged((next) => {
+      this.waveformStatus = next;
     });
   }
 
@@ -363,6 +389,7 @@ export class AppState {
     this.currentTrack = track;
     this.duration = track.duration ?? 0;
     this.currentTime = 0;
+    this.loadWaveform(track.id);
     void this.loadAndPlay(track);
     void api.trackPlayed(track.id);
     document.title = `${track.title} - ${track.artist} | DiodeDJ`;
@@ -378,6 +405,32 @@ export class AppState {
     } catch (err) {
       logger.error("Load/play failed:", err);
     }
+  }
+
+  /**
+   * Fetch the amplitude curve for `id` and store it, guarding against a race:
+   * a slower fetch for a track the user has already skipped past must not
+   * overwrite the current one. The result is dropped unless `id` is still the
+   * loaded track when it arrives.
+   */
+  private loadWaveform(id: number): void {
+    this.waveform = null;
+    void api
+      .getWaveform(id)
+      .then((peaks) => {
+        if (this.currentTrack?.id === id) this.waveform = peaks;
+      })
+      .catch((err) => logger.error("Waveform load failed:", err));
+  }
+
+  private loadCueWaveform(id: number): void {
+    this.cueWaveform = null;
+    void api
+      .getWaveform(id)
+      .then((peaks) => {
+        if (this.cueTrack?.id === id) this.cueWaveform = peaks;
+      })
+      .catch((err) => logger.error("Cue waveform load failed:", err));
   }
 
   togglePlay(): void {
@@ -402,6 +455,7 @@ export class AppState {
     this.autoPlaylistActive = false;
     this.currentTime = 0;
     this.duration = 0;
+    this.waveform = null;
     this.isPlaying = false;
     document.title = "DiodeDJ";
     this.updatePrefetch();
@@ -508,6 +562,7 @@ export class AppState {
     this.cueTrack = track;
     this.cueDuration = track.duration ?? 0;
     this.cueCurrentTime = 0;
+    this.loadCueWaveform(track.id);
     void this.cueBackend
       .load(track.id)
       .then(() => this.cueBackend.play())
@@ -534,6 +589,7 @@ export class AppState {
     this.cueIsPlaying = false;
     this.cueCurrentTime = 0;
     this.cueDuration = 0;
+    this.cueWaveform = null;
   }
 
   cueSeekToPct(pct: number): void {
@@ -627,6 +683,7 @@ export class AppState {
       if (state.currentTime > 0) {
         this.currentTime = state.currentTime;
       }
+      this.loadWaveform(restored.id);
       void this.loadWithSeek(restored, state.currentTime);
       document.title = `${restored.title} - ${restored.artist} | DiodeDJ`;
     }
@@ -725,6 +782,10 @@ export class AppState {
 
   async hydrateScanStatus(): Promise<void> {
     this.scanStatus = await api.getScanStatus();
+  }
+
+  async hydrateWaveformStatus(): Promise<void> {
+    this.waveformStatus = await api.getWaveformStatus();
   }
 
   private async handleEnded(): Promise<void> {

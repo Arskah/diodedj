@@ -8,6 +8,7 @@ use tauri::{AppHandle, Emitter};
 
 use super::db::Db;
 use super::scanner;
+use super::waveform_scan::WaveformJob;
 use crate::persist::config::Config;
 
 #[derive(Serialize, Clone)]
@@ -89,7 +90,13 @@ impl ScanState {
         let _ = app.emit("scan-state-changed", &next);
     }
 
-    pub fn start(self: Arc<Self>, app: AppHandle, db: Arc<Db>, config: Arc<Config>) -> StartResult {
+    pub fn start(
+        self: Arc<Self>,
+        app: AppHandle,
+        db: Arc<Db>,
+        config: Arc<Config>,
+        waveform: Arc<WaveformJob>,
+    ) -> StartResult {
         if self.is_running() {
             return StartResult {
                 already_running: true,
@@ -114,7 +121,7 @@ impl ScanState {
 
         let s = Arc::clone(&self);
         std::thread::spawn(move || {
-            run(s, app, db, config, cancel);
+            run(s, app, db, config, waveform, cancel);
         });
         StartResult {
             already_running: false,
@@ -127,6 +134,7 @@ fn run(
     app: AppHandle,
     db: Arc<Db>,
     config: Arc<Config>,
+    waveform: Arc<WaveformJob>,
     cancel: Arc<AtomicBool>,
 ) {
     const PROGRESS_THROTTLE: Duration = Duration::from_millis(200);
@@ -215,6 +223,11 @@ fn run(
                 }),
             },
         );
+
+        // Metadata is in — kick the async waveform pass. It runs on its own
+        // thread and lands waveforms later, so the scan reports done now and
+        // never blocks on the heavy per-track decode.
+        Arc::clone(&waveform).start(app.clone(), Arc::clone(&db));
         Ok(())
     })();
 

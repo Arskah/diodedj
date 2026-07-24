@@ -44,6 +44,9 @@ export interface ScanProgress {
   total: number;
 }
 
+export type WaveformStatus =
+  { status: "idle" } | { status: "running"; processed: number; total: number };
+
 export const api = {
   search(
     query: string,
@@ -58,6 +61,13 @@ export const api = {
   },
   getTracksByIds(ids: number[]): Promise<Track[]> {
     return invoke<Track[]>("get_tracks_by_ids", { ids });
+  },
+  /**
+   * Fetch a track's amplitude-curve peaks (one byte per bucket, 0..=255) for
+   * the seek UI, or `null` when the track has no stored waveform.
+   */
+  getWaveform(id: number): Promise<number[] | null> {
+    return invoke<number[] | null>("get_waveform", { id });
   },
   loadSession(): Promise<SessionLoadResult> {
     return invoke<SessionLoadResult>("load_session");
@@ -111,6 +121,30 @@ export const api = {
     callback: (data: ScanStatus) => void,
   ): Promise<UnlistenFn> {
     return listen<ScanStatus>("scan-state-changed", (e) => callback(e.payload));
+  },
+  /**
+   * Fires when the background worker has stored a track's waveform. Payload is
+   * the track id; the renderer refetches the curve if that track is loaded.
+   */
+  onWaveformReady(callback: (id: number) => void): Promise<UnlistenFn> {
+    return listen<number>("waveform-ready", (e) => callback(e.payload));
+  },
+  getWaveformStatus(): Promise<WaveformStatus> {
+    return invoke<WaveformStatus>("get_waveform_status");
+  },
+  onWaveformProgress(
+    callback: (data: ScanProgress) => void,
+  ): Promise<UnlistenFn> {
+    return listen<ScanProgress>("waveform-progress", (e) =>
+      callback(e.payload),
+    );
+  },
+  onWaveformStateChanged(
+    callback: (data: WaveformStatus) => void,
+  ): Promise<UnlistenFn> {
+    return listen<WaveformStatus>("waveform-state-changed", (e) =>
+      callback(e.payload),
+    );
   },
   listAudioDevices(): Promise<DeviceInfo[]> {
     return invoke<DeviceInfo[]>("audio_list_devices");

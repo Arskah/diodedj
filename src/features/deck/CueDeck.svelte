@@ -1,14 +1,19 @@
 <script lang="ts">
   import { app, formatTime } from "../../shared/state.svelte";
+  import Waveform from "./Waveform.svelte";
 
   let progressBar: HTMLDivElement | undefined = $state();
   let scrubbing = false;
+  let hoverPct = $state<number | null>(null);
+
+  function pctFromClientX(clientX: number): number {
+    if (!progressBar) return 0;
+    const rect = progressBar.getBoundingClientRect();
+    return ((clientX - rect.left) / rect.width) * 100;
+  }
 
   function seekToClientX(clientX: number): void {
-    if (!progressBar) return;
-    const rect = progressBar.getBoundingClientRect();
-    const pct = (clientX - rect.left) / rect.width;
-    app.cueSeekToPct(pct);
+    app.cueSeekToPct(pctFromClientX(clientX) / 100);
   }
 
   function onPointerDown(e: PointerEvent): void {
@@ -19,6 +24,7 @@
   }
 
   function onPointerMove(e: PointerEvent): void {
+    hoverPct = pctFromClientX(e.clientX);
     if (scrubbing) seekToClientX(e.clientX);
   }
 
@@ -30,6 +36,11 @@
 
   function onPointerCancel(): void {
     scrubbing = false;
+    hoverPct = null;
+  }
+
+  function onPointerLeave(): void {
+    hoverPct = null;
   }
 </script>
 
@@ -98,7 +109,14 @@
       onpointermove={onPointerMove}
       onpointerup={onPointerUp}
       onpointercancel={onPointerCancel}
+      onpointerleave={onPointerLeave}
     >
+      <Waveform
+        peaks={app.cueWaveform}
+        progressPct={app.cueProgressPct}
+        {hoverPct}
+        id="cue"
+      />
       <div class="cue-progress-fill" style:width="{app.cueProgressPct}%"></div>
     </div>
     {#if app.cueError}
