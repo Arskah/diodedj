@@ -83,7 +83,17 @@ pub struct Db {
 impl Db {
     pub fn open(path: &Path) -> Result<Self> {
         let conn = Connection::open(path).context("open sqlite")?;
-        conn.execute_batch("PRAGMA journal_mode = WAL;")?;
+        // WAL for concurrent read/write; `synchronous = NORMAL` drops the fsync
+        // on every autocommit (e.g. the per-track waveform writes) — safe under
+        // WAL since only a crash mid-commit can lose the last transaction, and
+        // all our writes (waveforms especially) are recomputable. `busy_timeout`
+        // lets a writer wait briefly rather than erroring when the background
+        // waveform threads contend for the connection.
+        conn.execute_batch(
+            "PRAGMA journal_mode = WAL;
+             PRAGMA synchronous = NORMAL;
+             PRAGMA busy_timeout = 5000;",
+        )?;
         Self::with_connection(conn)
     }
 

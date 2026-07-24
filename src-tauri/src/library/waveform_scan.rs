@@ -35,10 +35,15 @@ const WAVEFORM_PROGRESS_EVENT: &str = "waveform-progress";
 /// Running/idle transitions.
 const WAVEFORM_STATE_EVENT: &str = "waveform-state-changed";
 const PROGRESS_THROTTLE: Duration = Duration::from_millis(200);
-/// Upper bound on parallel decode workers. Decoding is CPU-heavy and each file
-/// is independent, so we fan out across cores — capped so a bulk backfill does
-/// not saturate a (possibly networked) share with reads.
-const MAX_CONCURRENCY: usize = 4;
+/// Hard ceiling on parallel decode workers. Decoding is CPU-heavy and each file
+/// is independent, so we fan out across cores; the actual worker count is
+/// `cores - 2` (reserving headroom for playback/UI) clamped into `2..=MAX`. This
+/// ceiling keeps a huge-core machine — or a networked share — from being flooded
+/// with concurrent reads.
+const MAX_CONCURRENCY: usize = 8;
+/// Cores held back from the decode pool so audio playback and the UI stay
+/// responsive when a backfill runs mid-set.
+const RESERVED_CORES: usize = 2;
 
 /// Progress of the background waveform pass, mirrored to the UI. Cumulative
 /// across all libraries.
@@ -108,10 +113,14 @@ fn run(job: &WaveformJob, app: &AppHandle, db: &Db) {
             .checked_sub(PROGRESS_THROTTLE)
             .unwrap_or_else(Instant::now),
     );
-    let concurrency = std::thread::available_parallelism()
+    // Balanced pool: use the cores that exist minus a reserve for playback/UI,
+    // never fewer than 2, never more than the MAX_CONCURRENCY ceiling.
+    let cores = std::thread::available_parallelism()
         .map(|n| n.get())
-        .unwrap_or(1)
-        .min(MAX_CONCURRENCY);
+        .unwrap_or(1);
+    let concurrency = cores
+        .saturating_sub(RESERVED_CORES)
+        .clamp(2, MAX_CONCURRENCY);
     let mut started = false;
 
     loop {
@@ -165,11 +174,18 @@ fn run(job: &WaveformJob, app: &AppHandle, db: &Db) {
                         break;
                     };
                     match compute(path) {
-                        Some(peaks) => {
+                        Some((peaks, decode_ms)) => {
+                            let store_start = Instant::now();
                             if let Err(e) = db.set_waveform(*id, &peaks) {
                                 log::error!("waveform: store {} failed: {}", id, e);
                                 failed.lock().insert(*id);
                             } else {
+                                log::debug!(
+                                    "waveform: {} decode {}ms write {}ms",
+                                    path,
+                                    decode_ms,
+                                    store_start.elapsed().as_millis()
+                                );
                                 let _ = app.emit(WAVEFORM_READY_EVENT, *id);
                             }
                         }
@@ -204,9 +220,12 @@ fn run(job: &WaveformJob, app: &AppHandle, db: &Db) {
     }
 }
 
-/// Read and decode a file into its amplitude curve. Returns `None` (logged) on
-/// any read/decode failure so a single bad file never stops the worker.
-fn compute(path: &str) -> Option<Vec<u8>> {
+/// Read and decode a file into its amplitude curve. Returns the curve plus the
+/// read+decode duration in milliseconds (for the debug timing log), or `None`
+/// (logged) on any read/decode failure so a single bad file never stops the
+/// worker.
+fn compute(path: &str) -> Option<(Vec<u8>, u128)> {
+    let start = Instant::now();
     let bytes = match std::fs::read(path) {
         Ok(v) => Arc::from(v.into_boxed_slice()),
         Err(e) => {
@@ -215,7 +234,7 @@ fn compute(path: &str) -> Option<Vec<u8>> {
         }
     };
     match waveform::compute_peaks(bytes) {
-        Ok(peaks) => Some(peaks),
+        Ok(peaks) => Some((peaks, start.elapsed().as_millis())),
         Err(e) => {
             log::warn!("waveform: decode {} failed: {}", path, e);
             None
