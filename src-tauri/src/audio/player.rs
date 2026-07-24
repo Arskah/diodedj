@@ -306,7 +306,14 @@ fn run(
         loop {
             match rx.try_recv() {
                 Ok(cmd) => apply(
-                    &app, &mut output, &device, &mut state, topics, &load_tx, &cache, cmd,
+                    &app,
+                    &mut output,
+                    &device,
+                    &mut state,
+                    topics,
+                    &load_tx,
+                    &cache,
+                    cmd,
                 ),
                 Err(std::sync::mpsc::TryRecvError::Empty) => break,
                 Err(std::sync::mpsc::TryRecvError::Disconnected) => return Ok(()),
@@ -346,8 +353,16 @@ fn run(
                 if let Some(p) = state.pending_load.take() {
                     log::info!("player: audio output available; resuming deferred load");
                     start_load(
-                        &app, &mut output, &device, &mut state, topics, &load_tx, &cache, p.id,
-                        p.path, p.duration,
+                        &app,
+                        &mut output,
+                        &device,
+                        &mut state,
+                        topics,
+                        &load_tx,
+                        &cache,
+                        p.id,
+                        p.path,
+                        p.duration,
                     );
                 }
             }
@@ -463,7 +478,9 @@ fn apply(
 ) {
     match cmd {
         Cmd::Load { id, path, duration } => {
-            start_load(app, output, device, state, topics, load_tx, cache, id, path, duration);
+            start_load(
+                app, output, device, state, topics, load_tx, cache, id, path, duration,
+            );
         }
         Cmd::Play => {
             // Play is also a self-heal trigger: re-open the output if a launch
@@ -512,8 +529,7 @@ fn apply(
             let Some(bytes) = state.current_bytes.clone() else {
                 return;
             };
-            let Some((stream, sink)) = ensure_output(output, device, state, app, topics)
-            else {
+            let Some((stream, sink)) = ensure_output(output, device, state, app, topics) else {
                 return;
             };
             let was_paused = sink.is_paused();
