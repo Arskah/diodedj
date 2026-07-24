@@ -1,5 +1,6 @@
 .claude/
 .pnpm-store/
+.tmp/
 coverage/
 dist/
 e2e-results/
