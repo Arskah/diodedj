@@ -32,6 +32,20 @@ const READ_RETRY_BACKOFFS: [Duration; 3] = [
     Duration::from_millis(2000),
 ];
 
+/// While a load is deferred because no audio device could be opened, the worker
+/// retries opening the output on this cadence so playback self-heals without any
+/// user action (a stalled/absent device at launch — see issue #259).
+const OPEN_RETRY_INTERVAL: Duration = Duration::from_secs(2);
+
+/// A load that could not be started because no audio output was openable.
+/// Retained so the idle auto-retry loop can replay it once the device returns.
+#[derive(Clone)]
+struct PendingLoad {
+    id: i64,
+    path: PathBuf,
+    duration: Option<f64>,
+}
+
 /// Whole track file resident in RAM. Shared (cheaply cloned) between the
 /// playing `Decoder` and the retained copy used for seeking, so playback and
 /// seek never touch the (possibly networked) filesystem again after load.
@@ -134,6 +148,12 @@ struct State {
     /// `Load` and `Stop`; background reads carry the token they were issued for.
     generation: u64,
     volume: f32,
+    /// A load deferred because no audio output could be opened. The idle loop
+    /// retries the open and replays this load once a device is available (#259).
+    pending_load: Option<PendingLoad>,
+    /// Last time the idle loop attempted to (re)open a failed output. Paces the
+    /// retry to `OPEN_RETRY_INTERVAL`.
+    last_open_retry: Option<Instant>,
 }
 
 const AUDIO_BUFFER_FRAMES: u32 = 4096;
@@ -257,6 +277,8 @@ fn run(
         load_start: None,
         generation: 0,
         volume: 1.0,
+        pending_load: None,
+        last_open_retry: None,
     };
 
     loop {
@@ -282,6 +304,30 @@ fn run(
             handle_load_timeout(&app, &mut state, topics);
         }
 
+        // Idle auto-retry: a load deferred because the audio device could not be
+        // opened waits here. Retry the open on a timer (quietly — the initial
+        // failure already surfaced an error), and replay the load the moment an
+        // output becomes available, whether reopened here or by a command above
+        // (#259). No user action required.
+        if state.pending_load.is_some() {
+            if output.is_none() && open_retry_due(state.last_open_retry, Instant::now()) {
+                state.last_open_retry = Some(Instant::now());
+                match open_audio(&device, state.volume) {
+                    Ok(o) => output = Some(o),
+                    Err(e) => log::debug!("player: output reopen retry failed: {}", e),
+                }
+            }
+            if output.is_some() {
+                if let Some(p) = state.pending_load.take() {
+                    log::info!("player: audio output available; resuming deferred load");
+                    start_load(
+                        &app, &mut output, &device, &mut state, topics, &load_tx, &cache, p.id,
+                        p.path, p.duration,
+                    );
+                }
+            }
+        }
+
         // Time + ended detection are only meaningful with an open output.
         if let Some((_, sink)) = output.as_ref() {
             if state.active && last_time_emit.elapsed() >= TIME_EMIT_INTERVAL {
@@ -301,6 +347,84 @@ fn run(
     }
 }
 
+/// Start loading a track: (re)open the output, stop current audio, and kick off
+/// the background read (or route a cache hit). If no audio device can be opened,
+/// the load is *deferred* — stored in `state.pending_load` for the idle loop to
+/// replay once a device returns — rather than dropped, so playback self-heals
+/// without user action (#259).
+#[allow(clippy::too_many_arguments)]
+fn start_load(
+    app: &AppHandle,
+    output: &mut Option<(OutputStream, Sink)>,
+    device: &Option<DeviceRef>,
+    state: &mut State,
+    topics: &Topics,
+    load_tx: &Sender<LoadMsg>,
+    cache: &Arc<Cache>,
+    id: i64,
+    path: PathBuf,
+    duration: Option<f64>,
+) {
+    let Some((stream, sink)) = ensure_output(output, device, state.volume, app, topics) else {
+        // No device yet: remember the intent and let the idle loop retry the
+        // open. `ensure_output` already emitted the error; keep the buffering
+        // indicator up while we wait for the device.
+        state.pending_load = Some(PendingLoad { id, path, duration });
+        state.last_open_retry = Some(Instant::now());
+        state.current_id = Some(id);
+        let _ = app.emit(&topics.buffering, true);
+        return;
+    };
+    state.pending_load = None;
+
+    // Stop current audio immediately; the new source arrives once the
+    // background read completes.
+    sink.stop();
+    *sink = Sink::connect_new(stream.mixer());
+    sink.set_volume(state.volume);
+
+    state.generation = state.generation.wrapping_add(1);
+    state.current_id = Some(id);
+    state.current_path = Some(path.clone());
+    state.current_duration = duration;
+    state.current_bytes = None;
+    state.seek_offset = 0.0;
+    state.active = false;
+    state.loading = true;
+    state.load_start = Some(Instant::now());
+    let _ = app.emit(&topics.buffering, true);
+
+    let generation = state.generation;
+    let tx = load_tx.clone();
+    if let Some(bytes) = cache.get(id) {
+        // Cache hit: route the resident bytes through the same
+        // completion path as a background read — no filesystem access.
+        let _ = tx.send(LoadMsg {
+            generation,
+            id,
+            duration,
+            bytes: Ok(bytes),
+        });
+    } else {
+        // Miss: read the whole file off the worker thread so a
+        // slow/networked read never blocks transport commands. One read
+        // is in flight per deck at a time — a newer `Load` bumps
+        // `generation`, so a stale read's result is discarded rather
+        // than another thread being blocked on.
+        thread::spawn(move || {
+            // Retry transient failures with backoff; hangs are the
+            // watchdog's job (handled in the worker loop, not here).
+            let bytes = read_with_retry(|| read_file(&path), thread::sleep);
+            let _ = tx.send(LoadMsg {
+                generation,
+                id,
+                duration,
+                bytes,
+            });
+        });
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 fn apply(
     app: &AppHandle,
@@ -314,60 +438,7 @@ fn apply(
 ) {
     match cmd {
         Cmd::Load { id, path, duration } => {
-            // Open (or re-open) the output before committing to the load. If no
-            // device can be opened, surface it and drop the command — the worker
-            // stays alive so a later command retries the open (#259).
-            let Some((stream, sink)) = ensure_output(output, device, state.volume, app, topics)
-            else {
-                let _ = app.emit(&topics.load_failed, id);
-                return;
-            };
-            // Stop current audio immediately; the new source arrives once the
-            // background read completes.
-            sink.stop();
-            *sink = Sink::connect_new(stream.mixer());
-            sink.set_volume(state.volume);
-
-            state.generation = state.generation.wrapping_add(1);
-            state.current_id = Some(id);
-            state.current_path = Some(path.clone());
-            state.current_duration = duration;
-            state.current_bytes = None;
-            state.seek_offset = 0.0;
-            state.active = false;
-            state.loading = true;
-            state.load_start = Some(Instant::now());
-            let _ = app.emit(&topics.buffering, true);
-
-            let generation = state.generation;
-            let tx = load_tx.clone();
-            if let Some(bytes) = cache.get(id) {
-                // Cache hit: route the resident bytes through the same
-                // completion path as a background read — no filesystem access.
-                let _ = tx.send(LoadMsg {
-                    generation,
-                    id,
-                    duration,
-                    bytes: Ok(bytes),
-                });
-            } else {
-                // Miss: read the whole file off the worker thread so a
-                // slow/networked read never blocks transport commands. One read
-                // is in flight per deck at a time — a newer `Load` bumps
-                // `generation`, so a stale read's result is discarded rather
-                // than another thread being blocked on.
-                thread::spawn(move || {
-                    // Retry transient failures with backoff; hangs are the
-                    // watchdog's job (handled in the worker loop, not here).
-                    let bytes = read_with_retry(|| read_file(&path), thread::sleep);
-                    let _ = tx.send(LoadMsg {
-                        generation,
-                        id,
-                        duration,
-                        bytes,
-                    });
-                });
-            }
+            start_load(app, output, device, state, topics, load_tx, cache, id, path, duration);
         }
         Cmd::Play => {
             // Play is also a self-heal trigger: re-open the output if a launch
@@ -404,6 +475,9 @@ fn apply(
             state.current_duration = None;
             state.current_bytes = None;
             state.seek_offset = 0.0;
+            // Stop cancels a deferred load too — the user no longer wants it.
+            state.pending_load = None;
+            state.last_open_retry = None;
             let _ = app.emit(&topics.buffering, false);
             let _ = app.emit(&topics.pause_state, true);
         }
@@ -541,6 +615,8 @@ fn reset_after_failure(state: &mut State) {
     state.current_duration = None;
     state.current_bytes = None;
     state.seek_offset = 0.0;
+    state.pending_load = None;
+    state.last_open_retry = None;
 }
 
 /// Decide whether an in-flight read has exceeded the watchdog budget. Pure
@@ -548,6 +624,16 @@ fn reset_after_failure(state: &mut State) {
 /// A read is timed out only while `loading` is true, a `load_start` is recorded,
 /// and at least `READ_WATCHDOG_TIMEOUT` has elapsed. When a result has arrived
 /// the worker sets `loading = false`, so this returns false.
+/// Decide whether the idle loop should attempt another output-open. Pure (clock
+/// via `now`) so it is unit-testable. Fires immediately the first time
+/// (`None`), then no more often than `OPEN_RETRY_INTERVAL`.
+fn open_retry_due(last_open_retry: Option<Instant>, now: Instant) -> bool {
+    match last_open_retry {
+        None => true,
+        Some(last) => now.saturating_duration_since(last) >= OPEN_RETRY_INTERVAL,
+    }
+}
+
 fn watchdog_timed_out(loading: bool, load_start: Option<Instant>, now: Instant) -> bool {
     match load_start {
         Some(start) if loading => now.saturating_duration_since(start) >= READ_WATCHDOG_TIMEOUT,
@@ -770,5 +856,23 @@ mod tests {
         assert!(!watchdog_timed_out(false, Some(start), after));
         // No read in flight: never a timeout.
         assert!(!watchdog_timed_out(true, None, after));
+    }
+
+    #[test]
+    fn open_retry_fires_first_time_then_paces() {
+        let start = Instant::now();
+        let before = start
+            .checked_add(OPEN_RETRY_INTERVAL - Duration::from_millis(1))
+            .unwrap();
+        let after = start
+            .checked_add(OPEN_RETRY_INTERVAL + Duration::from_millis(1))
+            .unwrap();
+
+        // Never attempted before: retry immediately.
+        assert!(open_retry_due(None, start));
+        // Within the interval since the last attempt: hold off.
+        assert!(!open_retry_due(Some(start), before));
+        // Interval elapsed: retry again.
+        assert!(open_retry_due(Some(start), after));
     }
 }
