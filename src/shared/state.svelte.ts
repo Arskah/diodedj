@@ -86,6 +86,11 @@ export class AppState {
   // if the current in-RAM track keeps playing. Set by prefetch-failed events,
   // cleared by the next successful cache-state (a read succeeded).
   shareUnreachable = $state(false);
+  // True while the main deck cannot open an audio output device (none present,
+  // or the configured one won't open). The backend auto-retries every 2s and
+  // clears this on recovery. Distinct from a network outage: the device, not
+  // the media share, is the problem. See issue #259.
+  outputUnavailable = $state(false);
 
   // Cue deck (independent transport on a separate audio device)
   cueTrack = $state<Track | null>(null);
@@ -95,6 +100,9 @@ export class AppState {
   cueDuration = $state(0);
   cueVolume = $state(1);
   cueError = $state<string | null>(null);
+  // True while the cue deck cannot open its audio output device (see
+  // `outputUnavailable` for the main deck). Backend auto-retries and clears it.
+  cueOutputUnavailable = $state(false);
   // Amplitude-curve peaks for the current cue-deck track (see `waveform`).
   cueWaveform = $state<number[] | null>(null);
 
@@ -154,6 +162,11 @@ export class AppState {
           // can warn even while an in-RAM track keeps playing.
           this.shareUnreachable = true;
           break;
+        case "output-unavailable":
+          // No audio device could be opened (or it recovered). The backend
+          // auto-retries; the banner shows until a device is available.
+          this.outputUnavailable = event.unavailable;
+          break;
         case "error":
           this.isBuffering = false;
           logger.error("Audio error:", event.message);
@@ -198,6 +211,9 @@ export class AppState {
           // skip-to-cached handling is a later issue.
           this.cueIsBuffering = false;
           logger.error("Cue audio load failed for track:", event.id);
+          break;
+        case "output-unavailable":
+          this.cueOutputUnavailable = event.unavailable;
           break;
         case "cache-state":
         case "prefetch-failed":
