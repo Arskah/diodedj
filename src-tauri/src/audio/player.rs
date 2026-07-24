@@ -136,15 +136,33 @@ struct State {
 
 const AUDIO_BUFFER_FRAMES: u32 = 4096;
 
+fn stream_builder(device: &Option<cpal::Device>) -> Result<OutputStreamBuilder> {
+    match device {
+        Some(d) => OutputStreamBuilder::from_device(d.clone()).context("from_device"),
+        None => OutputStreamBuilder::from_default_device().context("from_default_device"),
+    }
+}
+
 fn open_stream(device: Option<cpal::Device>) -> Result<OutputStream> {
-    let builder = match device {
-        Some(d) => OutputStreamBuilder::from_device(d).context("from_device")?,
-        None => OutputStreamBuilder::from_default_device().context("from_default_device")?,
-    };
-    builder
+    // Prefer a fixed buffer size for predictable latency, but not every device
+    // (or host, e.g. CoreAudio) accepts `Fixed`. When it rejects the request the
+    // whole player thread would otherwise die at startup, so fall back to the
+    // device default buffer size instead of propagating the error.
+    match stream_builder(&device)?
         .with_buffer_size(cpal::BufferSize::Fixed(AUDIO_BUFFER_FRAMES))
         .open_stream()
-        .context("open_stream")
+    {
+        Ok(stream) => Ok(stream),
+        Err(e) => {
+            log::warn!(
+                "open_stream: fixed buffer {} rejected ({e}); retrying with default buffer size",
+                AUDIO_BUFFER_FRAMES
+            );
+            stream_builder(&device)?
+                .open_stream()
+                .context("open_stream")
+        }
+    }
 }
 
 fn run(
