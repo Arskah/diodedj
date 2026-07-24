@@ -161,10 +161,10 @@ fn run(job: &WaveformJob, app: &AppHandle, db: &Db) {
                         break;
                     }
                     let i = next.fetch_add(1, Ordering::Relaxed);
-                    let Some((id, path, duration)) = pending.get(i) else {
+                    let Some((id, path, _duration)) = pending.get(i) else {
                         break;
                     };
-                    match compute(path, *duration) {
+                    match compute(path) {
                         Some(peaks) => {
                             if let Err(e) = db.set_waveform(*id, &peaks) {
                                 log::error!("waveform: store {} failed: {}", id, e);
@@ -204,9 +204,9 @@ fn run(job: &WaveformJob, app: &AppHandle, db: &Db) {
     }
 }
 
-/// Read and decode a file into its peak curve. Returns `None` (logged) on any
-/// read/decode failure so a single bad file never stops the worker.
-fn compute(path: &str, duration: Option<f64>) -> Option<Vec<u8>> {
+/// Read and decode a file into its amplitude curve. Returns `None` (logged) on
+/// any read/decode failure so a single bad file never stops the worker.
+fn compute(path: &str) -> Option<Vec<u8>> {
     let bytes = match std::fs::read(path) {
         Ok(v) => Arc::from(v.into_boxed_slice()),
         Err(e) => {
@@ -214,8 +214,7 @@ fn compute(path: &str, duration: Option<f64>) -> Option<Vec<u8>> {
             return None;
         }
     };
-    let hint = duration.filter(|d| *d > 0.0);
-    match waveform::compute_peaks(bytes, hint) {
+    match waveform::compute_peaks(bytes) {
         Ok(peaks) => Some(peaks),
         Err(e) => {
             log::warn!("waveform: decode {} failed: {}", path, e);
