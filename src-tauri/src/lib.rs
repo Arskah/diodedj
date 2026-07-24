@@ -11,7 +11,7 @@ mod persist;
 mod playlist;
 
 use audio::cache::Cache;
-use audio::devices::{list_output_devices, resolve_device, resolve_main_device, DeviceInfo};
+use audio::devices::{list_output_devices, DeviceInfo};
 use audio::player::{Cmd, PlayerHandle};
 use broadcast::{service::default_now_playing_dir, BroadcastService};
 use library::db::{Db, LibraryStats, Track};
@@ -261,15 +261,11 @@ where
             .config
             .get_cue_device()
             .ok_or_else(|| "no cue device configured; pick one in Settings → Audio".to_string())?;
-        let device = resolve_device(&cue_ref).ok_or_else(|| {
-            format!(
-                "cue device '{}' not found among current outputs",
-                cue_ref.description
-            )
-        })?;
+        // The worker resolves the DeviceRef lazily and falls back to the default
+        // output, mirroring the main deck's self-healing open (#259).
         *guard = Some(PlayerHandle::spawn(
             state.app_handle.clone(),
-            Some(device),
+            Some(cue_ref),
             "cue",
             Arc::clone(&state.cache),
         ));
@@ -423,7 +419,11 @@ pub fn run() {
             let db = Db::open(&data_dir.join("diodedj.db"))?;
             let config = Config::open(&data_dir)?;
             let session = Session::open(&data_dir);
-            let main_device = resolve_main_device(config.get_main_device().as_ref());
+            // Pass the saved DeviceRef (not a pre-resolved device): the worker
+            // resolves it lazily on the audio thread and falls back to the
+            // system default, so a device unavailable at launch no longer kills
+            // playback for the whole session (#259).
+            let main_device = config.get_main_device();
             let cache = Cache::new(app.handle().clone());
             let main_deck = PlayerHandle::spawn(
                 app.handle().clone(),

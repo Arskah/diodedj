@@ -9,6 +9,8 @@ use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter};
 
 use super::cache::Cache;
+use super::devices::resolve_device;
+use crate::persist::config::DeviceRef;
 
 const TICK_INTERVAL: Duration = Duration::from_millis(50);
 const TIME_EMIT_INTERVAL: Duration = Duration::from_millis(100);
@@ -93,7 +95,7 @@ pub struct PlayerHandle {
 impl PlayerHandle {
     pub fn spawn(
         app: AppHandle,
-        device: Option<cpal::Device>,
+        device: Option<DeviceRef>,
         event_prefix: &'static str,
         cache: Arc<Cache>,
     ) -> Self {
@@ -165,15 +167,80 @@ fn open_stream(device: Option<cpal::Device>) -> Result<OutputStream> {
     }
 }
 
+/// Resolve the configured device (if any) and open an output stream + sink on
+/// the audio thread. A missing or unopenable configured device is **not fatal**:
+/// it falls back to the system default, so a device that is renamed, unplugged,
+/// or briefly held/absent at launch does not permanently disable playback (#259).
+fn open_audio(device: &Option<DeviceRef>, volume: f32) -> Result<(OutputStream, Sink)> {
+    let resolved = match device {
+        Some(r) => match resolve_device(r) {
+            Some(d) => Some(d),
+            None => {
+                log::warn!(
+                    "audio device '{}' not found among current outputs; using default",
+                    r.description
+                );
+                None
+            }
+        },
+        None => None,
+    };
+
+    let had_specific = resolved.is_some();
+    let stream = match open_stream(resolved) {
+        Ok(s) => s,
+        // A configured device that resolves but will not open (e.g. held
+        // exclusively by another app) falls back to the default device rather
+        // than failing the whole command.
+        Err(e) if had_specific => {
+            log::warn!("configured audio device failed to open ({e}); falling back to default");
+            open_stream(None).context("open default output")?
+        }
+        Err(e) => return Err(e).context("open default output"),
+    };
+    let sink = Sink::connect_new(stream.mixer());
+    sink.set_volume(volume);
+    Ok((stream, sink))
+}
+
+/// Ensure the output stream+sink is open, (re)opening it on demand. Returns
+/// `None` — after emitting an `error` event — when no audio device can be
+/// opened at all, so the caller drops the current command instead of the whole
+/// worker thread exiting. A dead worker silently discards every later command
+/// (the `PlayerHandle::send` channel error is swallowed), disabling playback
+/// for the rest of the session; see issue #259.
+fn ensure_output<'a>(
+    output: &'a mut Option<(OutputStream, Sink)>,
+    device: &Option<DeviceRef>,
+    volume: f32,
+    app: &AppHandle,
+    topics: &Topics,
+) -> Option<&'a mut (OutputStream, Sink)> {
+    if output.is_none() {
+        match open_audio(device, volume) {
+            Ok(o) => *output = Some(o),
+            Err(e) => {
+                log::error!("player: no audio output available: {}", e);
+                let _ = app.emit(&topics.error, format!("audio output unavailable: {}", e));
+                return None;
+            }
+        }
+    }
+    output.as_mut()
+}
+
 fn run(
     app: AppHandle,
     rx: std::sync::mpsc::Receiver<Cmd>,
-    device: Option<cpal::Device>,
+    device: Option<DeviceRef>,
     topics: &Topics,
     cache: Arc<Cache>,
 ) -> Result<()> {
-    let stream = open_stream(device)?;
-    let mut sink = Sink::connect_new(stream.mixer());
+    // Output is opened lazily and re-opened on demand: a stream-open failure at
+    // launch (device not ready yet, briefly held, momentarily gone) must not
+    // kill the worker, which would silently disable playback for the whole
+    // session. The next command that needs audio retries the open (#259).
+    let mut output: Option<(OutputStream, Sink)> = None;
     // Completed background reads arrive here; `load_tx` is cloned per read.
     let (load_tx, load_rx) = channel::<LoadMsg>();
     let mut last_time_emit = Instant::now()
@@ -196,7 +263,7 @@ fn run(
         loop {
             match rx.try_recv() {
                 Ok(cmd) => apply(
-                    &app, &stream, &mut sink, &mut state, topics, &load_tx, &cache, cmd,
+                    &app, &mut output, &device, &mut state, topics, &load_tx, &cache, cmd,
                 ),
                 Err(std::sync::mpsc::TryRecvError::Empty) => break,
                 Err(std::sync::mpsc::TryRecvError::Disconnected) => return Ok(()),
@@ -205,7 +272,7 @@ fn run(
 
         // Drain any completed background reads.
         while let Ok(msg) = load_rx.try_recv() {
-            apply_load(&app, &stream, &mut sink, &mut state, topics, msg);
+            apply_load(&app, &mut output, &device, &mut state, topics, msg);
         }
 
         // Watchdog: a read that neither completed nor errored within the budget
@@ -215,16 +282,19 @@ fn run(
             handle_load_timeout(&app, &mut state, topics);
         }
 
-        if state.active && last_time_emit.elapsed() >= TIME_EMIT_INTERVAL {
-            last_time_emit = Instant::now();
-            let pos = state.seek_offset + sink.get_pos().as_secs_f64();
-            let _ = app.emit(&topics.time, pos);
-        }
+        // Time + ended detection are only meaningful with an open output.
+        if let Some((_, sink)) = output.as_ref() {
+            if state.active && last_time_emit.elapsed() >= TIME_EMIT_INTERVAL {
+                last_time_emit = Instant::now();
+                let pos = state.seek_offset + sink.get_pos().as_secs_f64();
+                let _ = app.emit(&topics.time, pos);
+            }
 
-        if state.active && !state.loading && sink.empty() {
-            state.active = false;
-            let _ = app.emit(&topics.pause_state, true);
-            let _ = app.emit(&topics.ended, ());
+            if state.active && !state.loading && sink.empty() {
+                state.active = false;
+                let _ = app.emit(&topics.pause_state, true);
+                let _ = app.emit(&topics.ended, ());
+            }
         }
 
         thread::sleep(TICK_INTERVAL);
@@ -234,8 +304,8 @@ fn run(
 #[allow(clippy::too_many_arguments)]
 fn apply(
     app: &AppHandle,
-    stream: &OutputStream,
-    sink: &mut Sink,
+    output: &mut Option<(OutputStream, Sink)>,
+    device: &Option<DeviceRef>,
     state: &mut State,
     topics: &Topics,
     load_tx: &Sender<LoadMsg>,
@@ -244,6 +314,14 @@ fn apply(
 ) {
     match cmd {
         Cmd::Load { id, path, duration } => {
+            // Open (or re-open) the output before committing to the load. If no
+            // device can be opened, surface it and drop the command — the worker
+            // stays alive so a later command retries the open (#259).
+            let Some((stream, sink)) = ensure_output(output, device, state.volume, app, topics)
+            else {
+                let _ = app.emit(&topics.load_failed, id);
+                return;
+            };
             // Stop current audio immediately; the new source arrives once the
             // background read completes.
             sink.stop();
@@ -292,6 +370,11 @@ fn apply(
             }
         }
         Cmd::Play => {
+            // Play is also a self-heal trigger: re-open the output if a launch
+            // failure left it closed. Drop silently if no device is available.
+            let Some((_, sink)) = ensure_output(output, device, state.volume, app, topics) else {
+                return;
+            };
             sink.play();
             // Only report playing if there is (or will be) something to play.
             if state.active || state.loading {
@@ -299,13 +382,18 @@ fn apply(
             }
         }
         Cmd::Pause => {
-            sink.pause();
+            // Nothing to pause without an open output; never open one just to pause.
+            if let Some((_, sink)) = output.as_mut() {
+                sink.pause();
+            }
             let _ = app.emit(&topics.pause_state, true);
         }
         Cmd::Stop => {
-            sink.stop();
-            *sink = Sink::connect_new(stream.mixer());
-            sink.set_volume(state.volume);
+            if let Some((stream, sink)) = output.as_mut() {
+                sink.stop();
+                *sink = Sink::connect_new(stream.mixer());
+                sink.set_volume(state.volume);
+            }
             // Invalidate any in-flight read.
             state.generation = state.generation.wrapping_add(1);
             state.active = false;
@@ -323,6 +411,10 @@ fn apply(
             let target = s.max(0.0);
             // Seek decodes from the in-RAM bytes — never re-reads the file.
             let Some(bytes) = state.current_bytes.clone() else {
+                return;
+            };
+            let Some((stream, sink)) = ensure_output(output, device, state.volume, app, topics)
+            else {
                 return;
             };
             let was_paused = sink.is_paused();
@@ -364,7 +456,10 @@ fn apply(
         Cmd::SetVolume(v) => {
             let clamped = v.clamp(0.0, 1.0);
             state.volume = clamped;
-            sink.set_volume(clamped);
+            // Remembered in `state.volume` and applied when the output next opens.
+            if let Some((_, sink)) = output.as_mut() {
+                sink.set_volume(clamped);
+            }
         }
     }
 }
@@ -373,8 +468,8 @@ fn apply(
 /// `Load`/`Stop`) are dropped.
 fn apply_load(
     app: &AppHandle,
-    _stream: &OutputStream,
-    sink: &mut Sink,
+    output: &mut Option<(OutputStream, Sink)>,
+    device: &Option<DeviceRef>,
     state: &mut State,
     topics: &Topics,
     msg: LoadMsg,
@@ -407,6 +502,15 @@ fn apply_load(
 
     match decode_bytes(bytes.clone()) {
         Ok((source, decoded_duration)) => {
+            // The output should already be open (Load opened it), but re-open
+            // defensively in case the device dropped while the read was in
+            // flight. Treat an unopenable output as a load failure.
+            let Some((_, sink)) = ensure_output(output, device, state.volume, app, topics) else {
+                reset_after_failure(state);
+                let _ = app.emit(&topics.load_failed, msg.id);
+                let _ = app.emit(&topics.pause_state, true);
+                return;
+            };
             let final_duration = msg.duration.or(decoded_duration);
             sink.append(source);
             sink.play();
