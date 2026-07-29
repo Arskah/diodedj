@@ -1,5 +1,40 @@
 # Changelog
 
+## [0.12.0](https://github.com/Arskah/diodedj/compare/v0.11.0...v0.12.0) (2026-07-29)
+
+
+### Features
+
+* **deck:** amplitude curve behind seek bars ([#234](https://github.com/Arskah/diodedj/issues/234)) ([#252](https://github.com/Arskah/diodedj/issues/252)) ([c371fa2](https://github.com/Arskah/diodedj/commit/c371fa288e6595364eb0dc672c27ed67858e745e))
+* **deck:** network reconnecting banner + buffering shimmer ([#251](https://github.com/Arskah/diodedj/issues/251)) ([8d81c1f](https://github.com/Arskah/diodedj/commit/8d81c1f39dab0d570d3cf7da4709c23f0e53ade8))
+* **deck:** prefetch whole playlist to RAM, bounded by byte cap ([#265](https://github.com/Arskah/diodedj/issues/265)) ([fed8577](https://github.com/Arskah/diodedj/commit/fed857751fd7e5c4237f263659a1dbe74db8714f))
+
+
+### Bug Fixes
+
+* **deck:** outage recovery — auto-retry reads, no skip after manual next ([#253](https://github.com/Arskah/diodedj/issues/253)) ([c674195](https://github.com/Arskah/diodedj/commit/c67419501fa8d7100c4c67f10156ac8125e04317))
+* **deck:** self-healing audio output — launch stream-open failure can't mute the session ([#260](https://github.com/Arskah/diodedj/issues/260)) ([7afc053](https://github.com/Arskah/diodedj/commit/7afc053939bc24d341cd4fb122dd64f10df9ac6a))
+* **deps:** update rust crate serde_json to v1.0.151 ([#250](https://github.com/Arskah/diodedj/issues/250)) ([9e9c481](https://github.com/Arskah/diodedj/commit/9e9c4816b3b9feba927cfe75116648d5a8374bbe))
+* **deps:** update rust crate tokio to v1.53.1 ([#255](https://github.com/Arskah/diodedj/issues/255)) ([b29a92e](https://github.com/Arskah/diodedj/commit/b29a92e72ac9b310f8f173a614a5b0844ff3fd6d))
+
+
+### Miscellaneous Chores
+
+* **deps:** lock file maintenance ([#263](https://github.com/Arskah/diodedj/issues/263)) ([5a695d5](https://github.com/Arskah/diodedj/commit/5a695d55ed7bfda0681d96f7e360ad8ae1d733bf))
+* **deps:** update actions/checkout action to v7.0.1 ([#254](https://github.com/Arskah/diodedj/issues/254)) ([dab154e](https://github.com/Arskah/diodedj/commit/dab154ee65434784c43e7ab7db30963112554bb9))
+* **deps:** update dependency eslint to v10.8.0 ([#264](https://github.com/Arskah/diodedj/issues/264)) ([148bf5f](https://github.com/Arskah/diodedj/commit/148bf5f919c40fa317bd081ac12cbf32dbd10f31))
+* **deps:** update dependency lint-staged to v17.2.0 ([#262](https://github.com/Arskah/diodedj/issues/262)) ([a6f5290](https://github.com/Arskah/diodedj/commit/a6f52901be57b092e0a0c65a3bcf355984c32278))
+* **deps:** update dependency prettier to v3.9.6 ([#258](https://github.com/Arskah/diodedj/issues/258)) ([18fcdca](https://github.com/Arskah/diodedj/commit/18fcdcaa292825bd4b3e7e124276c8975f7cdd9f))
+* **deps:** update dependency svelte to v5.56.8 ([#257](https://github.com/Arskah/diodedj/issues/257)) ([36a36d1](https://github.com/Arskah/diodedj/commit/36a36d1e172d0cba021a9c0b2558b3b906536025))
+* **deps:** update dependency typescript-eslint to v8.65.0 ([#256](https://github.com/Arskah/diodedj/issues/256)) ([6492f34](https://github.com/Arskah/diodedj/commit/6492f3445bada391bf55d379e745af41eb34a418))
+* **deps:** update pnpm to v11.17.0 ([#249](https://github.com/Arskah/diodedj/issues/249)) ([7bdca48](https://github.com/Arskah/diodedj/commit/7bdca485de43cc6b12985561d5c0aaf96f1fe759))
+* **deps:** update webdriverio monorepo to v9.30.0 ([#261](https://github.com/Arskah/diodedj/issues/261)) ([b751c7d](https://github.com/Arskah/diodedj/commit/b751c7d6f832418771228bc6833947a6810870fb))
+
+
+### Code Refactoring
+
+* add isStrictNever to force handling all cases in switch ([01505b1](https://github.com/Arskah/diodedj/commit/01505b12c40276c0a06a12d8ed4695a56652e1b5))
+
 ## [0.11.0](https://github.com/Arskah/diodedj/compare/v0.10.2...v0.11.0) (2026-07-22)
 
 

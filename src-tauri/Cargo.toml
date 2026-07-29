@@ -1,6 +1,6 @@
 [package]
 name = "diodedj"
-version = "0.11.0"
+version = "0.12.0"
 description = "Radio station music player"
 authors = ["Aarni Halinen"]
 edition = "2021"
