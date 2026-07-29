@@ -6,6 +6,6 @@ dist/
 e2e-results/
 node_modules/
 src-tauri/target/
-src-tauri/gen/schemas/
+src-tauri/gen/
 *.db
 *.tgz
