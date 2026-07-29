@@ -33,9 +33,6 @@ const AUTO_PLAYLIST_BUFFER = 20;
 const AUTO_PLAYLIST_THRESHOLD = 5;
 const HISTORY_CAP = 100;
 const SESSION_SAVE_THROTTLE_MS = 500;
-// Number of upcoming playlist tracks to prefetch ahead of the current track.
-// Mirrors the backend cache keep-window (audio/cache.rs WINDOW_SIZE).
-const PREFETCH_WINDOW = 15;
 // Backoff schedule (ms) for retrying advancement while nothing playable is
 // cached (network outage). The last value repeats until recovery.
 const NET_RETRY_BACKOFFS_MS = [1000, 2000, 5000];
@@ -534,14 +531,14 @@ export class AppState {
   }
 
   /**
-   * Push the upcoming-track window to the backend prefetch cache: the current
-   * track followed by the next `PREFETCH_WINDOW` playlist tracks (stop markers
-   * skipped). Called after every playlist mutation and on track changes.
+   * Push the whole upcoming playlist to the backend prefetch cache: the current
+   * track followed by every playlist track in order (stop markers skipped).
+   * Called after every playlist mutation and on track changes. The backend byte
+   * cap bounds how many leading tracks actually stay resident in RAM.
    */
   private updatePrefetch(): void {
     const upcoming: number[] = this.playlist
       .filter(isTrackItem)
-      .slice(0, PREFETCH_WINDOW)
       .map((i) => i.track.id);
     const ids = this.currentTrack
       ? [this.currentTrack.id, ...upcoming]

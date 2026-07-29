@@ -832,12 +832,12 @@ describe("AppState prefetch window", () => {
     expect(api.prefetch).toHaveBeenLastCalledWith([1, 2, 3]);
   });
 
-  it("caps the prefetch window at PREFETCH_WINDOW upcoming tracks", () => {
+  it("prefetches the whole playlist, in order, with no count cap", () => {
     for (let i = 1; i <= 20; i++) app.addToPlaylist(t(i));
     const last = api.prefetch.mock.calls.at(-1)?.[0] as number[];
-    expect(last).toHaveLength(15);
+    expect(last).toHaveLength(20);
     expect(last[0]).toBe(1);
-    expect(last[14]).toBe(15);
+    expect(last[19]).toBe(20);
   });
 });
 

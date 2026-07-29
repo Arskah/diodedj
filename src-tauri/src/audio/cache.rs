@@ -4,16 +4,18 @@
 //! deck loads an upcoming track the bytes are already available and no
 //! (possibly networked) filesystem read is needed on the hot path.
 //!
-//! Residency is governed by a *keep-window* policy — NOT an LRU:
-//! - The renderer pushes the "window" of upcoming track ids (current + the next
-//!   [`WINDOW_SIZE`]) via `set_window`. Entries whose id falls outside the
-//!   latest window are evicted immediately.
+//! Residency is governed by a *whole-playlist* policy — NOT an LRU:
+//! - The renderer pushes the whole playlist of upcoming track ids (current
+//!   track first, then playlist order) via `set_window`. Entries whose id falls
+//!   outside the latest window are evicted immediately.
 //! - Total resident bytes are capped at [`MAX_CACHE_BYTES`]. When the window's
-//!   entries would exceed the cap, the nearest entries win: the window is
-//!   walked nearest-first and entries are retained until the cap is reached.
+//!   entries would exceed the cap, the tracks first on the list win: the window
+//!   is walked front-first and entries are retained until the cap is reached.
+//!   The whole playlist is therefore attempted, but only as many leading tracks
+//!   as fit in the cap stay resident.
 //!
 //! A single background worker fetches missing window entries sequentially,
-//! nearest-first — never in parallel, to avoid hammering the (network) share.
+//! front-first — never in parallel, to avoid hammering the (network) share.
 
 use anyhow::{Context, Result};
 use parking_lot::Mutex;
@@ -24,11 +26,8 @@ use std::sync::Arc;
 use std::thread;
 use tauri::{AppHandle, Emitter};
 
-/// Number of upcoming tracks kept resident: the current track plus the next 15.
-pub const WINDOW_SIZE: usize = 15;
-
-/// Hard cap on total resident bytes. Whichever of the window size / byte cap is
-/// hit first bounds residency.
+/// Hard cap on total resident bytes. The whole playlist is attempted, but only
+/// as many leading tracks as fit under this cap stay resident.
 pub const MAX_CACHE_BYTES: usize = 150 * 1024 * 1024;
 
 /// Event topic on which cache membership changes are broadcast. Prefetch is a
@@ -50,8 +49,8 @@ type Bytes = Arc<[u8]>;
 struct Inner {
     /// Cached file bytes by track id.
     entries: HashMap<i64, Bytes>,
-    /// Desired residency window, ordered nearest-first (current track first),
-    /// paired with the path to read on a miss.
+    /// Desired residency window — the whole playlist, ordered front-first
+    /// (current track first), paired with the path to read on a miss.
     window: Vec<(i64, PathBuf)>,
     /// Bumped on every `set_window`; lets the prefetch worker abort a run whose
     /// window has been superseded.
@@ -76,7 +75,7 @@ impl Inner {
         self.entries.len() != before
     }
 
-    /// Enforce the byte cap by dropping entries beyond the cap, nearest-first.
+    /// Enforce the byte cap by dropping entries beyond the cap, front-first.
     /// Returns `true` if membership changed.
     fn enforce_cap(&mut self) -> bool {
         let keep = retain_within_cap(&self.window, &self.entries, MAX_CACHE_BYTES);
@@ -86,8 +85,8 @@ impl Inner {
     }
 }
 
-/// Walk `window` nearest-first, keeping ids whose cached bytes fit under `cap`.
-/// Stops at the first entry that would exceed the cap (nearest entries win).
+/// Walk `window` front-first, keeping ids whose cached bytes fit under `cap`.
+/// Stops at the first entry that would exceed the cap (leading entries win).
 /// Ids not present in `entries` are ignored (not yet fetched).
 fn retain_within_cap(
     window: &[(i64, PathBuf)],
@@ -142,10 +141,9 @@ impl Cache {
     /// Replace the residency window. Evicts out-of-window entries, enforces the
     /// byte cap, emits a cache-state event if membership changed, and wakes the
     /// prefetch worker to fetch any still-missing window entries.
-    pub fn set_window(&self, mut window: Vec<(i64, PathBuf)>) {
-        // Defensively enforce the keep-window bound (current + next
-        // WINDOW_SIZE) regardless of how many ids the renderer pushes.
-        window.truncate(WINDOW_SIZE + 1);
+    pub fn set_window(&self, window: Vec<(i64, PathBuf)>) {
+        // The whole playlist is accepted; the byte cap (enforced below) bounds
+        // how many leading tracks actually stay resident.
         let changed = {
             let mut inner = self.inner.lock();
             inner.window = window;
@@ -174,7 +172,7 @@ impl Cache {
 }
 
 /// Background prefetch loop. Woken by `set_window`; reads missing window entries
-/// sequentially, nearest-first, one at a time.
+/// sequentially, front-first, one at a time.
 fn prefetch_worker(inner: Arc<Mutex<Inner>>, app: AppHandle, rx: Receiver<()>) {
     while rx.recv().is_ok() {
         // Coalesce a burst of wake-ups into a single run against the latest
@@ -219,8 +217,8 @@ fn run_prefetch(inner: &Arc<Mutex<Inner>>, app: &AppHandle) {
             }
         };
 
-        // Stop once the cap would be exceeded — nearest entries are prioritised
-        // and farther ones would only be evicted anyway.
+        // Stop once the cap would be exceeded — leading entries are prioritised
+        // and later ones would only be evicted anyway.
         if retained_bytes + bytes.len() > MAX_CACHE_BYTES {
             break;
         }
