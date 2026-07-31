@@ -28,77 +28,35 @@ pub fn generate(db: &Db, count: i64, exclude_ids: &[i64]) -> Result<Vec<Track>> 
         return Ok(vec![]);
     }
 
-    let exclude: std::collections::HashSet<i64> = exclude_ids.iter().copied().collect();
-    // Fetch extra tracks to compensate for ones excluded by the filter.
-    let excess_factor = if exclude.is_empty() { 1.0 } else { 2.0 };
-
     let jingle_count = count / JINGLE_EVERY;
     let commercial_count = count / COMMERCIAL_EVERY;
     let music_count = (count - jingle_count - commercial_count).max(0);
 
-    let raw_music: Vec<Track> = if exclude.is_empty() {
-        db.get_random_tracks(ContentType::Music.as_ref(), music_count)?
-            .into_iter()
-            .collect()
-    } else {
-        db.get_random_tracks(
-            ContentType::Music.as_ref(),
-            ((music_count as f64 * excess_factor) as i64) + 10,
-        )?
-        .into_iter()
-        .filter(|t| !exclude.contains(&t.id))
-        .collect()
-    };
+    // Exclusion happens in SQL (`NOT IN`), so each query returns exactly the
+    // requested count of not-yet-queued tracks — no over-fetch or post-filter.
+    let music = db.get_random_tracks(ContentType::Music.as_ref(), music_count, exclude_ids)?;
+    let jingles = db.get_random_tracks(ContentType::Jingle.as_ref(), jingle_count, exclude_ids)?;
+    let commercials = db.pick_random_from_bottom(
+        ContentType::Commercial.as_ref(),
+        commercial_count,
+        commercial_bucket_size(commercial_count),
+        exclude_ids,
+    )?;
 
-    let music: Vec<Track> = raw_music
-        .into_iter()
-        .take(music_count.max(0) as usize)
-        .collect();
-
-    let raw_jingles: Vec<Track> = if exclude.is_empty() {
-        db.get_random_tracks(ContentType::Jingle.as_ref(), jingle_count)?
-            .into_iter()
-            .collect()
-    } else {
-        db.get_random_tracks(
-            ContentType::Jingle.as_ref(),
-            ((jingle_count as f64 * excess_factor) as i64) + 5,
-        )?
-        .into_iter()
-        .filter(|t| !exclude.contains(&t.id))
-        .collect()
-    };
-
-    let jingles: Vec<Track> = raw_jingles
-        .into_iter()
-        .take(jingle_count.max(0) as usize)
-        .collect();
-
-    let mut commercials_filtered: Vec<Track> = db
-        .pick_random_from_bottom(
-            ContentType::Commercial.as_ref(),
-            commercial_count,
-            commercial_bucket_size(commercial_count),
-        )?
-        .into_iter()
-        .filter(|t| !exclude.contains(&t.id))
-        .collect();
-
-    // Don't let commercials leak tracks already seen as jingles.
-    let j_ids: std::collections::HashSet<i64> = jingles.iter().map(|t| t.id).collect();
-    commercials_filtered.retain(|t| !j_ids.contains(&t.id));
-
-    Ok(interleave_evenly(music, jingles, commercials_filtered))
+    Ok(interleave_evenly(music, jingles, commercials))
 }
 
 pub fn pick_filler(db: &Db, content_type: ContentType) -> Result<Option<Track>> {
     match content_type {
-        ContentType::Jingle => Ok(db.get_random_tracks(ContentType::Jingle.as_ref(), 1)?.pop()),
+        ContentType::Jingle => Ok(db
+            .get_random_tracks(ContentType::Jingle.as_ref(), 1, &[])?
+            .pop()),
         ContentType::Commercial => Ok(db
             .pick_random_from_bottom(
                 ContentType::Commercial.as_ref(),
                 1,
                 commercial_bucket_size(1),
+                &[],
             )?
             .pop()),
         ContentType::Music => Ok(None),
