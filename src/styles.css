@@ -665,34 +665,92 @@ body {
   min-width: 0;
 }
 
-/* Placeholder for the deferred rotating vinyl disc (#271): a recessed circular
-   well with a note glyph standing in for cover art. */
+/* Main deck mirrors the cue: its vinyl disc sits to the right of the waveform. */
+#now-playing .deck-body {
+  flex-direction: row-reverse;
+}
+
+/* Rotating vinyl disc (#271): a near-black record with a concentric-groove
+   sheen; the track's cover art sits in the center label. The disc spins while
+   the deck plays (`.spinning`) and falls back to a note glyph when the track
+   has no embedded artwork. The outer shell stays static so its drop shadow
+   doesn't wobble — only the inner label/glyph rotates. */
 .vinyl-disc {
+  position: relative;
   flex: none;
-  aspect-ratio: 1 / 1;
-  height: 100%;
+  align-self: center;
+  width: 108px;
+  height: 108px;
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: 50%;
-  background: radial-gradient(
-    circle at center,
-    var(--surface-container-lowest) 0%,
-    var(--surface-container) 100%
-  );
+  background:
+    repeating-radial-gradient(
+      circle at center,
+      rgb(255 255 255 / 0.05) 0 1px,
+      transparent 1px 4px
+    ),
+    radial-gradient(circle at center, #2a2a2e 0%, #060608 72%);
   border: 1px solid color-mix(in srgb, var(--outline-variant) 25%, transparent);
-  box-shadow: inset 0 2px 6px rgb(0 0 0 / 0.4);
+  box-shadow:
+    inset 0 2px 6px rgb(0 0 0 / 0.5),
+    0 2px 8px rgb(0 0 0 / 0.4);
   color: var(--on-surface-variant);
   overflow: hidden;
 }
 
-#cue-deck .vinyl-disc {
-  color: var(--secondary);
+/* Cover art as the record's center label. Real artwork fills the label (cover);
+   the fallback logo is a dark monochrome mark, so it gets a light label and is
+   scaled to fit whole (contain) rather than cropped. */
+.vinyl-art {
+  width: 74%;
+  height: 74%;
+  border-radius: 50%;
+  object-fit: cover;
+  box-shadow:
+    0 0 0 2px rgb(0 0 0 / 0.55),
+    0 1px 4px rgb(0 0 0 / 0.4);
 }
 
-.vinyl-disc .material-symbols-outlined {
-  font-size: 28px;
-  opacity: 0.5;
+.vinyl-art--default {
+  object-fit: contain;
+  padding: 10%;
+  background: transparent;
+  box-shadow: none;
+}
+
+/* Spindle hole punched through the center of the label. */
+.vinyl-disc::after {
+  content: "";
+  position: absolute;
+  width: 7%;
+  height: 7%;
+  min-width: 4px;
+  min-height: 4px;
+  border-radius: 50%;
+  background: var(--surface-container-lowest);
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.6);
+  z-index: 1;
+}
+
+/* Spin the center label while the deck plays. The grooves are radially
+   symmetric, so rotating the whole disc would show no motion — only the label
+   art carries the visible spin. */
+.vinyl-disc.spinning .vinyl-art {
+  animation: vinyl-spin 4s linear infinite;
+}
+
+@keyframes vinyl-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vinyl-disc.spinning .vinyl-art {
+    animation: none;
+  }
 }
 
 #progress-bar,

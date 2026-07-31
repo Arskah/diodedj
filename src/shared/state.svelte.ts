@@ -71,6 +71,10 @@ export class AppState {
   // rendered behind the seek bar. `null` while none is loaded or the track has
   // no stored waveform (falls back to a plain progress bar).
   waveform = $state<number[] | null>(null);
+  // Base64 `data:` URL of the current main-deck track's embedded cover art,
+  // shown on the spinning vinyl disc. `null` while none is loaded or the track
+  // has no artwork (the disc falls back to a note-icon placeholder).
+  coverArt = $state<string | null>(null);
   // Track ids currently resident in the backend prefetch cache. Drives
   // skip-to-cached advancement during a network outage; membership is updated
   // by cache-state events.
@@ -102,6 +106,8 @@ export class AppState {
   cueOutputUnavailable = $state(false);
   // Amplitude-curve peaks for the current cue-deck track (see `waveform`).
   cueWaveform = $state<number[] | null>(null);
+  // Cover-art data URL for the current cue-deck track (see `coverArt`).
+  cueCoverArt = $state<string | null>(null);
 
   // Audio device config
   audioDevices = $state<DeviceInfo[]>([]);
@@ -403,6 +409,7 @@ export class AppState {
     this.duration = track.duration ?? 0;
     this.currentTime = 0;
     this.loadWaveform(track.id);
+    this.loadCoverArt(track.id);
     void this.loadAndPlay(track);
     void api.trackPlayed(track.id);
     document.title = `${track.title} - ${track.artist} | DiodeDJ`;
@@ -446,6 +453,31 @@ export class AppState {
       .catch((err) => logger.error("Cue waveform load failed:", err));
   }
 
+  /**
+   * Fetch the current main-deck track's cover art, with the same race guard as
+   * `loadWaveform`: a slow fetch for a track the user has skipped past must not
+   * overwrite the art now showing.
+   */
+  private loadCoverArt(id: number): void {
+    this.coverArt = null;
+    void api
+      .getCoverArt(id)
+      .then((art) => {
+        if (this.currentTrack?.id === id) this.coverArt = art;
+      })
+      .catch((err) => logger.error("Cover art load failed:", err));
+  }
+
+  private loadCueCoverArt(id: number): void {
+    this.cueCoverArt = null;
+    void api
+      .getCoverArt(id)
+      .then((art) => {
+        if (this.cueTrack?.id === id) this.cueCoverArt = art;
+      })
+      .catch((err) => logger.error("Cue cover art load failed:", err));
+  }
+
   togglePlay(): void {
     if (!this.currentTrack) {
       if (this.playlist.length > 0) this.playIndex(0);
@@ -469,6 +501,7 @@ export class AppState {
     this.currentTime = 0;
     this.duration = 0;
     this.waveform = null;
+    this.coverArt = null;
     this.isPlaying = false;
     document.title = "DiodeDJ";
     this.updatePrefetch();
@@ -576,6 +609,7 @@ export class AppState {
     this.cueDuration = track.duration ?? 0;
     this.cueCurrentTime = 0;
     this.loadCueWaveform(track.id);
+    this.loadCueCoverArt(track.id);
     void this.cueBackend
       .load(track.id)
       .then(() => this.cueBackend.play())
@@ -603,6 +637,7 @@ export class AppState {
     this.cueCurrentTime = 0;
     this.cueDuration = 0;
     this.cueWaveform = null;
+    this.cueCoverArt = null;
   }
 
   cueSeekToPct(pct: number): void {
@@ -697,6 +732,7 @@ export class AppState {
         this.currentTime = state.currentTime;
       }
       this.loadWaveform(restored.id);
+      this.loadCoverArt(restored.id);
       void this.loadWithSeek(restored, state.currentTime);
       document.title = `${restored.title} - ${restored.artist} | DiodeDJ`;
     }

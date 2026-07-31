@@ -1,4 +1,8 @@
 declare module "*.css";
+declare module "*.svg" {
+  const url: string;
+  export default url;
+}
 declare module "*.svelte" {
   import type { Component } from "svelte";
   const component: Component;
