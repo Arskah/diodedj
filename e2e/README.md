@@ -1,6 +1,6 @@
 # e2e
 
-End-to-end tests for Radiodiodj via `tauri-driver` + WebdriverIO.
+End-to-end tests for RadiodioDJ via `tauri-driver` + WebdriverIO.
 
 ## Platform support
 

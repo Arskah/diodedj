@@ -1,4 +1,4 @@
-# Radiodiodj
+# RadiodioDJ
 
 Desktop radio-station player: scans local audio, classifies tracks by content type, plays them on virtual DJ decks with auto-playlist scheduling that interleaves jingles and commercials between music.
 

@@ -797,7 +797,7 @@ mod tests {
 
     #[test]
     fn read_file_missing_path_errors() {
-        assert!(read_file(Path::new("/nonexistent/diodedj/nope.wav")).is_err());
+        assert!(read_file(Path::new("/nonexistent/radiodiodj/nope.wav")).is_err());
     }
 
     /// The worker only applies a background read if its generation still matches

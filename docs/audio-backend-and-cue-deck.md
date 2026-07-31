@@ -242,9 +242,9 @@ Recommendation when prioritised: option (1) — defer until upstream offers a st
 
 ### Tradeoffs operators should know (regardless of implementation path)
 
-- **Exclusive engaged**: other apps' audio (Slack, browser, system sounds) cannot use the device. macOS Slack-call notifications, Windows Discord pings, Linux desktop alerts all silently drop while Radiodiodj holds the device.
+- **Exclusive engaged**: other apps' audio (Slack, browser, system sounds) cannot use the device. macOS Slack-call notifications, Windows Discord pings, Linux desktop alerts all silently drop while RadiodioDJ holds the device.
 - **Exclusive on cue device only**: main keeps system audio routing intact. Cue going to a USB interface that nothing else uses is the sweet spot.
-- **Format mismatch**: exclusive mode requires the device's raw mix format (often 44.1 kHz / 24-bit on a USB interface, 48 kHz / 32-bit float on most onboard DACs). Radiodiodj's symphonia decoder produces f32; rodio's mixer resamples. Going exclusive removes the OS resampler — if symphonia output sample rate ≠ device rate, we'd need to add an SRC step. Not free.
+- **Format mismatch**: exclusive mode requires the device's raw mix format (often 44.1 kHz / 24-bit on a USB interface, 48 kHz / 32-bit float on most onboard DACs). RadiodioDJ's symphonia decoder produces f32; rodio's mixer resamples. Going exclusive removes the OS resampler — if symphonia output sample rate ≠ device rate, we'd need to add an SRC step. Not free.
 - **Hot-unplug**: in shared mode cpal can recover via the OS reroute; in exclusive mode the stream must be explicitly torn down + reopened against a new device.
 
 ### What ships in step 4

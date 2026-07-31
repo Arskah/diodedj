@@ -1,1 +1,1 @@
-export const APP_NAME = "Radiodiodj";
+export const APP_NAME = "RadiodioDJ";

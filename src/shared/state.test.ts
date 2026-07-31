@@ -142,7 +142,7 @@ interface TestApp {
 
 function makeApp(): TestApp {
   document.body.innerHTML = "";
-  document.title = "Radiodiodj";
+  document.title = "RadiodioDJ";
   const mock = new MockBackend();
   const cueMock = new MockBackend();
   const app = new AppState(mock, cueMock);
@@ -292,7 +292,7 @@ describe("AppState playback control", () => {
     expect(app.playlist.length).toBe(0);
     expect(mock.lastLoadedId).toBe(7);
     expect(api.trackPlayed).toHaveBeenCalledWith(7);
-    expect(document.title).toBe("Song - Band | Radiodiodj");
+    expect(document.title).toBe("Song - Band | RadiodioDJ");
   });
 
   it("playing a new track moves the previous one into history", () => {
@@ -434,7 +434,7 @@ describe("AppState playback control", () => {
     expect(app.autoPlaylistActive).toBe(false);
     expect(app.currentTime).toBe(0);
     expect(app.duration).toBe(0);
-    expect(document.title).toBe("Radiodiodj");
+    expect(document.title).toBe("RadiodioDJ");
     expect(mock.stopCalls).toBeGreaterThan(0);
   });
 
@@ -1051,7 +1051,7 @@ describe("AppState session persistence", () => {
     expect(app.volume).toBe(0.6);
     expect(app.currentTime).toBe(12.5);
     expect(mock.lastLoadedId).toBe(2);
-    expect(document.title).toBe("t2 - a2 | Radiodiodj");
+    expect(document.title).toBe("t2 - a2 | RadiodioDJ");
   });
 
   it("loadSession drops missing track ids", async () => {
