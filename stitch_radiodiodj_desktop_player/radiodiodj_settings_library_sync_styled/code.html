@@ -1,0 +1,434 @@
+<!doctype html>
+<html class="dark" lang="en" style="">
+  <head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>RadiodioDJ Settings - Library Sync</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@500;700&amp;family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      .material-symbols-outlined {
+        font-variation-settings:
+          "FILL" 0,
+          "wght" 400,
+          "GRAD" 0,
+          "opsz" 24;
+      }
+      .glass-morphism {
+        background: rgba(17, 19, 23, 0.8);
+        backdrop-filter: blur(12px);
+      }
+      .hardware-inner-shadow {
+        box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.5);
+      }
+      .neon-glow-primary {
+        box-shadow: 0 0 8px rgba(184, 195, 255, 0.4);
+      }
+      .no-scrollbar::-webkit-scrollbar {
+        display: none;
+      }
+      .no-scrollbar {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+      }
+
+      .tactile-button {
+        transition: all 0.1s ease;
+      }
+      .tactile-button:active {
+        transform: translateY(1px);
+      }
+    </style>
+    <script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "secondary-container": "#6f00be",
+              "on-tertiary-fixed": "#380d00",
+              surface: "#111317",
+              "on-primary": "#002388",
+              "surface-container-lowest": "#0c0e12",
+              "on-tertiary-container": "#ffece6",
+              "on-secondary-container": "#d6a9ff",
+              "on-error": "#690005",
+              "surface-variant": "#333539",
+              "outline-variant": "#434656",
+              "on-primary-fixed": "#001356",
+              "on-tertiary-fixed-variant": "#812800",
+              "primary-container": "#2e5bff",
+              "surface-container-highest": "#333539",
+              "inverse-on-surface": "#2f3035",
+              "surface-dim": "#111317",
+              "error-container": "#93000a",
+              "inverse-surface": "#e2e2e8",
+              "tertiary-fixed": "#ffdbcf",
+              "surface-container": "#1e2024",
+              error: "#ffb4ab",
+              "surface-bright": "#37393e",
+              "secondary-fixed-dim": "#ddb7ff",
+              "inverse-primary": "#124af0",
+              tertiary: "#ffb59b",
+              "surface-container-low": "#1a1c20",
+              "on-primary-fixed-variant": "#0035be",
+              "on-error-container": "#ffdad6",
+              "tertiary-container": "#c24100",
+              "on-secondary-fixed-variant": "#6900b3",
+              "on-tertiary": "#5b1a00",
+              "on-secondary-fixed": "#2c0051",
+              "primary-fixed-dim": "#b8c3ff",
+              outline: "#8e90a2",
+              secondary: "#ddb7ff",
+              "surface-tint": "#b8c3ff",
+              "on-surface": "#e2e2e8",
+              "on-background": "#e2e2e8",
+              "tertiary-fixed-dim": "#ffb59b",
+              primary: "#b8c3ff",
+              "secondary-fixed": "#f0dbff",
+              "primary-fixed": "#dde1ff",
+              "on-surface-variant": "#c4c5d9",
+              background: "#111317",
+              "on-secondary": "#490080",
+              "on-primary-container": "#efefff",
+              "surface-container-high": "#282a2e",
+            },
+            borderRadius: {
+              DEFAULT: "0.125rem",
+              lg: "0.25rem",
+              xl: "0.5rem",
+              full: "0.75rem",
+            },
+            spacing: {
+              xl: "32px",
+              sm: "8px",
+              "grid-gutter": "8px",
+              xs: "4px",
+              unit: "4px",
+              lg: "24px",
+              "grid-margin": "12px",
+              md: "16px",
+            },
+            fontFamily: {
+              "list-item": ["Inter"],
+              "numeric-label": ["JetBrains Mono"],
+              "deck-title": ["Inter"],
+              "numeric-display": ["JetBrains Mono"],
+              "data-secondary": ["Inter"],
+              "data-primary": ["Inter"],
+            },
+            fontSize: {
+              "list-item": ["13px", { lineHeight: "18px", fontWeight: "500" }],
+              "numeric-label": [
+                "10px",
+                {
+                  lineHeight: "12px",
+                  letterSpacing: "0.05em",
+                  fontWeight: "500",
+                },
+              ],
+              "deck-title": [
+                "20px",
+                {
+                  lineHeight: "28px",
+                  letterSpacing: "-0.02em",
+                  fontWeight: "700",
+                },
+              ],
+              "numeric-display": [
+                "24px",
+                { lineHeight: "32px", fontWeight: "700" },
+              ],
+              "data-secondary": [
+                "12px",
+                { lineHeight: "16px", fontWeight: "400" },
+              ],
+              "data-primary": [
+                "14px",
+                { lineHeight: "20px", fontWeight: "600" },
+              ],
+            },
+          },
+        },
+      };
+    </script>
+  </head>
+  <body
+    class="bg-black overflow-hidden font-data-primary text-on-surface select-none"
+  >
+    <!-- Background Production Console (Blurred) -->
+    <div
+      class="fixed inset-0 z-0 flex flex-col pointer-events-none opacity-40 blur-md"
+    >
+      <header
+        class="h-16 bg-surface-container-lowest flex items-center px-lg border-b border-outline-variant/10"
+      >
+        <div
+          class="font-deck-title text-deck-title text-primary tracking-tighter"
+        >
+          RadiodioDJ
+        </div>
+      </header>
+      <main class="flex-1 flex p-grid-gutter gap-grid-gutter">
+        <div
+          class="flex-1 bg-surface-container-low rounded-lg hardware-inner-shadow"
+        ></div>
+        <div
+          class="w-48 bg-surface-container rounded-lg border border-outline-variant/20"
+        ></div>
+        <div
+          class="flex-1 bg-surface-container-low rounded-lg hardware-inner-shadow"
+        ></div>
+      </main>
+      <footer
+        class="h-64 bg-surface-container-lowest border-t border-outline-variant/20"
+      ></footer>
+    </div>
+    <!-- Settings Overlay Backdrop -->
+    <div
+      class="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-md p-lg"
+    >
+      <!-- Modal Container -->
+      <div
+        class="bg-surface-container-low border border-outline-variant shadow-2xl w-full max-w-5xl h-[80vh] flex flex-col rounded-xl overflow-hidden animate-in fade-in zoom-in duration-300"
+      >
+        <!-- Header -->
+        <div
+          class="h-14 border-b border-outline-variant flex items-center justify-between px-lg bg-surface-container-high"
+        >
+          <div class="flex items-center gap-md">
+            <span class="material-symbols-outlined text-primary">settings</span>
+            <h1
+              class="font-deck-title text-deck-title !text-[16px] tracking-wide uppercase"
+            >
+              Preferences
+            </h1>
+          </div>
+          <button
+            class="text-on-surface-variant hover:text-on-surface transition-colors"
+          >
+            <span class="material-symbols-outlined">close</span>
+          </button>
+        </div>
+        <!-- Main Split -->
+        <div class="flex-1 flex overflow-hidden">
+          <!-- Modal Sidebar -->
+          <aside
+            class="w-64 border-r border-outline-variant bg-surface-container-low flex flex-col p-sm"
+          >
+            <nav class="space-y-xs">
+              <button
+                class="w-full flex items-center gap-md px-md py-sm rounded hover:bg-surface-variant/30 text-on-surface-variant font-list-item text-list-item text-left transition-all"
+              >
+                <span class="material-symbols-outlined">volume_up</span> Audio
+                Output
+              </button>
+              <button
+                class="w-full flex items-center gap-md px-md py-sm rounded bg-primary/10 text-primary font-list-item text-list-item text-left border-r-2 border-primary transition-all"
+              >
+                <span class="material-symbols-outlined">sync</span> Library Sync
+              </button>
+              <button
+                class="w-full flex items-center gap-md px-md py-sm rounded hover:bg-surface-variant/30 text-on-surface-variant font-list-item text-list-item text-left transition-all"
+              >
+                <span class="material-symbols-outlined">rss_feed</span> Now
+                Playing
+              </button>
+            </nav>
+          </aside>
+          <!-- Modal Content Canvas -->
+          <main
+            class="flex-1 overflow-y-auto no-scrollbar bg-surface-container p-xl"
+          >
+            <section
+              class="space-y-xl animate-in slide-in-from-right-4 duration-300"
+            >
+              <div class="flex flex-col">
+                <h2 class="font-deck-title text-deck-title mb-xs">
+                  Library Synchronization
+                </h2>
+                <p class="text-on-surface-variant font-data-secondary">
+                  Configure directory paths and automatic scanning for your
+                  media assets.
+                </p>
+              </div>
+              <!-- Global Toggle Card -->
+
+              <!-- Folders Grid -->
+              <div class="grid grid-cols-1 gap-lg">
+                <!-- Music Folders Section -->
+                <div class="space-y-sm">
+                  <div class="flex items-end">
+                    <button
+                      class="text-primary hover:text-on-surface transition-colors flex items-center gap-xs"
+                    >
+                      <span class="material-symbols-outlined text-[18px]"
+                        >add_circle</span
+                      ><span
+                        class="text-xs font-data-primary uppercase tracking-wide"
+                        >Add Directory</span
+                      >
+                    </button>
+                  </div>
+                  <div class="space-y-xs">
+                    <div
+                      class="bg-surface-container-lowest border border-outline-variant rounded flex items-center justify-between px-md py-sm group"
+                    >
+                      <div class="flex items-center gap-md">
+                        <span
+                          class="material-symbols-outlined text-outline text-[18px]"
+                          >folder</span
+                        >
+                        <span class="font-numeric-label text-on-surface-variant"
+                          >D:\Audio\Library\Lossless\Studio_Masters</span
+                        >
+                      </div>
+                      <button
+                        class="text-outline hover:text-error opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center p-xs rounded hover:bg-error/10"
+                      >
+                        <span class="material-symbols-outlined text-[18px]"
+                          >close</span
+                        >
+                      </button>
+                    </div>
+                    <div
+                      class="bg-surface-container-lowest border border-outline-variant rounded flex items-center justify-between px-md py-sm group"
+                    >
+                      <div class="flex items-center gap-md">
+                        <span
+                          class="material-symbols-outlined text-outline text-[18px]"
+                          >folder</span
+                        >
+                        <span class="font-numeric-label text-on-surface-variant"
+                          >E:\CloudStorage\RadiodioDJ_Backup\New_Tracks</span
+                        >
+                      </div>
+                      <button
+                        class="text-outline hover:text-error opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center p-xs rounded hover:bg-error/10"
+                      >
+                        <span class="material-symbols-outlined text-[18px]"
+                          >close</span
+                        >
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                <!-- Jingles Folders Section -->
+                <div class="space-y-sm">
+                  <div class="flex items-end">
+                    <button
+                      class="text-primary hover:text-on-surface transition-colors flex items-center gap-xs"
+                    >
+                      <span class="material-symbols-outlined text-[18px]"
+                        >add_circle</span
+                      ><span
+                        class="text-xs font-data-primary uppercase tracking-wide"
+                        >Add Directory</span
+                      >
+                    </button>
+                  </div>
+                  <div
+                    class="bg-surface-container-lowest border border-outline-variant rounded flex items-center px-md py-sm group"
+                  >
+                    <div class="flex items-center gap-md">
+                      <span
+                        class="material-symbols-outlined text-outline text-[18px]"
+                        >folder</span
+                      >
+                      <span class="font-numeric-label text-on-surface-variant"
+                        >C:\ProgramData\RadiodioDJ\Assets\Station_IDs</span
+                      >
+                    </div>
+                    <button
+                      class="text-outline hover:text-error opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center p-xs rounded hover:bg-error/10"
+                    >
+                      <span class="material-symbols-outlined text-[18px]"
+                        >close</span
+                      >
+                    </button>
+                  </div>
+                </div>
+                <!-- Commercials Folders Section -->
+                <div class="space-y-sm">
+                  <div class="flex items-end">
+                    <button
+                      class="text-primary hover:text-on-surface transition-colors flex items-center gap-xs"
+                    >
+                      <span class="material-symbols-outlined text-[18px]"
+                        >add_circle</span
+                      ><span
+                        class="text-xs font-data-primary uppercase tracking-wide"
+                        >Add Directory</span
+                      >
+                    </button>
+                  </div>
+                  <div
+                    class="bg-surface-container-lowest border border-outline-variant rounded-xl p-xl flex flex-col justify-center hardware-inner-shadow border-dashed"
+                  >
+                    <p class="font-data-secondary text-outline text-xs italic">
+                      No commercial directories defined
+                    </p>
+                    <p
+                      class="font-data-secondary text-outline-variant text-[10px]"
+                    >
+                      Click 'Add Directory' to begin
+                    </p>
+                  </div>
+                </div>
+                <button
+                  class="mt-md py-1 bg-primary/10 border border-primary text-primary rounded-lg flex items-center justify-center hover:bg-primary/20 transition-all font-data-primary tactile-button px-md justify-self-end"
+                >
+                  Scan Library Now
+                </button>
+              </div>
+            </section>
+          </main>
+        </div>
+        <!-- Footer Actions -->
+        <footer
+          class="h-16 border-t border-outline-variant bg-surface-container-low flex items-center px-lg justify-between"
+        >
+          <div class="flex items-center gap-sm">
+            <span class="material-symbols-outlined text-outline text-[18px]"
+              >info</span
+            ><span class="font-data-secondary text-on-surface-variant text-xs"
+              >All changes are saved automatically</span
+            >
+          </div>
+
+          <div class="flex gap-md">
+            <button
+              class="px-xl py-sm rounded bg-surface-bright border border-outline-variant text-on-surface hover:bg-surface-variant/30 transition-all font-data-primary tactile-button flex items-center justify-center min-w-[100px]"
+            >
+              Close
+            </button>
+          </div>
+        </footer>
+      </div>
+    </div>
+    <script>
+      function startSync() {
+        const spinner = document.getElementById("sync-spinner");
+        const status = document.getElementById("sync-status");
+
+        spinner.style.display = "block";
+        status.textContent = "Scanning directories...";
+        status.classList.remove("text-outline");
+        status.classList.add("text-primary");
+
+        setTimeout(() => {
+          spinner.style.display = "none";
+          status.textContent = "Sync complete. 422 files found.";
+          setTimeout(() => {
+            status.textContent = "All folders indexed.";
+            status.classList.add("text-outline");
+            status.classList.remove("text-primary");
+          }, 3000);
+        }, 2500);
+      }
+    </script>
+  </body>
+</html>
