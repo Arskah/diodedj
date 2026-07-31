@@ -848,11 +848,16 @@ body {
   min-height: 0;
 }
 
+/* Fixed height (not min-height) so the library and playlist panels — side by
+   side in the grid — always share the exact same header height and their tab
+   rows below line up, independent of the header controls (search pill vs action
+   buttons). box-sizing: border-box, so the 48px includes padding + border. */
 .panel-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--sp-md);
+  height: 48px;
   padding: var(--sp-sm) var(--sp-md);
   background: var(--surface-container);
   border-bottom: 1px solid
@@ -902,6 +907,7 @@ body {
 #search-input {
   flex: 1;
   min-width: 0;
+  height: 30px;
   padding: 6px 14px 6px 40px;
   background: var(--surface-container-lowest);
   border: 1px solid color-mix(in srgb, var(--outline-variant) 30%, transparent);
