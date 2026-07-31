@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.14.0](https://github.com/Arskah/radiodiodj/compare/v0.13.0...v0.14.0) (2026-07-31)
+
+
+### Features
+
+* vinyl-record app icon + player disc ([#288](https://github.com/Arskah/radiodiodj/issues/288)) ([9704dbe](https://github.com/Arskah/radiodiodj/commit/9704dbe0cd256a5a8ae45b0af7a04f30967a71ac))
+
 ## [0.13.0](https://github.com/Arskah/radiodiodj/compare/v0.12.0...v0.13.0) (2026-07-31)
 
 
