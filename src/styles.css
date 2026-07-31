@@ -172,14 +172,6 @@ body {
   flex: 1;
 }
 
-#toolbar-title {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--outline);
-}
-
 #app-nav {
   display: flex;
   align-items: center;

@@ -10,7 +10,6 @@
 
 <!-- Row 1: thin draggable titlebar (macOS traffic lights sit in the left inset). -->
 <header id="toolbar">
-  <span id="toolbar-title">RadiodioDJ</span>
   <div id="toolbar-spacer"></div>
 </header>
 
