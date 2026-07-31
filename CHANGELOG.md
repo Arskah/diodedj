@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.13.0](https://github.com/Arskah/diodedj/compare/v0.12.0...v0.13.0) (2026-07-31)
+
+
+### Features
+
+* **deck:** rotating vinyl disc with embedded cover art ([#274](https://github.com/Arskah/diodedj/issues/274)) ([9a56653](https://github.com/Arskah/diodedj/commit/9a56653f459c19f13ce6db19cab45ef030da88e4))
+* **ui:** convert app to the RadiodioDJ designs ([#272](https://github.com/Arskah/diodedj/issues/272)) ([7de1a87](https://github.com/Arskah/diodedj/commit/7de1a876713360371a92340ba85b66a1719c4179))
+
+
+### Miscellaneous Chores
+
+* **deps:** update dependency jsdom to v30 ([#266](https://github.com/Arskah/diodedj/issues/266)) ([8d326fd](https://github.com/Arskah/diodedj/commit/8d326fd777b00450b469fb325e255dceb880c2a5))
+* **deps:** update dependency svelte-check to v4.7.4 ([#267](https://github.com/Arskah/diodedj/issues/267)) ([18df5a0](https://github.com/Arskah/diodedj/commit/18df5a0c709923bbea63f1085bd57c1379b3d334))
+* **deps:** update node.js to v24.18.1 ([#268](https://github.com/Arskah/diodedj/issues/268)) ([faa74ba](https://github.com/Arskah/diodedj/commit/faa74ba92b773eeb1388f9d3de73efdeb4096770))
+
 ## [0.12.0](https://github.com/Arskah/diodedj/compare/v0.11.0...v0.12.0) (2026-07-29)
 
 
