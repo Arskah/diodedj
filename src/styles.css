@@ -632,13 +632,6 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
-.cue-remain-label {
-  font-family: var(--font-mono);
-  font-size: 9px;
-  letter-spacing: 0.05em;
-  color: var(--outline-variant);
-}
-
 .cue-volume {
   width: 72px;
   accent-color: var(--secondary);

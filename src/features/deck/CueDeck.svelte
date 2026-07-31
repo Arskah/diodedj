@@ -117,7 +117,6 @@
               app.cueDuration,
             )}</span
           >
-          <span class="cue-remain-label">Remain</span>
         </div>
       </div>
     </div>
