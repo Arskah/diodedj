@@ -557,7 +557,10 @@ export class AppState {
     if (this.playlist.some(isStopMarker)) return;
     if (this.playlist.length < AUTO_PLAYLIST_THRESHOLD) {
       const count = AUTO_PLAYLIST_BUFFER - this.playlist.length;
-      const tracks = await api.generatePlaylist(count);
+      const excludeIds = this.playlist
+        .filter(isTrackItem)
+        .map((i) => i.track.id);
+      const tracks = await api.generatePlaylist(count, excludeIds);
       this.playlist.push(...tracks.map(trackItem));
       this.updatePrefetch();
       this.scheduleSave();
