@@ -19,6 +19,10 @@ on:
         description: Name of the uploaded artifact bundle
         type: string
         required: true
+      sign-windows:
+        description: Sign Windows bundles via signing.windows.conf.json overlay (needs signing secrets). See docs/signing.md
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -27,6 +31,15 @@ jobs:
   build:
     name: Build ${{ inputs.target }}
     runs-on: ${{ inputs.platform }}
+    env:
+      # Signing secrets — empty until configured; see docs/signing.md.
+      # Available to this reusable workflow because callers pass `secrets: inherit`.
+      GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+      GPG_KEY_ID: ${{ secrets.GPG_KEY_ID }}
+      APPIMAGETOOL_SIGN_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/setup
@@ -52,10 +65,24 @@ jobs:
         with:
           workspaces: src-tauri
 
+      # Linux AppImage GPG signing. No-op unless GPG_PRIVATE_KEY secret is set.
+      - name: Import GPG signing key (Linux AppImage)
+        if: startsWith(inputs.platform, 'ubuntu') && env.GPG_PRIVATE_KEY != ''
+        shell: bash
+        run: |
+          echo "$GPG_PRIVATE_KEY" | gpg --batch --import
+          {
+            echo "SIGN=1"
+            echo "APPIMAGETOOL_FORCE_SIGN=1"
+          } >> "$GITHUB_ENV"
+          [ -n "$GPG_KEY_ID" ] && echo "SIGN_KEY=$GPG_KEY_ID" >> "$GITHUB_ENV"
+
       - uses: tauri-apps/tauri-action@1deb371b0cd8bd54025b384f1cd735e725c4060f # v1.0.0
         id: tauri
         with:
-          args: ${{ inputs.args }}
+          # `--config signing.windows.conf.json` overlays the Authenticode signCommand
+          # only when sign-windows is enabled. See docs/signing.md.
+          args: ${{ inputs.sign-windows && format('{0} --config src-tauri/signing.windows.conf.json', inputs.args) || inputs.args }}
           tauriScript: pnpm tauri
 
       - name: Stage bundles
