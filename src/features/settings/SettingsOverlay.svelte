@@ -340,6 +340,10 @@
                     class="np-input mono"
                     type={showSecret ? "text" : "password"}
                     placeholder="optional"
+                    autocapitalize="off"
+                    autocorrect="off"
+                    autocomplete="off"
+                    spellcheck="false"
                     value={nowPlaying.webhookSecret ?? ""}
                     oninput={(e) =>
                       (nowPlaying = {
