@@ -8,6 +8,7 @@ const { api } = vi.hoisted(() => {
     getTrack: vi.fn(),
     getTracksByIds: vi.fn(),
     getWaveform: vi.fn(),
+    getCoverArt: vi.fn(),
     loadSession: vi.fn(),
     saveSession: vi.fn(),
     trackPlayed: vi.fn(),
@@ -109,6 +110,7 @@ function resetApi(): void {
   api.getScanStatus.mockResolvedValue({ status: "idle", lastResult: null });
   api.getTracksByIds.mockResolvedValue([]);
   api.getWaveform.mockResolvedValue(null);
+  api.getCoverArt.mockResolvedValue(null);
   api.getWaveformStatus.mockResolvedValue({ status: "idle" });
   api.loadSession.mockResolvedValue({
     state: {

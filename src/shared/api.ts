@@ -69,6 +69,13 @@ export const api = {
   getWaveform(id: number): Promise<number[] | null> {
     return invoke<number[] | null>("get_waveform", { id });
   },
+  /**
+   * Fetch a track's embedded cover art as a base64 `data:` URL for the deck's
+   * vinyl disc, or `null` when the file has no artwork. Read on demand.
+   */
+  getCoverArt(id: number): Promise<string | null> {
+    return invoke<string | null>("get_cover_art", { id });
+  },
   loadSession(): Promise<SessionLoadResult> {
     return invoke<SessionLoadResult>("load_session");
   },

@@ -872,6 +872,7 @@ name = "diodedj"
 version = "0.12.0"
 dependencies = [
  "anyhow",
+ "base64 0.22.1",
  "chrono",
  "cpal",
  "hmac",

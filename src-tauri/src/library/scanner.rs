@@ -1,4 +1,5 @@
 use anyhow::Result;
+use base64::Engine;
 use lofty::file::TaggedFileExt;
 use lofty::prelude::*;
 use lofty::probe::Probe;
@@ -206,6 +207,26 @@ fn parse_track(path: &str, content_type: &str, mtime_ms: i64) -> Result<TrackIns
         format,
         mtime: Some(mtime_ms),
     })
+}
+
+/// Read the first embedded cover-art picture from `path` and return it as a
+/// base64 `data:` URL (ready for an `<img src>`), or `None` when the file has
+/// no artwork or cannot be read. Read on demand for the deck's vinyl disc — the
+/// image is never stored, keeping the library DB free of large blobs.
+pub fn read_cover_art(path: &str) -> Option<String> {
+    let tagged = Probe::open(path).ok()?.read().ok()?;
+    let picture = tagged
+        .primary_tag()
+        .or_else(|| tagged.first_tag())?
+        .pictures()
+        .first()?;
+    let mime = picture
+        .mime_type()
+        .map(|m| m.as_str())
+        .filter(|s| !s.is_empty())
+        .unwrap_or("image/jpeg");
+    let encoded = base64::engine::general_purpose::STANDARD.encode(picture.data());
+    Some(format!("data:{mime};base64,{encoded}"))
 }
 
 #[cfg(test)]

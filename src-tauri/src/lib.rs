@@ -217,6 +217,15 @@ fn get_waveform(app_state: State<'_, AppState>, id: i64) -> Result<Option<Vec<u8
     app_state.db.get_waveform(id).map_err(err)
 }
 
+/// Extract a track's embedded cover art as a base64 `data:` URL for the deck's
+/// vinyl disc, or `None` when the file has no artwork. Read on demand (like the
+/// waveform) rather than stored, so the library DB stays free of image blobs.
+#[tauri::command(rename_all = "camelCase")]
+fn get_cover_art(app_state: State<'_, AppState>, id: i64) -> Result<Option<String>, String> {
+    let media = app_state.db.get_media_track(id).map_err(err)?;
+    Ok(media.and_then(|m| library::scanner::read_cover_art(&m.path)))
+}
+
 #[tauri::command(rename_all = "camelCase")]
 fn audio_list_devices() -> Vec<DeviceInfo> {
     list_output_devices()
@@ -493,6 +502,7 @@ pub fn run() {
             main_deck_seek,
             main_deck_set_volume,
             get_waveform,
+            get_cover_art,
             get_now_playing_config,
             set_now_playing_config,
             now_playing_test,
