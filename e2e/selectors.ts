@@ -17,5 +17,5 @@ export const sel = {
   btnStop: "#btn-stop",
   btnNext: "#btn-next",
   btnPrev: "#btn-prev",
-  timeDisplay: "#time-display",
+  timeDisplay: ".time-pill",
 } as const;

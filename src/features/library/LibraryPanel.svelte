@@ -15,9 +15,9 @@
     { column: "play_count", label: "Plays", cls: "track-plays" },
   ];
 
-  function sortIndicator(column: SortColumn): string {
-    if (app.sortBy !== column) return "";
-    return app.sortDir === "asc" ? " \u25B2" : " \u25BC";
+  function sortIcon(column: SortColumn): string {
+    if (app.sortBy !== column) return "unfold_more";
+    return app.sortDir === "asc" ? "arrow_upward" : "arrow_downward";
   }
 
   function ariaSort(column: SortColumn): "ascending" | "descending" | "none" {
@@ -53,31 +53,40 @@
   }
 </script>
 
-<section id="library-panel">
-  <div id="library-header">
-    <div id="library-tabs" role="tablist" aria-label="Library tabs">
-      {#each tabs as { type, label } (type)}
-        <button
-          class="lib-tab"
-          class:active={app.activeTab === type}
-          data-type={type}
-          role="tab"
-          aria-selected={app.activeTab === type}
-          onclick={() => app.setTab(type)}
-        >
-          {label}
-        </button>
-      {/each}
+<section id="library-panel" class="panel">
+  <div class="panel-header">
+    <span class="panel-title">
+      <span class="material-symbols-outlined" aria-hidden="true"
+        >library_music</span
+      >
+      Library
+    </span>
+    <div id="search-wrap">
+      <span class="material-symbols-outlined" aria-hidden="true">search</span>
+      <input
+        type="text"
+        id="search-input"
+        placeholder="Search tracks, artists, albums…"
+        autocomplete="off"
+        aria-label="Search tracks"
+        bind:value={app.searchQuery}
+        oninput={onSearchInput}
+      />
     </div>
-    <input
-      type="text"
-      id="search-input"
-      placeholder="Search tracks..."
-      autocomplete="off"
-      aria-label="Search tracks"
-      bind:value={app.searchQuery}
-      oninput={onSearchInput}
-    />
+  </div>
+  <div id="library-tabs" role="tablist" aria-label="Library tabs">
+    {#each tabs as { type, label } (type)}
+      <button
+        class="lib-tab"
+        class:active={app.activeTab === type}
+        data-type={type}
+        role="tab"
+        aria-selected={app.activeTab === type}
+        onclick={() => app.setTab(type)}
+      >
+        {label}
+      </button>
+    {/each}
   </div>
   <div id="track-headers">
     {#each sortableCols as col (col.column)}
@@ -88,7 +97,10 @@
         aria-sort={ariaSort(col.column)}
         onclick={() => app.toggleSort(col.column)}
       >
-        {col.label}{sortIndicator(col.column)}
+        {col.label}
+        <span class="material-symbols-outlined" aria-hidden="true"
+          >{sortIcon(col.column)}</span
+        >
       </button>
     {/each}
     <span class="track-header track-duration">Time</span>
@@ -96,7 +108,16 @@
   </div>
   <div id="track-list">
     {#if app.tracks.length === 0}
-      <div class="empty">No tracks found</div>
+      <div class="empty">
+        <span class="empty-icon"
+          ><span class="material-symbols-outlined">library_music</span></span
+        >
+        <span class="empty-title">Your Library is Empty</span>
+        <span class="empty-body"
+          >Add music, jingles, and commercials from Settings → Library Sync,
+          then scan to build your station.</span
+        >
+      </div>
     {:else}
       {#each app.tracks as track (track.id)}
         <div
@@ -115,23 +136,31 @@
           <span class="track-plays">{track.play_count || 0}</span>
           <span class="track-duration">{formatTime(track.duration)}</span>
           <button
-            class="btn-play-track"
-            title="Add and play"
-            onclick={(e) => playNow(track, e)}>&#9654;</button
-          >
-          <button
             class="btn-add"
             title="Add to playlist"
-            onclick={(e) => add(track, e)}>+</button
+            aria-label="Add to playlist"
+            onclick={(e) => add(track, e)}
           >
+            <span class="material-symbols-outlined">add</span>
+          </button>
           {#if app.cueDevice !== null}
             <button
               class="btn-cue"
               title="Preview on cue deck"
               aria-label="Cue track"
-              onclick={(e) => cue(track, e)}>&#127911;</button
+              onclick={(e) => cue(track, e)}
             >
+              <span class="material-symbols-outlined">headphones</span>
+            </button>
           {/if}
+          <button
+            class="btn-play-track"
+            title="Add and play"
+            aria-label="Add and play"
+            onclick={(e) => playNow(track, e)}
+          >
+            <span class="material-symbols-outlined">play_arrow</span>
+          </button>
         </div>
       {/each}
     {/if}

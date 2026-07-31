@@ -41,99 +41,141 @@
   }
 </script>
 
-<section id="now-playing">
+<section id="now-playing" class="deck inner-shadow-recessed">
   <div id="player-info">
     <div id="track-info">
-      <span id="np-title"
-        >{app.currentTrack ? app.currentTrack.title : "No track loaded"}</span
-      >
-      <span id="np-artist">{app.currentTrack?.artist ?? ""}</span>
-      {#if app.isBuffering}
-        <!-- Shimmer on the progress bar is the visual cue; keep a
-             screen-reader-only announcement since CSS is invisible to AT. -->
-        <span class="sr-only" aria-live="polite">Buffering…</span>
-      {/if}
+      <div class="deck-head">
+        <span class="material-symbols-outlined" aria-hidden="true"
+          >cell_tower</span
+        >
+        <span class="deck-label">Main Deck</span>
+      </div>
+      <div class="track-names">
+        <span id="np-title"
+          >{app.currentTrack ? app.currentTrack.title : "No Track Loaded"}</span
+        >
+        <span id="np-artist">{app.currentTrack?.artist ?? ""}</span>
+        {#if app.isBuffering}
+          <!-- Shimmer on the progress bar is the visual cue; keep a
+               screen-reader-only announcement since CSS is invisible to AT. -->
+          <span class="sr-only" aria-live="polite">Buffering…</span>
+        {/if}
+      </div>
     </div>
-    <div id="player-controls">
-      <button
-        id="btn-prev"
-        title="Previous"
-        aria-label="Previous track"
-        onclick={() => app.prev()}>&#9198;</button
+    <div class="deck-header-controls">
+      <div id="player-controls">
+        <button
+          id="btn-prev"
+          class="transport"
+          title="Previous"
+          aria-label="Previous track"
+          onclick={() => app.prev()}
+        >
+          <span class="material-symbols-outlined">skip_previous</span>
+        </button>
+        <button
+          id="btn-play"
+          class="transport transport-primary"
+          title={app.isPlaying ? "Pause" : "Play"}
+          aria-label={app.isPlaying ? "Pause" : "Play"}
+          aria-pressed={app.isPlaying}
+          onclick={() => app.togglePlay()}
+        >
+          <span class="material-symbols-outlined"
+            >{app.isPlaying ? "pause" : "play_arrow"}</span
+          >
+        </button>
+        <button
+          id="btn-stop"
+          class="transport"
+          title="Stop"
+          aria-label="Stop"
+          onclick={() => app.stop()}
+        >
+          <span class="material-symbols-outlined">stop</span>
+        </button>
+        <button
+          id="btn-next"
+          class="transport"
+          title="Next"
+          aria-label="Next track"
+          onclick={() => app.next()}
+        >
+          <span class="material-symbols-outlined">skip_next</span>
+        </button>
+      </div>
+      <div id="player-right">
+        <span class="material-symbols-outlined" aria-hidden="true"
+          >volume_up</span
+        >
+        <input
+          type="range"
+          id="volume"
+          min="0"
+          max="1"
+          step="0.01"
+          value={app.volume}
+          title="Volume"
+          oninput={(e) =>
+            app.setVolume(
+              parseFloat((e.currentTarget as HTMLInputElement).value),
+            )}
+        />
+      </div>
+      <div
+        class="segmented"
+        role="group"
+        aria-label="Auto/Manual playback mode"
       >
-      <button
-        id="btn-play"
-        title={app.isPlaying ? "Pause" : "Play"}
-        aria-label={app.isPlaying ? "Pause" : "Play"}
-        aria-pressed={app.isPlaying}
-        onclick={() => app.togglePlay()}
-      >
-        {@html app.isPlaying ? "&#9208;" : "&#9654;"}
-      </button>
-      <button
-        id="btn-stop"
-        title="Stop"
-        aria-label="Stop"
-        onclick={() => app.stop()}>&#9632;</button
-      >
-      <button
-        id="btn-next"
-        title="Next"
-        aria-label="Next track"
-        onclick={() => app.next()}>&#9197;</button
-      >
-    </div>
-    <button
-      id="btn-mode"
-      class:active={app.autoAdvance}
-      title="Auto/Manual playback mode"
-      aria-label="Toggle playback mode"
-      aria-pressed={app.autoAdvance}
-      onclick={() => app.toggleMode()}
-    >
-      {app.autoAdvance ? "AUTO" : "MANUAL"}
-    </button>
-    <div id="player-right">
-      <span id="time-display"
-        >{formatTime(app.currentTime)} / {formatTime(app.duration)}</span
-      >
-      <input
-        type="range"
-        id="volume"
-        min="0"
-        max="1"
-        step="0.01"
-        value={app.volume}
-        title="Volume"
-        oninput={(e) =>
-          app.setVolume(
-            parseFloat((e.currentTarget as HTMLInputElement).value),
-          )}
-      />
+        <button
+          class:active={app.autoAdvance}
+          aria-pressed={app.autoAdvance}
+          onclick={() => {
+            if (!app.autoAdvance) app.toggleMode();
+          }}>Auto</button
+        >
+        <button
+          class:active={!app.autoAdvance}
+          aria-pressed={!app.autoAdvance}
+          onclick={() => {
+            if (app.autoAdvance) app.toggleMode();
+          }}>Manual</button
+        >
+      </div>
     </div>
   </div>
-  <div
-    id="progress-bar"
-    class:buffering={app.isBuffering}
-    bind:this={progressBar}
-    role="slider"
-    tabindex="0"
-    aria-label="Seek"
-    aria-valuemin={0}
-    aria-valuemax={100}
-    aria-valuenow={Math.round(app.progressPct)}
-    onpointerdown={onPointerDown}
-    onpointermove={onPointerMove}
-    onpointerup={onPointerUp}
-    onpointercancel={onPointerCancel}
-    onpointerleave={onPointerLeave}
-  >
-    <Waveform
-      peaks={app.waveform}
-      progressPct={app.progressPct}
-      {hoverPct}
-      id="main"
-    />
-    <div id="progress-fill" style:width="{app.progressPct}%"></div>
+  <div class="deck-body">
+    <!-- Placeholder for the deferred rotating vinyl disc (#271). Reserves the
+         square slot next to the waveform; note icon stands in for cover art. -->
+    <div class="vinyl-disc" aria-hidden="true">
+      <span class="material-symbols-outlined">music_note</span>
+    </div>
+    <div
+      id="progress-bar"
+      class:buffering={app.isBuffering}
+      bind:this={progressBar}
+      role="slider"
+      tabindex="0"
+      aria-label="Seek"
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={Math.round(app.progressPct)}
+      onpointerdown={onPointerDown}
+      onpointermove={onPointerMove}
+      onpointerup={onPointerUp}
+      onpointercancel={onPointerCancel}
+      onpointerleave={onPointerLeave}
+    >
+      <Waveform
+        peaks={app.waveform}
+        progressPct={app.progressPct}
+        {hoverPct}
+        id="main"
+      />
+      <div id="progress-fill" style:width="{app.progressPct}%"></div>
+      <span class="time-pill"
+        >{formatTime(app.currentTime)} / {formatTime(app.duration)}</span
+      >
+    </div>
   </div>
 </section>

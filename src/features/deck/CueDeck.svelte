@@ -45,79 +45,115 @@
 </script>
 
 {#if app.cueDevice !== null}
-  <section id="cue-deck" aria-label="Cue deck">
+  <section
+    id="cue-deck"
+    class="deck inner-shadow-recessed"
+    aria-label="Cue deck"
+  >
     <div class="cue-info">
-      <div class="cue-track-info">
-        <span class="cue-title"
-          >{app.cueTrack ? app.cueTrack.title : "Cue idle"}</span
-        >
-        <span class="cue-artist">{app.cueTrack?.artist ?? ""}</span>
+      <div class="cue-info-left">
+        <div class="deck-head">
+          <span class="material-symbols-outlined" aria-hidden="true"
+            >headphones</span
+          >
+          <span class="deck-label">Cue Deck</span>
+        </div>
+        <div class="track-names">
+          <span class="cue-title"
+            >{app.cueTrack ? app.cueTrack.title : "No Track Loaded"}</span
+          >
+          <span class="cue-artist">{app.cueTrack?.artist ?? ""}</span>
+        </div>
       </div>
-      <div class="cue-controls">
-        <button
-          class="btn-cue-play"
-          title={app.cueIsPlaying ? "Pause cue" : "Play cue"}
-          disabled={!app.cueTrack}
-          onclick={() => app.cueTogglePlay()}
-        >
-          {@html app.cueIsPlaying ? "&#9208;" : "&#9654;"}
-        </button>
-        <button
-          class="btn-cue-stop"
-          title="Stop cue"
-          disabled={!app.cueTrack}
-          onclick={() => app.cueStop()}>&#9632;</button
-        >
-        <button
-          class="btn-cue-promote"
-          title="Insert cue track as next-up in main playlist"
-          disabled={!app.cueTrack}
-          onclick={() => app.promoteCueToMain()}>&rarr; main</button
-        >
+      <div class="deck-header-controls">
+        <div class="cue-controls">
+          <button
+            class="btn-cue-play"
+            title={app.cueIsPlaying ? "Pause cue" : "Play cue"}
+            aria-label={app.cueIsPlaying ? "Pause cue" : "Play cue"}
+            disabled={!app.cueTrack}
+            onclick={() => app.cueTogglePlay()}
+          >
+            <span class="material-symbols-outlined"
+              >{app.cueIsPlaying ? "pause" : "play_arrow"}</span
+            >
+          </button>
+          <button
+            class="btn-cue-stop"
+            title="Stop cue"
+            aria-label="Stop cue"
+            disabled={!app.cueTrack}
+            onclick={() => app.cueStop()}
+          >
+            <span class="material-symbols-outlined">stop</span>
+          </button>
+          <button
+            class="btn-cue-promote"
+            title="Insert cue track as next-up in main playlist"
+            aria-label="Promote cue track to main playlist"
+            disabled={!app.cueTrack}
+            onclick={() => app.promoteCueToMain()}
+          >
+            <span class="material-symbols-outlined">add</span>
+          </button>
+        </div>
+        <div class="cue-volume-wrap">
+          <span class="material-symbols-outlined" aria-hidden="true"
+            >volume_up</span
+          >
+          <input
+            type="range"
+            class="cue-volume"
+            min="0"
+            max="1"
+            step="0.01"
+            value={app.cueVolume}
+            title="Cue volume"
+            oninput={(e) =>
+              app.setCueVolume(
+                parseFloat((e.currentTarget as HTMLInputElement).value),
+              )}
+          />
+        </div>
       </div>
-      <div class="cue-right">
-        <span class="cue-time-display"
+    </div>
+    <div class="deck-body">
+      <!-- Placeholder for the deferred rotating vinyl disc (#271). Reserves the
+           square slot next to the waveform; note icon stands in for cover art. -->
+      <div class="vinyl-disc" aria-hidden="true">
+        <span class="material-symbols-outlined">music_note</span>
+      </div>
+      <div
+        class="cue-progress-bar"
+        bind:this={progressBar}
+        role="slider"
+        tabindex="0"
+        aria-label="Cue seek"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={Math.round(app.cueProgressPct)}
+        onpointerdown={onPointerDown}
+        onpointermove={onPointerMove}
+        onpointerup={onPointerUp}
+        onpointercancel={onPointerCancel}
+        onpointerleave={onPointerLeave}
+      >
+        <Waveform
+          peaks={app.cueWaveform}
+          progressPct={app.cueProgressPct}
+          {hoverPct}
+          id="cue"
+        />
+        <div
+          class="cue-progress-fill"
+          style:width="{app.cueProgressPct}%"
+        ></div>
+        <span class="time-pill"
           >{formatTime(app.cueCurrentTime)} / {formatTime(
             app.cueDuration,
           )}</span
         >
-        <input
-          type="range"
-          class="cue-volume"
-          min="0"
-          max="1"
-          step="0.01"
-          value={app.cueVolume}
-          title="Cue volume"
-          oninput={(e) =>
-            app.setCueVolume(
-              parseFloat((e.currentTarget as HTMLInputElement).value),
-            )}
-        />
       </div>
-    </div>
-    <div
-      class="cue-progress-bar"
-      bind:this={progressBar}
-      role="slider"
-      tabindex="0"
-      aria-label="Cue seek"
-      aria-valuemin={0}
-      aria-valuemax={100}
-      aria-valuenow={Math.round(app.cueProgressPct)}
-      onpointerdown={onPointerDown}
-      onpointermove={onPointerMove}
-      onpointerup={onPointerUp}
-      onpointercancel={onPointerCancel}
-      onpointerleave={onPointerLeave}
-    >
-      <Waveform
-        peaks={app.cueWaveform}
-        progressPct={app.cueProgressPct}
-        {hoverPct}
-        id="cue"
-      />
-      <div class="cue-progress-fill" style:width="{app.cueProgressPct}%"></div>
     </div>
     {#if app.cueError}
       <div class="cue-error" role="alert">

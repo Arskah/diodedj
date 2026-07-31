@@ -74,28 +74,14 @@
   }
 </script>
 
-<section id="playlist-panel">
-  <div id="playlist-header">
-    <div id="playlist-tabs" role="tablist">
-      <button
-        class="pl-tab"
-        class:active={app.playlistTab === "playlist"}
-        role="tab"
-        aria-selected={app.playlistTab === "playlist"}
-        onclick={() => (app.playlistTab = "playlist")}
+<section id="playlist-panel" class="panel">
+  <div class="panel-header">
+    <span class="panel-title">
+      <span class="material-symbols-outlined" aria-hidden="true"
+        >queue_music</span
       >
-        Up next <span class="pl-tab-count">({app.playlist.length})</span>
-      </button>
-      <button
-        class="pl-tab"
-        class:active={app.playlistTab === "history"}
-        role="tab"
-        aria-selected={app.playlistTab === "history"}
-        onclick={() => (app.playlistTab = "history")}
-      >
-        History <span class="pl-tab-count">({app.history.length})</span>
-      </button>
-    </div>
+      Active Playlist
+    </span>
     <div id="playlist-actions">
       {#if app.playlistTab === "playlist"}
         <button
@@ -108,10 +94,10 @@
           class="btn-filler"
           title="Add a commercial to the playlist"
           disabled={(app.stats?.tracksByType.commercial ?? 0) === 0}
-          onclick={() => app.addFiller("commercial")}>+ Commercial</button
+          onclick={() => app.addFiller("commercial")}>+ Comm</button
         >
         <button
-          class="btn-filler"
+          class="btn-filler btn-filler-stop"
           title="Stop automatic play when reached"
           onclick={() => app.addStopMarker()}>+ Stop</button
         >
@@ -125,6 +111,26 @@
       >
     </div>
   </div>
+  <div id="playlist-tabs" role="tablist">
+    <button
+      class="pl-tab"
+      class:active={app.playlistTab === "playlist"}
+      role="tab"
+      aria-selected={app.playlistTab === "playlist"}
+      onclick={() => (app.playlistTab = "playlist")}
+    >
+      Upcoming <span class="pl-tab-count">({app.playlist.length})</span>
+    </button>
+    <button
+      class="pl-tab"
+      class:active={app.playlistTab === "history"}
+      role="tab"
+      aria-selected={app.playlistTab === "history"}
+      onclick={() => (app.playlistTab = "history")}
+    >
+      History <span class="pl-tab-count">({app.history.length})</span>
+    </button>
+  </div>
 
   {#if app.playlistTab === "playlist"}
     <div
@@ -134,7 +140,16 @@
       role="list"
     >
       {#if app.playlist.length === 0}
-        <div class="empty">Playlist empty</div>
+        <div class="empty">
+          <span class="empty-icon"
+            ><span class="material-symbols-outlined">queue_music</span></span
+          >
+          <span class="empty-title">No Tracks Queued</span>
+          <span class="empty-body"
+            >Add tracks from the library, or enable Auto Mode to fill the queue
+            automatically.</span
+          >
+        </div>
       {:else}
         {#each app.playlist as item, i (i + "-" + rowKey(item))}
           {#if isStopMarker(item)}
@@ -154,19 +169,28 @@
               ondrop={(e) => onRowDrop(e, i)}
               role="listitem"
             >
-              <span class="pl-drag">&#8942;</span>
-              <span class="pl-num">{i + 1}</span>
-              <span class="pl-stop-label"
-                >&#9632; STOP &mdash; auto play halts here</span
+              <span class="pl-drag"
+                ><span class="material-symbols-outlined">drag_indicator</span
+                ></span
               >
+              <span class="pl-num"
+                ><span class="material-symbols-outlined">block</span></span
+              >
+              <div class="pl-body">
+                <span class="pl-stop-label">Stop</span>
+                <span class="pl-stop-sub">Auto play halts here</span>
+              </div>
               <button
                 class="btn-remove"
                 title="Remove"
+                aria-label="Remove stop marker"
                 onclick={(e) => {
                   e.stopPropagation();
                   app.removeFromPlaylist(i);
-                }}>&#10005;</button
+                }}
               >
+                <span class="material-symbols-outlined">close</span>
+              </button>
             </div>
           {:else}
             <div
@@ -187,19 +211,45 @@
               onmouseleave={() => app.clearHover()}
               role="listitem"
             >
-              <span class="pl-drag">&#8942;</span>
+              <span class="pl-drag"
+                ><span class="material-symbols-outlined">drag_indicator</span
+                ></span
+              >
               <span class="pl-num">{i + 1}</span>
-              <span class="pl-title">{item.track.title}</span>
-              <span class="pl-artist">{item.track.artist}</span>
-              <span class="pl-duration">{formatTime(item.track.duration)}</span>
+              <div class="pl-body">
+                <span class="pl-title">{item.track.title}</span>
+                <span class="pl-artist">{item.track.artist}</span>
+              </div>
+              <div class="pl-right">
+                {#if i === 0}
+                  <span class="pl-status next-up">Next Up</span>
+                {/if}
+                <span class="pl-duration"
+                  >{formatTime(item.track.duration)}</span
+                >
+              </div>
+              <button
+                class="btn-play-track"
+                title="Play now"
+                aria-label="Play now"
+                onclick={(e) => {
+                  e.stopPropagation();
+                  app.playIndex(i);
+                }}
+              >
+                <span class="material-symbols-outlined">play_arrow</span>
+              </button>
               <button
                 class="btn-remove"
                 title="Remove"
+                aria-label="Remove from playlist"
                 onclick={(e) => {
                   e.stopPropagation();
                   app.removeFromPlaylist(i);
-                }}>&#10005;</button
+                }}
               >
+                <span class="material-symbols-outlined">close</span>
+              </button>
             </div>
           {/if}
         {/each}
@@ -208,7 +258,13 @@
   {:else}
     <div id="history">
       {#if app.historyDisplay.length === 0}
-        <div class="empty">History empty</div>
+        <div class="empty">
+          <span class="empty-icon"
+            ><span class="material-symbols-outlined">history</span></span
+          >
+          <span class="empty-title">No History Yet</span>
+          <span class="empty-body">Tracks you play will appear here.</span>
+        </div>
       {:else}
         {#each app.historyDisplay as track, i (i + "-" + track.id)}
           <div
@@ -220,17 +276,24 @@
             role="listitem"
           >
             <span class="pl-num">{i + 1}</span>
-            <span class="pl-title">{track.title}</span>
-            <span class="pl-artist">{track.artist}</span>
-            <span class="pl-duration">{formatTime(track.duration)}</span>
+            <div class="pl-body">
+              <span class="pl-title">{track.title}</span>
+              <span class="pl-artist">{track.artist}</span>
+            </div>
+            <div class="pl-right">
+              <span class="pl-duration">{formatTime(track.duration)}</span>
+            </div>
             <button
               class="btn-remove"
               title="Remove from history"
+              aria-label="Remove from history"
               onclick={(e) => {
                 e.stopPropagation();
                 app.removeFromHistory(i);
-              }}>&#10005;</button
+              }}
             >
+              <span class="material-symbols-outlined">close</span>
+            </button>
           </div>
         {/each}
       {/if}
