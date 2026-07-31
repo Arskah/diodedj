@@ -1,7 +1,7 @@
 <script lang="ts">
   import { app, formatTime } from "../../shared/state.svelte";
   import Waveform from "./Waveform.svelte";
-  import defaultCover from "../../assets/radiodiodi_white.svg";
+  import defaultCover from "../../assets/radiodiodi_label.svg";
 
   let progressBar: HTMLDivElement;
   let scrubbing = false;
@@ -147,15 +147,10 @@
   </div>
   <div class="deck-body">
     <!-- Rotating vinyl disc: cover art in the center label, spinning while the
-         deck plays (#271). Falls back to the RadiodioDJ logo when the track has
-         no embedded artwork. -->
+         deck plays (#271). Falls back to a cream-label RadiodioDJ mark (matching
+         the app icon) when the track has no embedded artwork. -->
     <div class="vinyl-disc" class:spinning={app.isPlaying} aria-hidden="true">
-      <img
-        class="vinyl-art"
-        class:vinyl-art--default={!app.coverArt}
-        src={app.coverArt ?? defaultCover}
-        alt=""
-      />
+      <img class="vinyl-art" src={app.coverArt ?? defaultCover} alt="" />
     </div>
     <div
       id="progress-bar"
