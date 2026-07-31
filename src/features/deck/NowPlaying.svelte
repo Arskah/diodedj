@@ -47,9 +47,7 @@
       <span id="np-title"
         >{app.currentTrack ? app.currentTrack.title : "No Track Loaded"}</span
       >
-      <span id="np-artist"
-        >{app.currentTrack?.artist ?? "Ready for broadcast"}</span
-      >
+      <span id="np-artist">{app.currentTrack?.artist ?? ""}</span>
       {#if app.isBuffering}
         <!-- Shimmer on the progress bar is the visual cue; keep a
              screen-reader-only announcement since CSS is invisible to AT. -->

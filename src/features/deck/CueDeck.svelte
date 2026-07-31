@@ -92,9 +92,7 @@
         <span class="cue-title"
           >{app.cueTrack ? app.cueTrack.title : "No Track Loaded"}</span
         >
-        <span class="cue-artist"
-          >{app.cueTrack?.artist ?? "Ready for broadcast"}</span
-        >
+        <span class="cue-artist">{app.cueTrack?.artist ?? ""}</span>
       </div>
       <div class="cue-right">
         <span class="material-symbols-outlined" aria-hidden="true"
