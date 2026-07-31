@@ -229,6 +229,17 @@
                 >
               </div>
               <button
+                class="btn-play-track"
+                title="Play now"
+                aria-label="Play now"
+                onclick={(e) => {
+                  e.stopPropagation();
+                  app.playIndex(i);
+                }}
+              >
+                <span class="material-symbols-outlined">play_arrow</span>
+              </button>
+              <button
                 class="btn-remove"
                 title="Remove"
                 aria-label="Remove from playlist"
