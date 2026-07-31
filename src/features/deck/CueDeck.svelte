@@ -45,41 +45,60 @@
 </script>
 
 {#if app.cueDevice !== null}
-  <section id="cue-deck" aria-label="Cue deck">
+  <section
+    id="cue-deck"
+    class="deck inner-shadow-recessed"
+    aria-label="Cue deck"
+  >
     <div class="cue-info">
-      <div class="cue-track-info">
-        <span class="cue-title"
-          >{app.cueTrack ? app.cueTrack.title : "Cue idle"}</span
+      <div class="cue-head-left">
+        <span class="material-symbols-outlined" aria-hidden="true"
+          >headphones</span
         >
-        <span class="cue-artist">{app.cueTrack?.artist ?? ""}</span>
+        <span class="cue-deck-label">Cue Deck</span>
       </div>
       <div class="cue-controls">
         <button
           class="btn-cue-play"
           title={app.cueIsPlaying ? "Pause cue" : "Play cue"}
+          aria-label={app.cueIsPlaying ? "Pause cue" : "Play cue"}
           disabled={!app.cueTrack}
           onclick={() => app.cueTogglePlay()}
         >
-          {@html app.cueIsPlaying ? "&#9208;" : "&#9654;"}
+          <span class="material-symbols-outlined"
+            >{app.cueIsPlaying ? "pause" : "play_arrow"}</span
+          >
         </button>
         <button
           class="btn-cue-stop"
           title="Stop cue"
+          aria-label="Stop cue"
           disabled={!app.cueTrack}
-          onclick={() => app.cueStop()}>&#9632;</button
+          onclick={() => app.cueStop()}
         >
+          <span class="material-symbols-outlined">stop</span>
+        </button>
         <button
           class="btn-cue-promote"
           title="Insert cue track as next-up in main playlist"
+          aria-label="Promote cue track to main playlist"
           disabled={!app.cueTrack}
-          onclick={() => app.promoteCueToMain()}>&rarr; main</button
+          onclick={() => app.promoteCueToMain()}
+        >
+          <span class="material-symbols-outlined">add</span>
+        </button>
+      </div>
+      <div class="cue-track-info">
+        <span class="cue-title"
+          >{app.cueTrack ? app.cueTrack.title : "No Track Loaded"}</span
+        >
+        <span class="cue-artist"
+          >{app.cueTrack?.artist ?? "Ready for broadcast"}</span
         >
       </div>
       <div class="cue-right">
-        <span class="cue-time-display"
-          >{formatTime(app.cueCurrentTime)} / {formatTime(
-            app.cueDuration,
-          )}</span
+        <span class="material-symbols-outlined" aria-hidden="true"
+          >volume_down</span
         >
         <input
           type="range"
@@ -94,6 +113,14 @@
               parseFloat((e.currentTarget as HTMLInputElement).value),
             )}
         />
+        <div class="cue-time-block">
+          <span class="cue-time-display"
+            >{formatTime(app.cueCurrentTime)} / {formatTime(
+              app.cueDuration,
+            )}</span
+          >
+          <span class="cue-remain-label">Remain</span>
+        </div>
       </div>
     </div>
     <div

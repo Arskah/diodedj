@@ -68,6 +68,15 @@
         <rect x={b.x + 0.1} y={b.y} width="0.8" height={b.h} />
       {/each}
     </g>
+    <!-- Glowing red playhead at the current play position. -->
+    <line
+      class="wf-playhead"
+      x1={playedWidth}
+      y1="0"
+      x2={playedWidth}
+      y2={HEIGHT}
+      vector-effect="non-scaling-stroke"
+    />
     {#if hoverX != null}
       <!-- Seek preview marker: a 1px line at the cursor (non-scaling so it stays
            crisp under the preserveAspectRatio="none" stretch). -->
@@ -80,5 +89,23 @@
         vector-effect="non-scaling-stroke"
       />
     {/if}
+  </svg>
+{:else}
+  <!-- No waveform (e.g. jingles, or nothing loaded): a flat centered line,
+       matching the mockup's zero-data deck. -->
+  <svg
+    class="waveform"
+    viewBox="0 0 100 {HEIGHT}"
+    preserveAspectRatio="none"
+    aria-hidden="true"
+  >
+    <line
+      class="wf-flatline"
+      x1="0"
+      y1={HEIGHT / 2}
+      x2="100"
+      y2={HEIGHT / 2}
+      vector-effect="non-scaling-stroke"
+    />
   </svg>
 {/if}

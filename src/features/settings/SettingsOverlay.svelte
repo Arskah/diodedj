@@ -26,6 +26,7 @@
   });
   let testResult = $state<string | null>(null);
   let testing = $state(false);
+  let showSecret = $state(false);
 
   $effect(() => {
     if (app.settingsOpen) {
@@ -114,227 +115,324 @@
 
 <div id="settings-overlay" class:hidden={!app.settingsOpen}>
   <div id="settings-modal">
-    <div id="settings-tabs" role="tablist">
+    <div id="settings-modal-header">
+      <span class="settings-modal-title">
+        <span class="material-symbols-outlined" aria-hidden="true"
+          >settings</span
+        >
+        Preferences
+      </span>
       <button
-        class="settings-tab"
-        class:active={activeTab === "library"}
-        role="tab"
-        aria-selected={activeTab === "library"}
-        onclick={() => (activeTab = "library")}>Library</button
+        id="btn-close-settings-x"
+        title="Close"
+        aria-label="Close settings"
+        onclick={() => (app.settingsOpen = false)}
       >
-      <button
-        class="settings-tab"
-        class:active={activeTab === "audio"}
-        role="tab"
-        aria-selected={activeTab === "audio"}
-        onclick={() => (activeTab = "audio")}>Audio</button
-      >
-      <button
-        class="settings-tab"
-        class:active={activeTab === "now-playing"}
-        role="tab"
-        aria-selected={activeTab === "now-playing"}
-        onclick={() => (activeTab = "now-playing")}>Now Playing</button
-      >
+        <span class="material-symbols-outlined">close</span>
+      </button>
     </div>
 
-    {#if activeTab === "library"}
-      <div class="settings-section">
-        <h4>Library Paths</h4>
-        <div id="paths-list">
-          {#each sections as { type, label } (type)}
-            <div class="path-section">
-              <div class="path-section-header">
-                <span>{label}</span>
-                <button
-                  class="btn-add-section"
-                  title="Add {label} folder"
-                  onclick={() => app.addPath(type)}>+ Add</button
+    <div id="settings-body">
+      <div id="settings-sidebar" role="tablist" aria-label="Settings sections">
+        <button
+          class="settings-tab"
+          class:active={activeTab === "audio"}
+          role="tab"
+          aria-selected={activeTab === "audio"}
+          onclick={() => (activeTab = "audio")}
+        >
+          <span class="material-symbols-outlined">volume_up</span>
+          Audio Output
+        </button>
+        <button
+          class="settings-tab"
+          class:active={activeTab === "library"}
+          role="tab"
+          aria-selected={activeTab === "library"}
+          onclick={() => (activeTab = "library")}
+        >
+          <span class="material-symbols-outlined">sync</span>
+          Library Sync
+        </button>
+        <button
+          class="settings-tab"
+          class:active={activeTab === "now-playing"}
+          role="tab"
+          aria-selected={activeTab === "now-playing"}
+          onclick={() => (activeTab = "now-playing")}
+        >
+          <span class="material-symbols-outlined">rss_feed</span>
+          Now Playing
+        </button>
+      </div>
+
+      <div id="settings-content">
+        {#if activeTab === "audio"}
+          <div class="settings-section">
+            <h4>Audio Configuration</h4>
+            <p class="settings-section-desc">
+              Configure your signal chain for low-latency broadcast performance.
+            </p>
+            {#if app.audioDevices.length === 0}
+              <div class="empty">
+                <span class="empty-icon"
+                  ><span class="material-symbols-outlined">volume_off</span
+                  ></span
+                >
+                <span class="empty-title">No Output Devices</span>
+                <span class="empty-body"
+                  >No audio output devices were detected on this system.</span
                 >
               </div>
-              {#if (app.libraryPaths[type] ?? []).length === 0}
-                <div class="empty path-empty">No folders configured</div>
-              {:else}
-                {#each app.libraryPaths[type] as p (p)}
-                  <div class="path-row">
-                    <span class="path-text">{p}</span>
-                    <button
-                      class="btn-remove"
-                      title="Remove"
-                      onclick={() => app.removePath(type, p)}>&#10005;</button
-                    >
+            {:else}
+              <div class="device-row">
+                <label for="main-device">Master Output Device</label>
+                <select
+                  id="main-device"
+                  value={deviceKey(app.mainDevice)}
+                  onchange={onMainDeviceChange}
+                >
+                  <option value="">System default</option>
+                  {#each app.audioDevices as d (deviceKey(d))}
+                    <option value={deviceKey(d)}>
+                      {d.description}{d.isDefault ? " (default)" : ""}
+                    </option>
+                  {/each}
+                </select>
+                {#if mainDeviceChanged}
+                  <div class="hint">
+                    Restart required to apply main-device change.
                   </div>
-                {/each}
-              {/if}
-            </div>
-          {/each}
-        </div>
-        <div class="settings-row">
-          <button
-            id="btn-scan-now"
-            class="btn-scan-now"
-            title="Scan all configured paths"
-            onclick={onScan}>Scan library</button
-          >
-        </div>
-      </div>
-    {:else if activeTab === "audio"}
-      <div class="settings-section">
-        <h4>Audio devices</h4>
-        {#if app.audioDevices.length === 0}
-          <div class="empty">No output devices detected</div>
-        {:else}
-          <div class="device-row">
-            <label for="main-device">Main output</label>
-            <select
-              id="main-device"
-              value={deviceKey(app.mainDevice)}
-              onchange={onMainDeviceChange}
-            >
-              <option value="">System default</option>
-              {#each app.audioDevices as d (deviceKey(d))}
-                <option value={deviceKey(d)}>
-                  {d.description}{d.isDefault ? " (default)" : ""}
-                </option>
-              {/each}
-            </select>
-          </div>
-          {#if mainDeviceChanged}
-            <div class="hint">
-              Restart required to apply main-device change.
-            </div>
-          {/if}
+                {/if}
+              </div>
 
-          <div class="device-row">
-            <label for="cue-device">Cue (preview) output</label>
-            <select
-              id="cue-device"
-              value={deviceKey(app.cueDevice)}
-              onchange={onCueDeviceChange}
-            >
-              <option value="">Disabled</option>
-              {#each app.audioDevices as d (deviceKey(d))}
-                <option value={deviceKey(d)}>
-                  {d.description}{d.isDefault ? " (default)" : ""}
-                </option>
-              {/each}
-            </select>
+              <div class="device-row">
+                <label for="cue-device">Cue / Headphones Output</label>
+                <select
+                  id="cue-device"
+                  value={deviceKey(app.cueDevice)}
+                  onchange={onCueDeviceChange}
+                >
+                  <option value="">Disabled</option>
+                  {#each app.audioDevices as d (deviceKey(d))}
+                    <option value={deviceKey(d)}>
+                      {d.description}{d.isDefault ? " (default)" : ""}
+                    </option>
+                  {/each}
+                </select>
+                <div class="hint">
+                  Pick a different device than main for headphone preview.
+                </div>
+              </div>
+            {/if}
           </div>
-          <div class="hint">
-            Pick a different device than main for headphone preview.
+        {:else if activeTab === "library"}
+          <div class="settings-section">
+            <h4>Library Synchronization</h4>
+            <p class="settings-section-desc">
+              Configure directory paths and automatic scanning for your media
+              assets.
+            </p>
+            <div id="paths-list">
+              {#each sections as { type, label } (type)}
+                <div class="path-section">
+                  <div class="path-section-header">
+                    <span>{label}</span>
+                    <button
+                      class="btn-add-section"
+                      title="Add {label} folder"
+                      onclick={() => app.addPath(type)}
+                    >
+                      <span class="material-symbols-outlined">add_circle</span>
+                      Add Directory
+                    </button>
+                  </div>
+                  {#if (app.libraryPaths[type] ?? []).length === 0}
+                    <div class="path-empty">
+                      No {label.toLowerCase()} directories defined. Click "Add Directory"
+                      to begin.
+                    </div>
+                  {:else}
+                    {#each app.libraryPaths[type] as p (p)}
+                      <div class="path-row">
+                        <span class="material-symbols-outlined">folder</span>
+                        <span class="path-text">{p}</span>
+                        <button
+                          class="btn-remove"
+                          title="Remove"
+                          aria-label="Remove directory"
+                          onclick={() => app.removePath(type, p)}
+                        >
+                          <span class="material-symbols-outlined">close</span>
+                        </button>
+                      </div>
+                    {/each}
+                  {/if}
+                </div>
+              {/each}
+            </div>
+            <div class="settings-row">
+              <button
+                id="btn-scan-now"
+                class="btn-scan-now"
+                title="Scan all configured paths"
+                onclick={onScan}
+              >
+                <span class="material-symbols-outlined">sync</span>
+                Scan Library Now
+              </button>
+            </div>
+          </div>
+        {:else}
+          <div class="settings-section">
+            <h4>Now Playing Metadata</h4>
+            <p class="settings-section-desc">
+              Expose the currently playing track to external consumers via
+              outbound webhook and/or local files. Updates fire on track-start
+              and on stop.
+            </p>
+
+            <div class="np-group" class:disabled={!nowPlaying.webhookEnabled}>
+              <div class="np-group-header">
+                <span class="material-symbols-outlined" aria-hidden="true"
+                  >webhook</span
+                >
+                <span class="np-group-title">Webhook Export</span>
+                <label class="np-toggle" title="Enable webhook export">
+                  <input
+                    type="checkbox"
+                    bind:checked={nowPlaying.webhookEnabled}
+                    onchange={saveNowPlaying}
+                  />
+                  <span class="np-toggle-track"></span>
+                </label>
+              </div>
+              <div class="np-field">
+                <label class="np-field-label" for="np-webhook-url"
+                  >Target URL</label
+                >
+                <div class="np-input-wrap">
+                  <span class="material-symbols-outlined">link</span>
+                  <input
+                    id="np-webhook-url"
+                    class="np-input"
+                    type="url"
+                    placeholder="https://example.com/now-playing"
+                    value={nowPlaying.webhookUrl ?? ""}
+                    oninput={(e) =>
+                      (nowPlaying = {
+                        ...nowPlaying,
+                        webhookUrl:
+                          (e.currentTarget as HTMLInputElement).value || null,
+                      })}
+                    onchange={saveNowPlaying}
+                  />
+                </div>
+              </div>
+              <div class="np-field">
+                <label class="np-field-label" for="np-webhook-secret"
+                  >HMAC Secret (optional)</label
+                >
+                <div class="np-input-wrap">
+                  <span class="material-symbols-outlined">key</span>
+                  <input
+                    id="np-webhook-secret"
+                    class="np-input mono"
+                    type={showSecret ? "text" : "password"}
+                    placeholder="optional"
+                    value={nowPlaying.webhookSecret ?? ""}
+                    oninput={(e) =>
+                      (nowPlaying = {
+                        ...nowPlaying,
+                        webhookSecret:
+                          (e.currentTarget as HTMLInputElement).value || null,
+                      })}
+                    onchange={saveNowPlaying}
+                  />
+                  <button
+                    type="button"
+                    class="np-eye"
+                    title={showSecret ? "Hide secret" : "Show secret"}
+                    aria-label={showSecret ? "Hide secret" : "Show secret"}
+                    onclick={() => (showSecret = !showSecret)}
+                  >
+                    <span class="material-symbols-outlined"
+                      >{showSecret ? "visibility_off" : "visibility"}</span
+                    >
+                  </button>
+                </div>
+              </div>
+              <div class="np-action-row">
+                <button
+                  class="btn-scan-now"
+                  onclick={runTestWebhook}
+                  disabled={testing || !nowPlaying.webhookUrl}
+                  >{testing ? "Testing…" : "Test webhook"}</button
+                >
+                {#if testResult}
+                  <span class="np-test-result">{testResult}</span>
+                {/if}
+              </div>
+            </div>
+
+            <div class="np-group" class:disabled={!nowPlaying.fileEnabled}>
+              <div class="np-group-header">
+                <span class="material-symbols-outlined" aria-hidden="true"
+                  >save</span
+                >
+                <span class="np-group-title">Local File Export</span>
+                <label class="np-toggle" title="Enable file export">
+                  <input
+                    type="checkbox"
+                    bind:checked={nowPlaying.fileEnabled}
+                    onchange={saveNowPlaying}
+                  />
+                  <span class="np-toggle-track"></span>
+                </label>
+              </div>
+              <div class="np-field">
+                <label class="np-field-label" for="np-file-dir"
+                  >Export Directory</label
+                >
+                <div class="np-input-wrap">
+                  <span class="material-symbols-outlined">folder_open</span>
+                  <span id="np-file-dir" class="np-file-dir"
+                    >{nowPlaying.fileDir ??
+                      "(app data dir / now-playing)"}</span
+                  >
+                  <button class="np-browse" onclick={pickFileDir}>
+                    <span class="material-symbols-outlined">search</span>
+                    Browse
+                  </button>
+                  {#if nowPlaying.fileDir}
+                    <button class="np-browse" onclick={clearFileDir}
+                      >Reset</button
+                    >
+                  {/if}
+                </div>
+              </div>
+              <div class="np-file-hint">
+                Writes <code>now_playing.txt</code> and
+                <code>now_playing.json</code> atomically. TXT is truncated on stop;
+                JSON keeps the Stopped event payload.
+              </div>
+            </div>
           </div>
         {/if}
       </div>
-    {:else}
-      <div class="settings-section">
-        <h4>Now Playing broadcast</h4>
-        <p class="np-intro">
-          Expose the currently playing track to external consumers via outbound
-          webhook and/or local files. Updates fire on track-start and on stop.
-        </p>
+    </div>
 
-        <div class="np-group">
-          <div class="np-group-header">
-            <span class="np-group-title">Webhook</span>
-            <label class="np-toggle">
-              <input
-                type="checkbox"
-                bind:checked={nowPlaying.webhookEnabled}
-                onchange={saveNowPlaying}
-              />
-              <span>Enabled</span>
-            </label>
-          </div>
-          <div class="device-row">
-            <label for="np-webhook-url">URL</label>
-            <input
-              id="np-webhook-url"
-              class="np-input"
-              type="url"
-              placeholder="https://example.com/now-playing"
-              value={nowPlaying.webhookUrl ?? ""}
-              oninput={(e) =>
-                (nowPlaying = {
-                  ...nowPlaying,
-                  webhookUrl:
-                    (e.currentTarget as HTMLInputElement).value || null,
-                })}
-              onchange={saveNowPlaying}
-            />
-          </div>
-          <div class="device-row">
-            <label for="np-webhook-secret">HMAC secret</label>
-            <input
-              id="np-webhook-secret"
-              class="np-input"
-              type="password"
-              placeholder="optional"
-              value={nowPlaying.webhookSecret ?? ""}
-              oninput={(e) =>
-                (nowPlaying = {
-                  ...nowPlaying,
-                  webhookSecret:
-                    (e.currentTarget as HTMLInputElement).value || null,
-                })}
-              onchange={saveNowPlaying}
-            />
-          </div>
-          <div class="device-row np-action-row">
-            <span class="np-action-spacer"></span>
-            <button
-              class="btn-scan-now"
-              onclick={runTestWebhook}
-              disabled={testing || !nowPlaying.webhookUrl}
-              >{testing ? "Testing…" : "Test webhook"}</button
-            >
-            {#if testResult}
-              <span class="np-test-result">{testResult}</span>
-            {/if}
-          </div>
-        </div>
-
-        <div class="np-group">
-          <div class="np-group-header">
-            <span class="np-group-title">File output</span>
-            <label class="np-toggle">
-              <input
-                type="checkbox"
-                bind:checked={nowPlaying.fileEnabled}
-                onchange={saveNowPlaying}
-              />
-              <span>Enabled</span>
-            </label>
-          </div>
-          <div class="device-row">
-            <label for="np-file-dir">Directory</label>
-            <code id="np-file-dir" class="np-file-dir"
-              >{nowPlaying.fileDir ?? "(app data dir / now-playing)"}</code
-            >
-          </div>
-          <div class="device-row np-action-row">
-            <span class="np-action-spacer"></span>
-            <button class="btn-scan-now" onclick={pickFileDir}
-              >Pick folder…</button
-            >
-            {#if nowPlaying.fileDir}
-              <button class="btn-scan-now" onclick={clearFileDir}
-                >Reset to default</button
-              >
-            {/if}
-          </div>
-          <div class="hint np-file-hint">
-            Writes <code>now_playing.txt</code> and
-            <code>now_playing.json</code> atomically. TXT is truncated on stop; JSON
-            keeps the Stopped event payload.
-          </div>
-        </div>
+    <div id="settings-footer">
+      <span class="settings-footer-info">
+        <span class="material-symbols-outlined" aria-hidden="true">info</span>
+        All changes are saved automatically
+      </span>
+      <div id="settings-actions">
+        <button
+          id="btn-close-settings"
+          onclick={() => (app.settingsOpen = false)}>Close</button
+        >
       </div>
-    {/if}
-
-    <div id="settings-actions">
-      <button id="btn-close-settings" onclick={() => (app.settingsOpen = false)}
-        >Close</button
-      >
     </div>
   </div>
 </div>
