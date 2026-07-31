@@ -14,7 +14,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.e2e
-    image: diodedj-e2e:local
+    image: radiodiodj-e2e:local
     init: true
     shm_size: "2gb"
     working_dir: /work

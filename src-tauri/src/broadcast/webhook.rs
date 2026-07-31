@@ -6,10 +6,13 @@ use reqwest::{header, Client};
 use sha2::Sha256;
 
 use super::payload::{Payload, TestPayload};
+use crate::APP_NAME;
 
 const TIMEOUT: Duration = Duration::from_secs(5);
-const USER_AGENT: &str = concat!("DiodeDJ/", env!("CARGO_PKG_VERSION"));
-pub const SIGNATURE_HEADER: &str = "X-DiodeDJ-Signature";
+
+pub fn signature_header() -> String {
+    format!("X-{APP_NAME}-Signature")
+}
 
 pub struct Webhook {
     client: Client,
@@ -17,9 +20,10 @@ pub struct Webhook {
 
 impl Webhook {
     pub fn new() -> Result<Self> {
+        let user_agent = format!("{APP_NAME}/{}", env!("CARGO_PKG_VERSION"));
         let client = Client::builder()
             .timeout(TIMEOUT)
-            .user_agent(USER_AGENT)
+            .user_agent(user_agent)
             .build()?;
         Ok(Self { client })
     }
@@ -57,7 +61,10 @@ impl Webhook {
             .body(body.clone());
 
         if let Some(secret) = secret.filter(|s| !s.is_empty()) {
-            req = req.header(SIGNATURE_HEADER, format!("sha256={}", sign(secret, &body)));
+            req = req.header(
+                signature_header(),
+                format!("sha256={}", sign(secret, &body)),
+            );
         }
 
         let resp = req.send().await?;
@@ -154,7 +161,7 @@ mod tests {
         let server = MockServer::start().await;
         Mock::given(method("POST"))
             .and(path("/hook"))
-            .and(header_exists(SIGNATURE_HEADER))
+            .and(header_exists(signature_header()))
             .respond_with(ResponseTemplate::new(200))
             .mount(&server)
             .await;
@@ -193,7 +200,7 @@ mod tests {
         let req = reqs.first().expect("one request");
         let sig_header = req
             .headers
-            .get(SIGNATURE_HEADER)
+            .get(signature_header())
             .expect("signature header")
             .to_str()
             .unwrap();
@@ -220,7 +227,7 @@ mod tests {
         .unwrap();
 
         let reqs = server.received_requests().await.unwrap();
-        assert!(reqs[0].headers.get(SIGNATURE_HEADER).is_none());
+        assert!(reqs[0].headers.get(signature_header()).is_none());
     }
 
     #[tokio::test]

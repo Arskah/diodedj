@@ -1,10 +1,10 @@
 {
-  "name": "diodedj",
+  "name": "radiodiodj",
   "version": "0.12.0",
   "description": "Radio station music player",
   "author": {
     "name": "Aarni Halinen",
-    "email": "diodedj@aarnihalinen.fi"
+    "email": "radiodiodj@aarnihalinen.fi"
   },
   "homepage": "https://github.com/Arskah/diodedj#readme",
   "repository": {

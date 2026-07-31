@@ -1,6 +1,6 @@
 # Now-playing broadcast
 
-DiodeDJ can expose the currently playing track to external consumers via two
+RadiodioDJ can expose the currently playing track to external consumers via two
 parallel sinks:
 
 - **Webhook** — outbound HTTP POST on every track-start and stop.
@@ -29,8 +29,8 @@ A crash or SIGKILL cannot fire a final `stopped`. Consumers should treat
 ```
 POST <configured URL>
 Content-Type: application/json
-User-Agent: DiodeDJ/<version>
-X-DiodeDJ-Signature: sha256=<lowercase hex>      (only if a secret is set)
+User-Agent: RadiodioDJ/<version>
+X-RadiodioDJ-Signature: sha256=<lowercase hex>      (only if a secret is set)
 ```
 
 Delivery is fire-and-forget with a 5-second timeout. Failures are logged
@@ -73,7 +73,7 @@ connectivity without playing a track.
 
 ### HMAC verification
 
-If a webhook secret is set, requests carry an `X-DiodeDJ-Signature` header.
+If a webhook secret is set, requests carry an `X-RadiodioDJ-Signature` header.
 The signature is `sha256=` followed by the lowercase hex of
 `HMAC-SHA256(secret, raw_body_bytes)` — identical scheme to GitHub webhooks.
 
@@ -115,11 +115,11 @@ sends.
 If no directory is set the files land in `<app-data-dir>/now-playing/`,
 where `<app-data-dir>` resolves to:
 
-- macOS: `~/Library/Application Support/com.diodedj/`
-- Linux: `~/.local/share/com.diodedj/` (or
-  `$XDG_DATA_HOME/com.diodedj/`)
-- Windows: `%APPDATA%\com.diodedj\` (typically
-  `C:\Users\<you>\AppData\Roaming\com.diodedj\`)
+- macOS: `~/Library/Application Support/com.radiodiodj/`
+- Linux: `~/.local/share/com.radiodiodj/` (or
+  `$XDG_DATA_HOME/com.radiodiodj/`)
+- Windows: `%APPDATA%\com.radiodiodj\` (typically
+  `C:\Users\<you>\AppData\Roaming\com.radiodiodj\`)
 
-The same directory holds DiodeDJ's `config.json`, `session.json`, and
-`diodedj.db`.
+The same directory holds RadiodioDJ's `config.json`, `session.json`, and
+`radiodiodj.db`.

@@ -20,6 +20,7 @@ import type { DeckBackend } from "../features/deck/backend";
 import { NativeBackend } from "../features/deck/nativeBackend";
 import { throttle, type Throttled } from "./throttle";
 import { isStrictNever } from "./isStrictNever";
+import { APP_NAME } from "./appName";
 
 const logger = {
   error: (...args: unknown[]) => console.error(...args),
@@ -412,7 +413,7 @@ export class AppState {
     this.loadCoverArt(track.id);
     void this.loadAndPlay(track);
     void api.trackPlayed(track.id);
-    document.title = `${track.title} - ${track.artist} | DiodeDJ`;
+    document.title = `${track.title} - ${track.artist} | ${APP_NAME}`;
     void this.maybeRefillPlaylist();
     this.updatePrefetch();
     this.scheduleSave();
@@ -503,7 +504,7 @@ export class AppState {
     this.waveform = null;
     this.coverArt = null;
     this.isPlaying = false;
-    document.title = "DiodeDJ";
+    document.title = APP_NAME;
     this.updatePrefetch();
     this.scheduleSave();
   }
@@ -734,7 +735,7 @@ export class AppState {
       this.loadWaveform(restored.id);
       this.loadCoverArt(restored.id);
       void this.loadWithSeek(restored, state.currentTime);
-      document.title = `${restored.title} - ${restored.artist} | DiodeDJ`;
+      document.title = `${restored.title} - ${restored.artist} | ${APP_NAME}`;
     }
 
     this.sessionLoaded = true;

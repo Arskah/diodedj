@@ -37,7 +37,7 @@
         {
           "type": "toml",
           "path": "src-tauri/Cargo.lock",
-          "jsonpath": "$.package[?(@.name.value=='diodedj')].version"
+          "jsonpath": "$.package[?(@.name.value=='radiodiodj')].version"
         }
       ]
     }
