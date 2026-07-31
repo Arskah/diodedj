@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- App icon: the vinyl record (radiodiodi_disc.svg) with the cream logo label
+     (radiodiodi_label.svg) composited into its center. Both parts are shared
+     with the rotating player disc so icon and player stay pixel-identical.
+     Edit the parts, not this wrapper; then regenerate icons via `tauri icon`. -->
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <image xlink:href="radiodiodi_disc.svg" x="0" y="0" width="1024" height="1024"/>
+  <!-- label centered at 512,512 with radius 262 (diameter 524) -->
+  <image xlink:href="radiodiodi_label.svg" x="250" y="250" width="524" height="524"/>
+</svg>

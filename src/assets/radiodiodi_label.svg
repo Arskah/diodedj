@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Vinyl center-label fallback: cream disc + radiodiodi logo, matching the
+     app icon's label. Used as the rotating-vinyl cover when a track has no
+     embedded artwork (NowPlaying / CueDeck). -->
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <circle cx="256" cy="256" r="256" fill="#f7f5ef"/>
+  <circle cx="256" cy="256" r="253" fill="none" stroke="#000000" stroke-opacity="0.25" stroke-width="3"/>
+  <g transform="translate(-878,-154) scale(0.76)" fill="none" stroke="#111111" stroke-linejoin="miter" stroke-linecap="butt" stroke-miterlimit="10">
+    <circle cx="1492" cy="539.5" r="222.5" stroke-width="40"/>
+    <circle cx="1492" cy="539.5" r="178" stroke-width="15"/>
+    <path d="M 1544 539.5 L 1433.2 422.2 L 1433.6 539.5 L 1434.1 661.7 L 1544 539.5 L 1671 539.5" stroke-width="15"/>
+    <path d="M 1428.6 539.5 C 1324.2 539.5 1310 539.5 1310 539.5" stroke-width="15"/>
+    <line x1="1544" y1="403.6" x2="1544" y2="680.7" stroke-width="15"/>
+  </g>
+</svg>
