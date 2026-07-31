@@ -379,12 +379,45 @@ body {
   background: var(--surface-container);
 }
 
+/* ---- Shared deck header (main + cue) ---- */
+/* Both header rows are pinned to the same height (56px = the main play CTA)
+   and share the head/label/track-name structure, so the two waveforms below
+   start at the same y regardless of differing info text. Accent colors stay
+   distinct: main = primary, cue = secondary. */
+.deck-head {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-sm);
+}
+
+.deck-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--on-surface-variant);
+}
+
+#now-playing .deck-head {
+  color: var(--primary);
+}
+
+#cue-deck .deck-head {
+  color: var(--secondary);
+}
+
+.track-names {
+  min-width: 0;
+  overflow: hidden;
+}
+
 /* ---- Main deck ---- */
 #player-info {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: var(--sp-md);
+  min-height: 56px;
 }
 
 #track-info {
@@ -513,39 +546,28 @@ body {
 }
 
 /* ---- Cue deck ---- */
+/* Mirrors the main deck's #player-info: info block left, controls right, same
+   pinned header height so the waveforms align. */
 .cue-info {
   display: flex;
   align-items: center;
-  gap: var(--sp-sm);
-  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--sp-md);
+  min-height: 56px;
 }
 
-.cue-head-left {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--sp-sm);
-  color: var(--secondary);
-}
-
-.cue-deck-label {
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--on-surface-variant);
-}
-
-.cue-track-info {
-  flex: 1;
+.cue-info-left {
   min-width: 0;
-  order: 3;
-  flex-basis: 100%;
+  overflow: hidden;
 }
 
+/* Title/artist type matches the main deck (#np-title / #np-artist); only the
+   accent color differs by deck. */
 .cue-title {
   display: block;
-  font-size: 13px;
-  font-weight: 600;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -553,7 +575,8 @@ body {
 
 .cue-artist {
   display: block;
-  font-size: 10px;
+  font-size: 11px;
+  font-weight: 400;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--outline);
@@ -566,7 +589,6 @@ body {
   display: flex;
   align-items: center;
   gap: var(--sp-xs);
-  margin-left: auto;
 }
 
 .cue-controls button {
@@ -607,33 +629,19 @@ body {
   border-color: var(--secondary);
 }
 
-.cue-right {
+/* Volume group mirrors the main deck's #player-right (icon + slider with a
+   left-edge divider); keeps the secondary accent as the cue-deck distinction. */
+.cue-volume-wrap {
   display: flex;
   align-items: center;
   gap: var(--sp-sm);
   color: var(--outline);
-  flex-basis: 100%;
-  order: 4;
-}
-
-.cue-time-block {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  margin-left: auto;
-  line-height: 1.1;
-}
-
-.cue-time-display {
-  font-family: var(--font-mono);
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--secondary);
-  font-variant-numeric: tabular-nums;
+  padding-left: var(--sp-md);
+  border-left: 1px solid
+    color-mix(in srgb, var(--outline-variant) 30%, transparent);
 }
 
 .cue-volume {
-  width: 72px;
   accent-color: var(--secondary);
 }
 
@@ -661,7 +669,7 @@ body {
 }
 
 .cue-progress-bar {
-  min-height: 40px;
+  min-height: 56px;
 }
 
 /* Dim baseline track (fallback when a track has no waveform). */
@@ -716,6 +724,11 @@ body {
   font-variant-numeric: tabular-nums;
   z-index: 2;
   pointer-events: none;
+}
+
+/* Cue time-pill uses the secondary accent to match the cue deck's identity. */
+.cue-progress-bar .time-pill {
+  color: var(--secondary);
 }
 
 /* Amplitude curve pinned to fill the bar exactly. */

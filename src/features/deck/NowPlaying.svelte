@@ -44,15 +44,23 @@
 <section id="now-playing" class="deck inner-shadow-recessed">
   <div id="player-info">
     <div id="track-info">
-      <span id="np-title"
-        >{app.currentTrack ? app.currentTrack.title : "No Track Loaded"}</span
-      >
-      <span id="np-artist">{app.currentTrack?.artist ?? ""}</span>
-      {#if app.isBuffering}
-        <!-- Shimmer on the progress bar is the visual cue; keep a
-             screen-reader-only announcement since CSS is invisible to AT. -->
-        <span class="sr-only" aria-live="polite">Buffering…</span>
-      {/if}
+      <div class="deck-head">
+        <span class="material-symbols-outlined" aria-hidden="true"
+          >cell_tower</span
+        >
+        <span class="deck-label">Main Deck</span>
+      </div>
+      <div class="track-names">
+        <span id="np-title"
+          >{app.currentTrack ? app.currentTrack.title : "No Track Loaded"}</span
+        >
+        <span id="np-artist">{app.currentTrack?.artist ?? ""}</span>
+        {#if app.isBuffering}
+          <!-- Shimmer on the progress bar is the visual cue; keep a
+               screen-reader-only announcement since CSS is invisible to AT. -->
+          <span class="sr-only" aria-live="polite">Buffering…</span>
+        {/if}
+      </div>
     </div>
     <div class="deck-header-controls">
       <div id="player-controls">
