@@ -704,8 +704,8 @@ body {
    the fallback logo is a dark monochrome mark, so it gets a light label and is
    scaled to fit whole (contain) rather than cropped. */
 .vinyl-art {
-  width: 74%;
-  height: 74%;
+  width: 52%;
+  height: 52%;
   border-radius: 50%;
   object-fit: cover;
   box-shadow:
@@ -714,8 +714,10 @@ body {
 }
 
 .vinyl-art--default {
+  width: 66%;
+  height: 66%;
   object-fit: contain;
-  padding: 10%;
+  padding: 4%;
   background: transparent;
   box-shadow: none;
 }
