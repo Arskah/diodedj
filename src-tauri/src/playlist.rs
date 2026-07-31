@@ -23,20 +23,24 @@ fn commercial_bucket_size(count: i64) -> i64 {
     (count * COMMERCIAL_BUCKET_MULTIPLIER).max(COMMERCIAL_BUCKET_MIN)
 }
 
-pub fn generate(db: &Db, count: i64) -> Result<Vec<Track>> {
+pub fn generate(db: &Db, count: i64, exclude_ids: &[i64]) -> Result<Vec<Track>> {
     if count <= 0 {
         return Ok(vec![]);
     }
+
     let jingle_count = count / JINGLE_EVERY;
     let commercial_count = count / COMMERCIAL_EVERY;
     let music_count = (count - jingle_count - commercial_count).max(0);
 
-    let music = db.get_random_tracks(ContentType::Music.as_ref(), music_count)?;
-    let jingles = db.get_random_tracks(ContentType::Jingle.as_ref(), jingle_count)?;
+    // Exclusion happens in SQL (`NOT IN`), so each query returns exactly the
+    // requested count of not-yet-queued tracks — no over-fetch or post-filter.
+    let music = db.get_random_tracks(ContentType::Music.as_ref(), music_count, exclude_ids)?;
+    let jingles = db.get_random_tracks(ContentType::Jingle.as_ref(), jingle_count, exclude_ids)?;
     let commercials = db.pick_random_from_bottom(
         ContentType::Commercial.as_ref(),
         commercial_count,
         commercial_bucket_size(commercial_count),
+        exclude_ids,
     )?;
 
     Ok(interleave_evenly(music, jingles, commercials))
@@ -44,12 +48,15 @@ pub fn generate(db: &Db, count: i64) -> Result<Vec<Track>> {
 
 pub fn pick_filler(db: &Db, content_type: ContentType) -> Result<Option<Track>> {
     match content_type {
-        ContentType::Jingle => Ok(db.get_random_tracks(ContentType::Jingle.as_ref(), 1)?.pop()),
+        ContentType::Jingle => Ok(db
+            .get_random_tracks(ContentType::Jingle.as_ref(), 1, &[])?
+            .pop()),
         ContentType::Commercial => Ok(db
             .pick_random_from_bottom(
                 ContentType::Commercial.as_ref(),
                 1,
                 commercial_bucket_size(1),
+                &[],
             )?
             .pop()),
         ContentType::Music => Ok(None),

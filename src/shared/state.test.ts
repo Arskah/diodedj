@@ -982,7 +982,7 @@ describe("AppState auto-playlist refill", () => {
   it("fills empty playlist up to the buffer", async () => {
     app.autoPlaylistActive = true;
     await app.maybeRefillPlaylist();
-    expect(api.generatePlaylist).toHaveBeenCalledWith(bufferSize);
+    expect(api.generatePlaylist).toHaveBeenCalledWith(bufferSize, []);
     expect(app.playlist.length).toBe(bufferSize);
   });
 
@@ -997,7 +997,10 @@ describe("AppState auto-playlist refill", () => {
       generateTracks(10, bufferSize - 4),
     );
     await app.maybeRefillPlaylist();
-    expect(api.generatePlaylist).toHaveBeenCalledWith(bufferSize - 4);
+    expect(api.generatePlaylist).toHaveBeenCalledWith(
+      bufferSize - 4,
+      [1, 2, 3, 4],
+    );
     expect(app.playlist.length).toBe(bufferSize);
   });
 

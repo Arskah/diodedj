@@ -141,8 +141,12 @@ fn save_session(app: State<'_, AppState>, state: SessionState) -> Result<(), Str
 }
 
 #[tauri::command(rename_all = "camelCase")]
-fn generate_playlist(app: State<'_, AppState>, count: i64) -> Result<Vec<Track>, String> {
-    playlist::generate(&app.db, count).map_err(err)
+fn generate_playlist(
+    app: State<'_, AppState>,
+    count: i64,
+    exclude_ids: Vec<i64>,
+) -> Result<Vec<Track>, String> {
+    playlist::generate(&app.db, count, &exclude_ids).map_err(err)
 }
 
 #[tauri::command(rename_all = "camelCase")]

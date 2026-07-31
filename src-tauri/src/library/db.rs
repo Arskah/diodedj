@@ -444,14 +444,34 @@ impl Db {
         Ok(())
     }
 
-    pub fn get_random_tracks(&self, content_type: &str, count: i64) -> Result<Vec<Track>> {
+    pub fn get_random_tracks(
+        &self,
+        content_type: &str,
+        count: i64,
+        exclude_ids: &[i64],
+    ) -> Result<Vec<Track>> {
         if count <= 0 {
             return Ok(vec![]);
         }
         let conn = self.conn.lock();
-        let mut stmt =
-            conn.prepare("SELECT * FROM tracks WHERE content_type = ? ORDER BY RANDOM() LIMIT ?")?;
-        let rows = stmt.query_map(rusqlite::params![content_type, count], row_to_track)?;
+        // `NOT IN ()` is a syntax error in SQLite, so only add the clause when
+        // there is something to exclude.
+        let exclude_clause = exclude_sql(exclude_ids);
+        let sql = format!(
+            "SELECT * FROM tracks WHERE content_type = ?{exclude_clause} \
+             ORDER BY RANDOM() LIMIT ?"
+        );
+        let mut stmt = conn.prepare(&sql)?;
+        let params = rusqlite::params_from_iter(
+            std::iter::once(rusqlite::types::Value::Text(content_type.to_owned()))
+                .chain(
+                    exclude_ids
+                        .iter()
+                        .map(|&id| rusqlite::types::Value::Integer(id)),
+                )
+                .chain(std::iter::once(rusqlite::types::Value::Integer(count))),
+        );
+        let rows = stmt.query_map(params, row_to_track)?;
         rows.collect::<rusqlite::Result<_>>().map_err(Into::into)
     }
 
@@ -460,21 +480,33 @@ impl Db {
         content_type: &str,
         count: i64,
         bucket_size: i64,
+        exclude_ids: &[i64],
     ) -> Result<Vec<Track>> {
         if bucket_size <= 0 || count <= 0 {
             return Ok(vec![]);
         }
         let conn = self.conn.lock();
-        let mut stmt = conn.prepare(
+        let exclude_clause = exclude_sql(exclude_ids);
+        let sql = format!(
             "WITH bucket AS ( \
-                SELECT * FROM tracks WHERE content_type = ? \
+                SELECT * FROM tracks WHERE content_type = ?{exclude_clause} \
                 ORDER BY play_count ASC, RANDOM() LIMIT ? \
-            ) SELECT * FROM bucket ORDER BY RANDOM() LIMIT ?",
-        )?;
-        let rows = stmt.query_map(
-            rusqlite::params![content_type, bucket_size, count],
-            row_to_track,
-        )?;
+            ) SELECT * FROM bucket ORDER BY RANDOM() LIMIT ?"
+        );
+        let mut stmt = conn.prepare(&sql)?;
+        let params = rusqlite::params_from_iter(
+            std::iter::once(rusqlite::types::Value::Text(content_type.to_owned()))
+                .chain(
+                    exclude_ids
+                        .iter()
+                        .map(|&id| rusqlite::types::Value::Integer(id)),
+                )
+                .chain([
+                    rusqlite::types::Value::Integer(bucket_size),
+                    rusqlite::types::Value::Integer(count),
+                ]),
+        );
+        let rows = stmt.query_map(params, row_to_track)?;
         rows.collect::<rusqlite::Result<_>>().map_err(Into::into)
     }
 
@@ -528,6 +560,18 @@ fn upsert_params(t: &TrackInsert) -> [&dyn rusqlite::ToSql; 13] {
         &t.format,
         &t.mtime,
     ]
+}
+
+/// Build a ` AND id NOT IN (?, ?, ...)` fragment with one placeholder per
+/// excluded id, or an empty string when there is nothing to exclude (SQLite
+/// rejects an empty `NOT IN ()`). Placeholders are bound separately, so the
+/// ids never reach the SQL string.
+fn exclude_sql(exclude_ids: &[i64]) -> String {
+    if exclude_ids.is_empty() {
+        return String::new();
+    }
+    let placeholders = vec!["?"; exclude_ids.len()].join(", ");
+    format!(" AND id NOT IN ({placeholders})")
 }
 
 fn order_clause(sort_by: Option<&str>, sort_dir: Option<&str>) -> Option<String> {
@@ -846,7 +890,7 @@ mod tests {
             insert_with_play_count(&db, &format!("/cold{i}.mp3"), "commercial", 0);
         }
         for _ in 0..50 {
-            let picked = db.pick_random_from_bottom("commercial", 2, 5).unwrap();
+            let picked = db.pick_random_from_bottom("commercial", 2, 5, &[]).unwrap();
             assert_eq!(picked.len(), 2);
             for t in picked {
                 assert_eq!(t.play_count, 0, "hot track leaked into bottom-N pick");
@@ -865,7 +909,7 @@ mod tests {
         }
         let mut seen = std::collections::HashSet::new();
         for _ in 0..200 {
-            let picked = db.pick_random_from_bottom("commercial", 1, 4).unwrap();
+            let picked = db.pick_random_from_bottom("commercial", 1, 4, &[]).unwrap();
             seen.insert(picked[0].id);
             if seen.len() > 4 {
                 break;
@@ -876,6 +920,46 @@ mod tests {
             "tie ordering deterministic: only saw ids {:?}",
             seen
         );
+    }
+
+    #[test]
+    fn get_random_tracks_excludes_given_ids() {
+        let db = Db::open_in_memory().unwrap();
+        for i in 0..5 {
+            insert(&db, &format!("/m{i}.mp3"), "M", "X", "Y", "music"); // ids 1..=5
+        }
+        // Exclude everything but id 3 — it must be the only row ever returned.
+        for _ in 0..50 {
+            let picked = db.get_random_tracks("music", 5, &[1, 2, 4, 5]).unwrap();
+            assert_eq!(picked.len(), 1);
+            assert_eq!(picked[0].id, 3);
+        }
+    }
+
+    #[test]
+    fn get_random_tracks_empty_exclude_returns_rows() {
+        let db = Db::open_in_memory().unwrap();
+        insert(&db, "/m1.mp3", "M", "X", "Y", "music");
+        insert(&db, "/m2.mp3", "M", "X", "Y", "music");
+        // Empty slice must not produce `NOT IN ()` (a SQLite syntax error).
+        let picked = db.get_random_tracks("music", 5, &[]).unwrap();
+        assert_eq!(picked.len(), 2);
+    }
+
+    #[test]
+    fn pick_random_from_bottom_excludes_given_ids() {
+        let db = Db::open_in_memory().unwrap();
+        for i in 0..5 {
+            insert_with_play_count(&db, &format!("/c{i}.mp3"), "commercial", 0);
+            // ids 1..=5
+        }
+        for _ in 0..50 {
+            let picked = db
+                .pick_random_from_bottom("commercial", 5, 10, &[1, 2, 3, 4])
+                .unwrap();
+            assert_eq!(picked.len(), 1);
+            assert_eq!(picked[0].id, 5);
+        }
     }
 
     #[test]

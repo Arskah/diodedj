@@ -88,8 +88,8 @@ export const api = {
   prefetch(ids: number[]): Promise<void> {
     return invoke<void>("main_deck_prefetch", { ids });
   },
-  generatePlaylist(count: number): Promise<Track[]> {
-    return invoke<Track[]>("generate_playlist", { count });
+  generatePlaylist(count: number, excludeIds: number[]): Promise<Track[]> {
+    return invoke<Track[]>("generate_playlist", { count, excludeIds });
   },
   pickFiller(contentType: ContentType): Promise<Track | null> {
     return invoke<Track | null>("pick_filler", { contentType });
