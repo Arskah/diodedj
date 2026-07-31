@@ -117,31 +117,43 @@
         </div>
       </div>
     </div>
-    <div
-      class="cue-progress-bar"
-      bind:this={progressBar}
-      role="slider"
-      tabindex="0"
-      aria-label="Cue seek"
-      aria-valuemin={0}
-      aria-valuemax={100}
-      aria-valuenow={Math.round(app.cueProgressPct)}
-      onpointerdown={onPointerDown}
-      onpointermove={onPointerMove}
-      onpointerup={onPointerUp}
-      onpointercancel={onPointerCancel}
-      onpointerleave={onPointerLeave}
-    >
-      <Waveform
-        peaks={app.cueWaveform}
-        progressPct={app.cueProgressPct}
-        {hoverPct}
-        id="cue"
-      />
-      <div class="cue-progress-fill" style:width="{app.cueProgressPct}%"></div>
-      <span class="time-pill"
-        >{formatTime(app.cueCurrentTime)} / {formatTime(app.cueDuration)}</span
+    <div class="deck-body">
+      <!-- Placeholder for the deferred rotating vinyl disc (#271). Reserves the
+           square slot next to the waveform; note icon stands in for cover art. -->
+      <div class="vinyl-disc" aria-hidden="true">
+        <span class="material-symbols-outlined">music_note</span>
+      </div>
+      <div
+        class="cue-progress-bar"
+        bind:this={progressBar}
+        role="slider"
+        tabindex="0"
+        aria-label="Cue seek"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={Math.round(app.cueProgressPct)}
+        onpointerdown={onPointerDown}
+        onpointermove={onPointerMove}
+        onpointerup={onPointerUp}
+        onpointercancel={onPointerCancel}
+        onpointerleave={onPointerLeave}
       >
+        <Waveform
+          peaks={app.cueWaveform}
+          progressPct={app.cueProgressPct}
+          {hoverPct}
+          id="cue"
+        />
+        <div
+          class="cue-progress-fill"
+          style:width="{app.cueProgressPct}%"
+        ></div>
+        <span class="time-pill"
+          >{formatTime(app.cueCurrentTime)} / {formatTime(
+            app.cueDuration,
+          )}</span
+        >
+      </div>
     </div>
     {#if app.cueError}
       <div class="cue-error" role="alert">

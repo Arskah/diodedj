@@ -144,31 +144,38 @@
       </div>
     </div>
   </div>
-  <div
-    id="progress-bar"
-    class:buffering={app.isBuffering}
-    bind:this={progressBar}
-    role="slider"
-    tabindex="0"
-    aria-label="Seek"
-    aria-valuemin={0}
-    aria-valuemax={100}
-    aria-valuenow={Math.round(app.progressPct)}
-    onpointerdown={onPointerDown}
-    onpointermove={onPointerMove}
-    onpointerup={onPointerUp}
-    onpointercancel={onPointerCancel}
-    onpointerleave={onPointerLeave}
-  >
-    <Waveform
-      peaks={app.waveform}
-      progressPct={app.progressPct}
-      {hoverPct}
-      id="main"
-    />
-    <div id="progress-fill" style:width="{app.progressPct}%"></div>
-    <span class="time-pill"
-      >{formatTime(app.currentTime)} / {formatTime(app.duration)}</span
+  <div class="deck-body">
+    <!-- Placeholder for the deferred rotating vinyl disc (#271). Reserves the
+         square slot next to the waveform; note icon stands in for cover art. -->
+    <div class="vinyl-disc" aria-hidden="true">
+      <span class="material-symbols-outlined">music_note</span>
+    </div>
+    <div
+      id="progress-bar"
+      class:buffering={app.isBuffering}
+      bind:this={progressBar}
+      role="slider"
+      tabindex="0"
+      aria-label="Seek"
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={Math.round(app.progressPct)}
+      onpointerdown={onPointerDown}
+      onpointermove={onPointerMove}
+      onpointerup={onPointerUp}
+      onpointercancel={onPointerCancel}
+      onpointerleave={onPointerLeave}
     >
+      <Waveform
+        peaks={app.waveform}
+        progressPct={app.progressPct}
+        {hoverPct}
+        id="main"
+      />
+      <div id="progress-fill" style:width="{app.progressPct}%"></div>
+      <span class="time-pill"
+        >{formatTime(app.currentTime)} / {formatTime(app.duration)}</span
+      >
+    </div>
   </div>
 </section>
