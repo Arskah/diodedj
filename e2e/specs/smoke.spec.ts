@@ -17,8 +17,8 @@ describe("smoke", () => {
       "class",
       expect.stringContaining("hidden"),
     );
-    await expect(browser.$(`${sel.trackList} .empty`)).toHaveText(
-      "No tracks found",
+    await expect(browser.$(`${sel.trackList} .empty .empty-title`)).toHaveText(
+      "Your Library is Empty",
     );
   });
 });
