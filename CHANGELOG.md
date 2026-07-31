@@ -1,5 +1,33 @@
 # Changelog
 
+## [0.13.0](https://github.com/Arskah/radiodiodj/compare/v0.12.0...v0.13.0) (2026-07-31)
+
+
+### ⚠ BREAKING CHANGES
+
+* rename app to RadiodioDJ ([#166](https://github.com/Arskah/radiodiodj/issues/166))
+
+### Features
+
+* **deck:** rotating vinyl disc with embedded cover art ([#274](https://github.com/Arskah/radiodiodj/issues/274)) ([9a56653](https://github.com/Arskah/radiodiodj/commit/9a56653f459c19f13ce6db19cab45ef030da88e4))
+* **signing:** ad-hoc sign macOS, scaffold Windows + Linux signing ([#285](https://github.com/Arskah/radiodiodj/issues/285)) ([0562884](https://github.com/Arskah/radiodiodj/commit/0562884ec2643f1de3e56fb382181ef8992f5cfd))
+* **ui:** convert app to the RadiodioDJ designs ([#272](https://github.com/Arskah/radiodiodj/issues/272)) ([7de1a87](https://github.com/Arskah/radiodiodj/commit/7de1a876713360371a92340ba85b66a1719c4179))
+
+
+### Bug Fixes
+
+* **deps:** update rust crate base64 to v0.23.0 ([#275](https://github.com/Arskah/radiodiodj/issues/275)) ([afe6a5b](https://github.com/Arskah/radiodiodj/commit/afe6a5b851825373c06adbe1ad164fd280d99e09))
+* **playlist:** exclude already-queued track IDs to prevent duplicates ([#277](https://github.com/Arskah/radiodiodj/issues/277)) ([bec1d96](https://github.com/Arskah/radiodiodj/commit/bec1d9621c063d65c7972c6c47ea897169526efa))
+
+
+### Miscellaneous Chores
+
+* **deps:** update dependency jsdom to v30 ([#266](https://github.com/Arskah/radiodiodj/issues/266)) ([8d326fd](https://github.com/Arskah/radiodiodj/commit/8d326fd777b00450b469fb325e255dceb880c2a5))
+* **deps:** update dependency svelte-check to v4.7.4 ([#267](https://github.com/Arskah/radiodiodj/issues/267)) ([18df5a0](https://github.com/Arskah/radiodiodj/commit/18df5a0c709923bbea63f1085bd57c1379b3d334))
+* **deps:** update node.js to v24.18.1 ([#268](https://github.com/Arskah/radiodiodj/issues/268)) ([faa74ba](https://github.com/Arskah/radiodiodj/commit/faa74ba92b773eeb1388f9d3de73efdeb4096770))
+* point repo URLs at Arskah/radiodiodj ([#167](https://github.com/Arskah/radiodiodj/issues/167)) ([d00e0c2](https://github.com/Arskah/radiodiodj/commit/d00e0c200a68283b01016eb29f877d490eab8b1a))
+* rename app to RadiodioDJ ([#166](https://github.com/Arskah/radiodiodj/issues/166)) ([137c901](https://github.com/Arskah/radiodiodj/commit/137c9010c5b8213a03421ceb616e7dff63432bd8))
+
 ## [0.12.0](https://github.com/Arskah/diodedj/compare/v0.11.0...v0.12.0) (2026-07-29)
 
 
