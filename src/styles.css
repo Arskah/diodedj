@@ -361,9 +361,10 @@ body {
   grid-row: 2;
 }
 
-/* No cue device: main deck + library stretch across the top/bottom-left. */
-#workspace.no-cue #now-playing,
-#workspace.no-cue #library-panel {
+/* No cue device: only the main deck stretches across the top row; the library
+   and playlist keep their bottom-row columns (spanning the library too would
+   overlap the playlist panel). */
+#workspace.no-cue #now-playing {
   grid-column: 1 / -1;
 }
 
