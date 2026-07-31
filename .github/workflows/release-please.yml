@@ -92,6 +92,16 @@ jobs:
           path: artifacts
           merge-multiple: false
 
+      # Publish the GPG public key so users can verify the signed Linux
+      # AppImage. The key is public by definition; no-op if the var is unset.
+      - name: Stage GPG public key
+        if: vars.GPG_PUBLIC_KEY != ''
+        shell: bash
+        env:
+          GPG_PUBLIC_KEY: ${{ vars.GPG_PUBLIC_KEY }}
+        run: |
+          printf '%s\n' "$GPG_PUBLIC_KEY" > radiodiodj-signing-key.asc
+
       - name: Upload bundles to release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -100,7 +110,7 @@ jobs:
         shell: bash
         run: |
           shopt -s nullglob globstar
-          files=(artifacts/**/*.dmg artifacts/**/*.app.tar.gz artifacts/**/*.AppImage artifacts/**/*.deb artifacts/**/*.rpm artifacts/**/*.msi artifacts/**/*.exe artifacts/**/*.nsis.zip)
+          files=(artifacts/**/*.dmg artifacts/**/*.app.tar.gz artifacts/**/*.AppImage artifacts/**/*.deb artifacts/**/*.rpm artifacts/**/*.msi artifacts/**/*.exe artifacts/**/*.nsis.zip radiodiodj-signing-key.asc)
           if [ ${#files[@]} -eq 0 ]; then
             echo "No bundle artifacts found" >&2
             find artifacts -type f >&2
