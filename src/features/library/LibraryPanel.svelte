@@ -127,7 +127,14 @@
       {#each app.tracks as track (track.id)}
         <div
           class="track-row"
-          ondblclick={() => app.addToPlaylist(track)}
+          ondblclick={(e) => {
+            e.preventDefault();
+            app.editingTrack = track;
+          }}
+          oncontextmenu={(e) => {
+            e.preventDefault();
+            app.editingTrack = track;
+          }}
           onmouseenter={(e) => onEnter(track, e)}
           onmouseleave={() => app.clearHover()}
           role="button"
@@ -153,7 +160,7 @@
               class="btn-cue"
               title="Preview on cue deck"
               aria-label="Cue track"
-              onclick={(e) => cue(track, e)}
+              onclick={(e) => cues(track, e)}
             >
               <span class="material-symbols-outlined">headphones</span>
             </button>

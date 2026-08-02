@@ -831,7 +831,7 @@ export class AppState {
   /** Update a track's embedded metadata fields and reflect the change in the local tracks array. */
   async updateTrackMetadata(
     id: number,
-    input: Pick<Track, "title" | "artist" | "album"> & {
+    input: Partial<Pick<Track, "title" | "artist" | "album">> & {
       genre?: string | null;
       year?: number | null;
     },
@@ -858,12 +858,6 @@ export class AppState {
     }
     if (index != null) {
       this.tracks[index] = updatedTrack;
-    } else {
-      // Track not in the current view (filter/search): update it directly.
-      const idx = this.tracks.findIndex((t) => t.id === id);
-      if (idx !== -1) {
-        this.tracks[idx] = updatedTrack;
-      }
     }
     // If the currently playing track was edited, keep its title for document.title.
     if (this.currentTrack?.id === id) {

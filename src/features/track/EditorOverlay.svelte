@@ -5,8 +5,8 @@
   let title = $state("");
   let artist = $state("");
   let album = $state("");
-  let genre = $state<string | null>(null);
-  let year = $state<number | null>(null);
+  let genre = $state("");
+  let year = $state("");
   let saving = $state(false);
   let error = $state<string | null>(null);
 
@@ -15,15 +15,15 @@
       title = app.editingTrack.title;
       artist = app.editingTrack.artist;
       album = app.editingTrack.album;
-      genre = app.editingTrack.genre ?? null;
-      year = app.editingTrack.year ?? null;
+      genre = app.editingTrack.genre ?? "";
+      year = app.editingTrack.year ? String(app.editingTrack.year) : "";
       error = null;
     } else {
       title = "";
       artist = "";
       album = "";
-      genre = null;
-      year = null;
+      genre = "";
+      year = "";
       error = null;
     }
   });
@@ -39,15 +39,14 @@
         artist,
         album,
         genre: genre || null,
-        year: year || null,
+        year: year ? Number(year) : null,
       });
       if (updated) {
-        // Update the displayed values in case the backend returned different canonical text
         title = updated.title;
         artist = updated.artist;
         album = updated.album;
-        genre = updated.genre ?? null;
-        year = updated.year ?? null;
+        genre = updated.genre ?? "";
+        year = updated.year ? String(updated.year) : "";
       } else {
         error = "Failed to save changes";
       }
@@ -60,7 +59,7 @@
 
   function handleKeyDown(e: KeyboardEvent): void {
     if ((e.key === "Escape" || e.key === "Enter") && app.editingTrack) {
-      const target = e.target as HTMLElement;
+      const target = e.target as HTMLInputElement;
       if (target.tagName === "INPUT" && !target.disabled) return;
     }
     if (e.key === "Escape") close();
@@ -75,6 +74,7 @@
       document.addEventListener("keydown", handleKeyDown);
       return () => document.removeEventListener("keydown", handleKeyDown);
     }
+    return;
   });
 </script>
 
@@ -82,8 +82,9 @@
   <div
     class="editor-overlay"
     bind:this={overlay}
-    onmousedown|self={(e) => {
-      if (overlay && !overlay.contains(e.target as Node)) close();
+    onmousedown={(e) => {
+      if (!overlay || e.target !== e.currentTarget) return;
+      close();
     }}
   >
     <div class="editor-content" role="dialog" aria-label="Edit track metadata">
@@ -96,21 +97,21 @@
       <div class="editor-body">
         <label class="field">
           <span>Title</span>
-          <input type="text" value={title} autocomplete="off" />
+          <input type="text" bind:value={title} autocomplete="off" />
         </label>
         <label class="field">
           <span>Artist</span>
-          <input type="text" value={artist} autocomplete="off" />
+          <input type="text" bind:value={artist} autocomplete="off" />
         </label>
         <label class="field">
           <span>Album</span>
-          <input type="text" value={album} autocomplete="off" />
+          <input type="text" bind:value={album} autocomplete="off" />
         </label>
         <label class="field">
           <span>Genre</span>
           <input
             type="text"
-            value={genre ?? ""}
+            bind:value={genre}
             autocomplete="off"
             placeholder="Clear with ⌫ + Save"
           />
@@ -119,7 +120,7 @@
           <span>Year</span>
           <input
             type="number"
-            value={String(year ?? "")}
+            bind:value={year}
             min="1900"
             max="2100"
             inputmode="numeric"
