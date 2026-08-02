@@ -129,7 +129,7 @@
           class="track-row"
           ondblclick={(e) => {
             e.preventDefault();
-            app.editingTrack = track;
+            app.addToPlaylist(track);
           }}
           oncontextmenu={(e) => {
             e.preventDefault();
