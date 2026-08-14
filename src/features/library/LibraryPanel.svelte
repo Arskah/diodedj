@@ -42,7 +42,7 @@
     app.addToPlaylist(track);
   }
 
-  function cues(track: Track, e: MouseEvent): void {
+  function cue(track: Track, e: MouseEvent): void {
     e.stopPropagation();
     app.cueLoadAndPlay(track);
   }
@@ -160,7 +160,7 @@
               class="btn-cue"
               title="Preview on cue deck"
               aria-label="Cue track"
-              onclick={(e) => cues(track, e)}
+              onclick={(e) => cue(track, e)}
             >
               <span class="material-symbols-outlined">headphones</span>
             </button>

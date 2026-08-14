@@ -182,8 +182,15 @@ export const api = {
     return invoke<void>("broadcast_shutdown");
   },
   updateTrackMetadata(updates: TrackMetadataInput): Promise<Track> {
+    // Empty strings for the non-nullable title/artist/album mean "leave
+    // unchanged", so they are omitted. genre/year are nullable: `null` is sent
+    // through explicitly so the backend clears the column (a present JSON
+    // `null` deserializes to `Some(None)`), while omitting them would leave the
+    // value untouched.
     const filtered: Partial<TrackMetadataInput & { id: number }> = {
       id: updates.id,
+      genre: updates.genre,
+      year: updates.year,
     };
     if (updates.title !== "") {
       filtered.title = updates.title;
@@ -193,14 +200,6 @@ export const api = {
     }
     if (updates.album !== "") {
       filtered.album = updates.album;
-    }
-    const genreVal = updates.genre;
-    if (genreVal != null) {
-      filtered.genre = genreVal;
-    }
-    const yearVal = updates.year;
-    if (yearVal != null) {
-      filtered.year = yearVal;
     }
     return invoke<Track>("update_track_metadata", { updates: filtered });
   },

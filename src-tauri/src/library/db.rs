@@ -38,20 +38,43 @@ pub struct TracksByType {
     pub jingle: i64,
 }
 
+/// Deserialize a nullable, optionally-present field into a "double option".
+///
+/// Serde's default `Option<Option<T>>` deserialize collapses an explicit JSON
+/// `null` to `None` (indistinguishable from an absent field), which makes it
+/// impossible to tell "leave unchanged" from "clear to NULL". This helper keeps
+/// the distinction: absent → `None` (via `#[serde(default)]`), present `null`
+/// → `Some(None)` (clear), present value → `Some(Some(v))` (set).
+fn double_option<'de, T, D>(deserializer: D) -> std::result::Result<Option<Option<T>>, D::Error>
+where
+    T: Deserialize<'de>,
+    D: serde::Deserializer<'de>,
+{
+    Deserialize::deserialize(deserializer).map(Some)
+}
+
 #[derive(Default, Clone, serde::Serialize, serde::Deserialize)]
 pub struct TrackMetadataUpdate {
     pub id: i64,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub artist: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub album: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "double_option",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub genre: Option<Option<String>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "double_option",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub year: Option<Option<i64>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub content_type: Option<String>,
 }
 
@@ -1174,5 +1197,49 @@ mod tests {
         // Title should still be found by FTS
         let results = db.search("hello", None, None, None).unwrap();
         assert_eq!(results.len(), 1);
+    }
+
+    #[test]
+    fn metadata_update_deserialize_distinguishes_absent_null_and_value() {
+        // Absent field → None (leave unchanged).
+        let absent: TrackMetadataUpdate = serde_json::from_str(r#"{"id":1}"#).unwrap();
+        assert_eq!(absent.genre, None);
+        assert_eq!(absent.year, None);
+
+        // Explicit JSON null → Some(None) (clear to NULL). Without the
+        // `double_option` deserializer serde would collapse this to None,
+        // silently turning a "clear" request into a no-op.
+        let cleared: TrackMetadataUpdate =
+            serde_json::from_str(r#"{"id":1,"genre":null,"year":null}"#).unwrap();
+        assert_eq!(cleared.genre, Some(None));
+        assert_eq!(cleared.year, Some(None));
+
+        // Present value → Some(Some(v)) (set).
+        let set: TrackMetadataUpdate =
+            serde_json::from_str(r#"{"id":1,"genre":"Rock","year":2020}"#).unwrap();
+        assert_eq!(set.genre, Some(Some("Rock".to_string())));
+        assert_eq!(set.year, Some(Some(2020)));
+    }
+
+    #[test]
+    fn metadata_update_clears_field_via_deserialized_payload() {
+        let db = Db::open_in_memory().unwrap();
+        insert(&db, "/a.mp3", "Title", "Artist", "Album", "music");
+        db.update_track_metadata(&TrackMetadataUpdate {
+            id: 1,
+            genre: Some(Some("Rock".into())),
+            year: Some(Some(2020)),
+            ..Default::default()
+        })
+        .unwrap();
+
+        // Payload as it arrives over the Tauri IPC boundary from the renderer.
+        let update: TrackMetadataUpdate =
+            serde_json::from_str(r#"{"id":1,"genre":null,"year":null}"#).unwrap();
+        db.update_track_metadata(&update).unwrap();
+
+        let t = db.get_track(1).unwrap().unwrap();
+        assert_eq!(t.genre, None::<String>);
+        assert_eq!(t.year, None::<i64>);
     }
 }

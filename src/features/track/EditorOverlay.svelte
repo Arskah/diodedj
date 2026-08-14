@@ -1,7 +1,11 @@
 <script lang="ts">
   import { app } from "../../shared/state.svelte";
 
+  const MIN_YEAR = 1900;
+  const MAX_YEAR = 2100;
+
   let overlay: HTMLDivElement | undefined = $state();
+  let titleInput: HTMLInputElement | undefined = $state();
   let title = $state("");
   let artist = $state("");
   let album = $state("");
@@ -31,6 +35,19 @@
   async function handleSave(): Promise<void> {
     const track = app.editingTrack;
     if (!track) return;
+
+    // `type=number` min/max are hints only; validate the entered year here so a
+    // bad value is rejected before it reaches the backend.
+    let parsedYear: number | null = null;
+    if (year.trim() !== "") {
+      const n = Number(year);
+      if (!Number.isInteger(n) || n < MIN_YEAR || n > MAX_YEAR) {
+        error = `Year must be a whole number between ${MIN_YEAR} and ${MAX_YEAR}`;
+        return;
+      }
+      parsedYear = n;
+    }
+
     saving = true;
     error = null;
     try {
@@ -39,14 +56,10 @@
         artist,
         album,
         genre: genre || null,
-        year: year ? Number(year) : null,
+        year: parsedYear,
       });
       if (updated) {
-        title = updated.title;
-        artist = updated.artist;
-        album = updated.album;
-        genre = updated.genre ?? "";
-        year = updated.year ? String(updated.year) : "";
+        close();
       } else {
         error = "Failed to save changes";
       }
@@ -58,11 +71,18 @@
   }
 
   function handleKeyDown(e: KeyboardEvent): void {
-    if ((e.key === "Escape" || e.key === "Enter") && app.editingTrack) {
-      const target = e.target as HTMLInputElement;
-      if (target.tagName === "INPUT" && !target.disabled) return;
+    if (!app.editingTrack) return;
+    if (e.key === "Escape") {
+      e.preventDefault();
+      close();
+    } else if (e.key === "Enter") {
+      const target = e.target as HTMLElement;
+      // Enter in a field submits; leave button activations to native clicks.
+      if (target.tagName === "INPUT" && !saving) {
+        e.preventDefault();
+        void handleSave();
+      }
     }
-    if (e.key === "Escape") close();
   }
 
   function close(): void {
@@ -72,6 +92,8 @@
   $effect(() => {
     if (app.editingTrack) {
       document.addEventListener("keydown", handleKeyDown);
+      // Focus the first field so the dialog is keyboard-usable on open.
+      titleInput?.focus();
       return () => document.removeEventListener("keydown", handleKeyDown);
     }
     return;
@@ -81,13 +103,20 @@
 {#if app.editingTrack}
   <div
     class="editor-overlay"
+    role="presentation"
     bind:this={overlay}
     onmousedown={(e) => {
       if (!overlay || e.target !== e.currentTarget) return;
       close();
     }}
   >
-    <div class="editor-content" role="dialog" aria-label="Edit track metadata">
+    <div
+      class="editor-content"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Edit track metadata"
+      tabindex="-1"
+    >
       <div class="editor-header">
         <h2 class="editor-title">Edit Metadata</h2>
         <button class="btn-close" onclick={close} title="Close (Escape)">
@@ -97,7 +126,12 @@
       <div class="editor-body">
         <label class="field">
           <span>Title</span>
-          <input type="text" bind:value={title} autocomplete="off" />
+          <input
+            type="text"
+            bind:this={titleInput}
+            bind:value={title}
+            autocomplete="off"
+          />
         </label>
         <label class="field">
           <span>Artist</span>
