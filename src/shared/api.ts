@@ -11,6 +11,7 @@ import type {
   SortColumn,
   SortDir,
   Track,
+  TrackMetadataInput,
   TuningConfig,
 } from "./types";
 
@@ -188,6 +189,20 @@ export const api = {
   },
   broadcastShutdown(): Promise<void> {
     return invoke<void>("broadcast_shutdown");
+  },
+  updateTrackMetadata(updates: TrackMetadataInput): Promise<Track> {
+    // Partial patch (RFC 7396 style): forward only the keys the caller set.
+    // Absent key → leave unchanged; present value → set (empty string
+    // included); present `null` → clear the column (a present JSON `null`
+    // deserializes to `Some(None)` on the backend). Undefined keys are dropped
+    // explicitly rather than relying on the serializer to omit them.
+    const payload: TrackMetadataInput = { id: updates.id };
+    if (updates.title !== undefined) payload.title = updates.title;
+    if (updates.artist !== undefined) payload.artist = updates.artist;
+    if (updates.album !== undefined) payload.album = updates.album;
+    if (updates.genre !== undefined) payload.genre = updates.genre;
+    if (updates.year !== undefined) payload.year = updates.year;
+    return invoke<Track>("update_track_metadata", { updates: payload });
   },
   async pickDirectory(): Promise<string | null> {
     const dir = await open({ directory: true, multiple: false });

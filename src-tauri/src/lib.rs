@@ -17,7 +17,7 @@ pub const APP_NAME: &str = "RadiodioDJ";
 
 use audio::player::{Cmd, PlayerHandle, PlayerTuning};
 use broadcast::{service::default_now_playing_dir, BroadcastService};
-use library::db::{Db, LibraryStats, Track};
+use library::db::{Db, LibraryStats, Track, TrackMetadataUpdate};
 use library::scan_state::{ScanState, ScanStatus, StartResult};
 use library::waveform_scan::{WaveformJob, WaveformStatus};
 use persist::config::{Config, DeviceRef, NowPlayingConfig, TuningConfig};
@@ -267,6 +267,14 @@ fn get_cover_art(app_state: State<'_, AppState>, id: i64) -> Result<Option<Strin
 #[tauri::command(rename_all = "camelCase")]
 fn audio_list_devices() -> Vec<DeviceInfo> {
     list_output_devices()
+}
+
+#[tauri::command(rename_all = "camelCase")]
+fn update_track_metadata(
+    state: State<'_, AppState>,
+    updates: TrackMetadataUpdate,
+) -> Result<Track, String> {
+    state.db.update_track_metadata(&updates).map_err(err)
 }
 
 #[tauri::command(rename_all = "camelCase")]
@@ -570,6 +578,7 @@ pub fn run() {
             set_tuning_config,
             now_playing_test,
             broadcast_shutdown,
+            update_track_metadata,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

@@ -7,6 +7,7 @@ import type {
   SortColumn,
   SortDir,
   Track,
+  TrackMetadataInput,
   TuningConfig,
 } from "./types";
 import { isStopMarker, isTrackItem, stopMarker, trackItem } from "./types";
@@ -143,6 +144,9 @@ export class AppState {
   hoveredTrack = $state<Track | null>(null);
   hoverX = $state(0);
   hoverY = $state(0);
+
+  // Track currently being edited via the MetadataEditor overlay.
+  editingTrack = $state<Track | null>(null);
 
   backend: DeckBackend;
   cueBackend: DeckBackend;
@@ -878,6 +882,49 @@ export class AppState {
   async removePath(type: ContentType, p: string): Promise<void> {
     await api.removePath(type, p);
     await this.loadLibraryPaths();
+  }
+
+  /** Update a track's embedded metadata fields and reflect the change in the local tracks array. */
+  async updateTrackMetadata(
+    id: number,
+    input: Partial<Pick<Track, "title" | "artist" | "album">> & {
+      genre?: string | null;
+      year?: number | null;
+    },
+  ): Promise<Track | null> {
+    const byIndex = new Map(this.tracks.map((t, i) => [t.id, i]));
+    const index = byIndex.get(id);
+    let oldTitle = "";
+    if (index != null) {
+      oldTitle = this.tracks[index].title;
+    }
+    // Forward only the fields the caller actually set (partial patch); an
+    // absent key leaves that column unchanged on the backend.
+    const payload: TrackMetadataInput = { id };
+    if (input.title !== undefined) payload.title = input.title;
+    if (input.artist !== undefined) payload.artist = input.artist;
+    if (input.album !== undefined) payload.album = input.album;
+    if (input.genre !== undefined) payload.genre = input.genre;
+    if (input.year !== undefined) payload.year = input.year;
+    let updatedTrack: Track;
+    try {
+      updatedTrack = await api.updateTrackMetadata(payload);
+    } catch (err) {
+      logger.error("updateTrackMetadata failed:", err);
+      return null;
+    }
+    if (index != null) {
+      this.tracks[index] = updatedTrack;
+    }
+    // If the currently playing track was edited, keep its title for document.title.
+    if (this.currentTrack?.id === id) {
+      this.currentTrack = updatedTrack;
+      if (oldTitle && oldTitle !== updatedTrack.title) {
+        document.title = `${updatedTrack.title} - ${updatedTrack.artist} | ${APP_NAME}`;
+      }
+    }
+    this.scheduleSave();
+    return updatedTrack;
   }
 
   async scan(): Promise<void> {

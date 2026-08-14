@@ -47,6 +47,11 @@
     app.cueLoadAndPlay(track);
   }
 
+  function startEdit(track: Track, e: MouseEvent): void {
+    e.stopPropagation();
+    app.editingTrack = track;
+  }
+
   function onEnter(track: Track, e: MouseEvent): void {
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     app.setHover(track, rect);
@@ -122,7 +127,10 @@
       {#each app.tracks as track (track.id)}
         <div
           class="track-row"
-          ondblclick={() => app.addToPlaylist(track)}
+          ondblclick={(e) => {
+            e.preventDefault();
+            app.addToPlaylist(track);
+          }}
           onmouseenter={(e) => onEnter(track, e)}
           onmouseleave={() => app.clearHover()}
           role="button"
@@ -153,6 +161,14 @@
               <span class="material-symbols-outlined">headphones</span>
             </button>
           {/if}
+          <button
+            class="btn-edit"
+            title="Edit metadata"
+            aria-label="Edit track metadata"
+            onclick={(e) => startEdit(track, e)}
+          >
+            <span class="material-symbols-outlined">edit</span>
+          </button>
           <button
             class="btn-play-track"
             title="Add and play"
