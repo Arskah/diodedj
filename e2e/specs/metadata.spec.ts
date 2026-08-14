@@ -58,7 +58,7 @@ describe("metadata editing", () => {
 
     await openEditor();
     // Untagged WAV → title defaults to the file basename, genre/year empty.
-    await expect(await inputValue(sel.editorTitle)).toBe("edit-fixture");
+    expect(await inputValue(sel.editorTitle)).toBe("edit-fixture");
 
     await browser.$(sel.editorTitle).setValue("Edited Title");
     await browser.$(sel.editorGenre).setValue("Techno");
@@ -83,9 +83,9 @@ describe("metadata editing", () => {
     // local row patch. Genre/year aren't shown in the row, so this is the only
     // check that covers them.
     await openEditor();
-    await expect(await inputValue(sel.editorTitle)).toBe("Edited Title");
-    await expect(await inputValue(sel.editorGenre)).toBe("Techno");
-    await expect(await inputValue(sel.editorYear)).toBe("1998");
+    expect(await inputValue(sel.editorTitle)).toBe("Edited Title");
+    expect(await inputValue(sel.editorGenre)).toBe("Techno");
+    expect(await inputValue(sel.editorYear)).toBe("1998");
     await browser.$(sel.editorCancel).click();
     await browser.$(sel.editorDialog).waitForExist({
       reverse: true,
@@ -107,7 +107,7 @@ describe("metadata editing", () => {
 
     // Reopen, clear it, save.
     await openEditor();
-    await expect(await inputValue(sel.editorGenre)).toBe("Ambient");
+    expect(await inputValue(sel.editorGenre)).toBe("Ambient");
     await browser.$(sel.editorGenre).clearValue();
     await browser.$(sel.editorSave).click();
     await browser.$(sel.editorDialog).waitForExist({
@@ -117,7 +117,7 @@ describe("metadata editing", () => {
 
     // Reopen — genre is now empty (cleared to NULL and reloaded as "").
     await openEditor();
-    await expect(await inputValue(sel.editorGenre)).toBe("");
+    expect(await inputValue(sel.editorGenre)).toBe("");
     await browser.$(sel.editorCancel).click();
   });
 
@@ -137,6 +137,6 @@ describe("metadata editing", () => {
 
     // The row title is untouched.
     const titles = await rowTitles();
-    await expect(titles[0]).toBe("edit-fixture");
+    expect(titles[0]).toBe("edit-fixture");
   });
 });
