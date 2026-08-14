@@ -76,6 +76,43 @@ export interface DeviceRef {
   description: string;
 }
 
+/// Playlist interleave cadence.
+export interface InterleaveConfig {
+  jingleEvery: number;
+  commercialEvery: number;
+  commercialBucketMultiplier: number;
+  commercialBucketMin: number;
+}
+
+/// Renderer-side auto-playlist + session tuning. Read by `state.svelte.ts`.
+export interface AutoPlaylistConfig {
+  autoPlaylistBuffer: number;
+  autoPlaylistThreshold: number;
+  historyCap: number;
+  sessionSaveThrottleMs: number;
+  netRetryBackoffsMs: number[];
+}
+
+/// Prefetch byte-cache tuning (bytes).
+export interface CacheConfig {
+  maxCacheBytes: number;
+}
+
+/// Audio-player network-resilience timeouts (ms).
+export interface PlayerConfig {
+  readWatchdogTimeoutMs: number;
+  openRetryIntervalMs: number;
+  readRetryBackoffsMs: number[];
+}
+
+/// User-tunable playback behaviour, persisted in `config.json`.
+export interface TuningConfig {
+  interleave: InterleaveConfig;
+  autoPlaylist: AutoPlaylistConfig;
+  cache: CacheConfig;
+  player: PlayerConfig;
+}
+
 export interface DeviceInfo {
   name: string;
   description: string;

@@ -7,6 +7,7 @@ import type {
   SortColumn,
   SortDir,
   Track,
+  TuningConfig,
 } from "./types";
 import { isStopMarker, isTrackItem, stopMarker, trackItem } from "./types";
 import {
@@ -28,15 +29,34 @@ const logger = {
 
 export type { Track };
 
-// Auto playlist configuration
-const AUTO_PLAYLIST_BUFFER = 20;
-// Threshold at which the auto playlist will be refilled. Should be lower than AUTO_PLAYLIST_BUFFER to avoid excessive refilling.
-const AUTO_PLAYLIST_THRESHOLD = 5;
-const HISTORY_CAP = 100;
-const SESSION_SAVE_THROTTLE_MS = 500;
-// Backoff schedule (ms) for retrying advancement while nothing playable is
-// cached (network outage). The last value repeats until recovery.
-const NET_RETRY_BACKOFFS_MS = [1000, 2000, 5000];
+// Tuning defaults. Used until `loadTuning()` fetches the persisted config from
+// the backend, and as the fallback if that call fails.
+const DEFAULT_TUNING: TuningConfig = {
+  interleave: {
+    jingleEvery: 4,
+    commercialEvery: 8,
+    commercialBucketMultiplier: 3,
+    commercialBucketMin: 10,
+  },
+  autoPlaylist: {
+    // Number of upcoming tracks kept queued by the auto-playlist.
+    autoPlaylistBuffer: 20,
+    // Refill threshold — below this the auto-playlist tops back up. Kept lower
+    // than the buffer to avoid excessive refilling.
+    autoPlaylistThreshold: 5,
+    historyCap: 100,
+    sessionSaveThrottleMs: 500,
+    // Backoff schedule (ms) for retrying advancement while nothing playable is
+    // cached (network outage). The last value repeats until recovery.
+    netRetryBackoffsMs: [1000, 2000, 5000],
+  },
+  cache: { maxCacheBytes: 150 * 1024 * 1024 },
+  player: {
+    readWatchdogTimeoutMs: 10000,
+    openRetryIntervalMs: 2000,
+    readRetryBackoffsMs: [500, 1000, 2000],
+  },
+};
 
 export type PlaylistTab = "playlist" | "history";
 
@@ -115,6 +135,11 @@ export class AppState {
   mainDevice = $state<DeviceRef | null>(null);
   cueDevice = $state<DeviceRef | null>(null);
 
+  // Initialized to defaults; `loadTuning()` replaces it with the persisted
+  // config at startup. Read for auto-playlist/history/retry behaviour and
+  // edited by the Settings → Advanced tab.
+  tuning = $state<TuningConfig>(structuredClone(DEFAULT_TUNING));
+
   hoveredTrack = $state<Track | null>(null);
   hoverX = $state(0);
   hoverY = $state(0);
@@ -135,7 +160,7 @@ export class AppState {
     this.cueBackend = cueBackend ?? new NativeBackend("cue");
     this.throttledSave = throttle(
       () => void this.persistSession(),
-      SESSION_SAVE_THROTTLE_MS,
+      this.tuning.autoPlaylist.sessionSaveThrottleMs,
     );
 
     this.backend.on((event) => {
@@ -375,9 +400,10 @@ export class AppState {
   }
 
   appendHistory(track: Track): void {
+    const cap = this.tuning.autoPlaylist.historyCap;
     this.history.push(track);
-    if (this.history.length > HISTORY_CAP) {
-      this.history.splice(0, this.history.length - HISTORY_CAP);
+    if (this.history.length > cap) {
+      this.history.splice(0, this.history.length - cap);
     }
     this.scheduleSave();
   }
@@ -558,8 +584,9 @@ export class AppState {
   async maybeRefillPlaylist(): Promise<void> {
     if (!this.autoPlaylistActive) return;
     if (this.playlist.some(isStopMarker)) return;
-    if (this.playlist.length < AUTO_PLAYLIST_THRESHOLD) {
-      const count = AUTO_PLAYLIST_BUFFER - this.playlist.length;
+    if (this.playlist.length < this.tuning.autoPlaylist.autoPlaylistThreshold) {
+      const count =
+        this.tuning.autoPlaylist.autoPlaylistBuffer - this.playlist.length;
       const excludeIds = this.playlist
         .filter(isTrackItem)
         .map((i) => i.track.id);
@@ -685,6 +712,34 @@ export class AppState {
     this.audioDevices = devices;
     this.mainDevice = main;
     this.cueDevice = cue;
+  }
+
+  /// Fetch persisted tuning from the backend. Falls back to defaults (already in
+  /// place) on error so a backend hiccup never leaves the app unusable.
+  async loadTuning(): Promise<void> {
+    try {
+      this.applyTuning(await api.getTuningConfig());
+    } catch (err) {
+      logger.error("Failed to load tuning config", err);
+    }
+  }
+
+  /// Persist edited tuning and adopt the backend's clamped result. Cache/player
+  /// fields only take effect on restart (their worker threads capture them at
+  /// startup); the renderer-side fields applied here take effect immediately.
+  async saveTuning(next: TuningConfig): Promise<void> {
+    this.applyTuning(await api.setTuningConfig(next));
+  }
+
+  /// Adopt a tuning config: store it and rebuild the session-save throttle,
+  /// since its interval is derived from `sessionSaveThrottleMs`.
+  private applyTuning(tuning: TuningConfig): void {
+    this.tuning = tuning;
+    this.throttledSave.cancel();
+    this.throttledSave = throttle(
+      () => void this.persistSession(),
+      tuning.autoPlaylist.sessionSaveThrottleMs,
+    );
   }
 
   async setMainDeviceConfig(device: DeviceRef | null): Promise<void> {
@@ -956,7 +1011,8 @@ export class AppState {
   private scheduleNetRetry(): void {
     this.awaitingNetwork = true;
     if (this.netRetryTimer !== null) return;
-    const i = Math.min(this.netRetryAttempt, NET_RETRY_BACKOFFS_MS.length - 1);
+    const backoffs = this.tuning.autoPlaylist.netRetryBackoffsMs;
+    const i = Math.min(this.netRetryAttempt, backoffs.length - 1);
     this.netRetryAttempt += 1;
     this.netRetryTimer = setTimeout(() => {
       this.netRetryTimer = null;
@@ -966,7 +1022,7 @@ export class AppState {
       // successful read the resulting cache-state advances playback.
       this.updatePrefetch();
       this.advancePlan(true);
-    }, NET_RETRY_BACKOFFS_MS[i]);
+    }, backoffs[i]);
   }
 
   private clearNetRetry(): void {

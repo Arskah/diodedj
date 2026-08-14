@@ -12,6 +12,7 @@ import type {
   SortDir,
   Track,
   TrackMetadataInput,
+  TuningConfig,
 } from "./types";
 
 export type PersistedPlaylistItem =
@@ -174,6 +175,14 @@ export const api = {
   },
   setNowPlayingConfig(config: NowPlayingConfig): Promise<void> {
     return invoke<void>("set_now_playing_config", { config });
+  },
+  getTuningConfig(): Promise<TuningConfig> {
+    return invoke<TuningConfig>("get_tuning_config");
+  },
+  // Returns the clamped config the backend actually persisted, so the UI can
+  // reflect any values that were coerced into range.
+  setTuningConfig(config: TuningConfig): Promise<TuningConfig> {
+    return invoke<TuningConfig>("set_tuning_config", { config });
   },
   testNowPlayingWebhook(): Promise<number> {
     return invoke<number>("now_playing_test");
