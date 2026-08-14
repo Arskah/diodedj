@@ -119,6 +119,7 @@
     }}
   >
     <div
+      id="editor-dialog"
       class="editor-content"
       role="dialog"
       aria-modal="true"
@@ -127,7 +128,12 @@
     >
       <div class="editor-header">
         <h2 class="editor-title">Edit Metadata</h2>
-        <button class="btn-close" onclick={close} title="Close (Escape)">
+        <button
+          id="btn-editor-close"
+          class="btn-close"
+          onclick={close}
+          title="Close (Escape)"
+        >
           <span class="material-symbols-outlined">close</span>
         </button>
       </div>
@@ -135,6 +141,7 @@
         <label class="field">
           <span>Title</span>
           <input
+            id="editor-title"
             type="text"
             bind:this={titleInput}
             bind:value={title}
@@ -143,15 +150,26 @@
         </label>
         <label class="field">
           <span>Artist</span>
-          <input type="text" bind:value={artist} autocomplete="off" />
+          <input
+            id="editor-artist"
+            type="text"
+            bind:value={artist}
+            autocomplete="off"
+          />
         </label>
         <label class="field">
           <span>Album</span>
-          <input type="text" bind:value={album} autocomplete="off" />
+          <input
+            id="editor-album"
+            type="text"
+            bind:value={album}
+            autocomplete="off"
+          />
         </label>
         <label class="field">
           <span>Genre</span>
           <input
+            id="editor-genre"
             type="text"
             bind:value={genre}
             autocomplete="off"
@@ -161,6 +179,7 @@
         <label class="field">
           <span>Year</span>
           <input
+            id="editor-year"
             type="number"
             bind:value={year}
             min="1900"
@@ -169,14 +188,26 @@
           />
         </label>
         {#if error}
-          <div class="editor-error">{error}</div>
+          <div id="editor-error" class="editor-error">{error}</div>
         {/if}
       </div>
       <div class="editor-footer">
-        <button class="btn btn-primary" onclick={handleSave} disabled={saving}>
+        <button
+          id="btn-editor-save"
+          class="btn btn-primary"
+          onclick={handleSave}
+          disabled={saving}
+        >
           {saving ? "Saving…" : "Save"}
         </button>
-        <button class="btn" onclick={close} disabled={saving}>Cancel</button>
+        <button
+          id="btn-editor-cancel"
+          class="btn"
+          onclick={close}
+          disabled={saving}
+        >
+          Cancel
+        </button>
       </div>
     </div>
   </div>
