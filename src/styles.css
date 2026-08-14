@@ -1785,6 +1785,75 @@ body {
   margin-bottom: var(--sp-lg);
 }
 
+/* Sub-group heading within the Advanced tuning tab. */
+.tuning-group-title {
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--on-surface-variant);
+  margin: var(--sp-xl) 0 var(--sp-sm);
+  padding-bottom: var(--sp-xs);
+  border-bottom: 1px solid var(--outline-variant);
+}
+.tuning-group-title:first-of-type {
+  margin-top: 0;
+}
+
+/* Advanced tuning rows: label left, control right, hint spanning below. */
+.settings-section--tuning .device-row {
+  display: grid;
+  grid-template-columns: 1fr 132px;
+  align-items: center;
+  column-gap: var(--sp-lg);
+  row-gap: var(--sp-xs);
+  margin-bottom: var(--sp-md);
+}
+
+.settings-section--tuning .device-row label {
+  font-family: inherit;
+  font-size: 13px;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--on-surface);
+}
+
+.settings-section--tuning .device-row input {
+  width: 100%;
+  padding: var(--sp-sm) var(--sp-md);
+  background: var(--surface-container-lowest);
+  border: 1px solid var(--outline-variant);
+  border-radius: var(--r-lg);
+  color: var(--on-surface);
+  font-size: 13px;
+  font-family: var(--font-mono);
+  text-align: right;
+}
+
+.settings-section--tuning .device-row input[type="text"] {
+  text-align: left;
+}
+
+.settings-section--tuning .device-row input:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.settings-section--tuning .device-row input:hover {
+  border-color: var(--outline);
+}
+
+/* Hint sits under the row, spanning both columns. */
+.settings-section--tuning .device-row .hint {
+  grid-column: 1 / -1;
+  margin-top: 0;
+}
+
+/* Trailing group-level hint (restart notice). */
+.settings-section--tuning > .hint {
+  margin-top: var(--sp-lg);
+}
+
 #settings-footer {
   display: flex;
   align-items: center;

@@ -14,22 +14,51 @@ pub enum ContentType {
     Commercial,
 }
 
-const JINGLE_EVERY: i64 = 4;
-const COMMERCIAL_EVERY: i64 = 8;
-const COMMERCIAL_BUCKET_MULTIPLIER: i64 = 3;
-const COMMERCIAL_BUCKET_MIN: i64 = 10;
-
-fn commercial_bucket_size(count: i64) -> i64 {
-    (count * COMMERCIAL_BUCKET_MULTIPLIER).max(COMMERCIAL_BUCKET_MIN)
+/// Interleave cadence for a generated block: how often jingles/commercials are
+/// woven into the music, and how the commercial pick-from-bottom bucket is
+/// sized. Supplied per call from the stored config; clamped on write (see
+/// `persist::config::set_tuning`), so the values here are always in range.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Interleave {
+    pub jingle_every: i64,
+    pub commercial_every: i64,
+    pub commercial_bucket_multiplier: i64,
+    pub commercial_bucket_min: i64,
 }
 
-pub fn generate(db: &Db, count: i64, exclude_ids: &[i64]) -> Result<Vec<Track>> {
+impl Default for Interleave {
+    fn default() -> Self {
+        Self {
+            jingle_every: 4,
+            commercial_every: 8,
+            commercial_bucket_multiplier: 3,
+            commercial_bucket_min: 10,
+        }
+    }
+}
+
+/// How many jingles/commercials to insert into `count` slots at the given
+/// cadence. An `every` of 0 disables the content type (no insertions, no
+/// divide-by-zero).
+fn cadence_count(count: i64, every: i64) -> i64 {
+    if every > 0 {
+        count / every
+    } else {
+        0
+    }
+}
+
+fn commercial_bucket_size(count: i64, il: &Interleave) -> i64 {
+    (count * il.commercial_bucket_multiplier).max(il.commercial_bucket_min)
+}
+
+pub fn generate(db: &Db, count: i64, exclude_ids: &[i64], il: &Interleave) -> Result<Vec<Track>> {
     if count <= 0 {
         return Ok(vec![]);
     }
 
-    let jingle_count = count / JINGLE_EVERY;
-    let commercial_count = count / COMMERCIAL_EVERY;
+    let jingle_count = cadence_count(count, il.jingle_every);
+    let commercial_count = cadence_count(count, il.commercial_every);
     let music_count = (count - jingle_count - commercial_count).max(0);
 
     // Exclusion happens in SQL (`NOT IN`), so each query returns exactly the
@@ -39,14 +68,14 @@ pub fn generate(db: &Db, count: i64, exclude_ids: &[i64]) -> Result<Vec<Track>> 
     let commercials = db.pick_random_from_bottom(
         ContentType::Commercial.as_ref(),
         commercial_count,
-        commercial_bucket_size(commercial_count),
+        commercial_bucket_size(commercial_count, il),
         exclude_ids,
     )?;
 
     Ok(interleave_evenly(music, jingles, commercials))
 }
 
-pub fn pick_filler(db: &Db, content_type: ContentType) -> Result<Option<Track>> {
+pub fn pick_filler(db: &Db, content_type: ContentType, il: &Interleave) -> Result<Option<Track>> {
     match content_type {
         ContentType::Jingle => Ok(db
             .get_random_tracks(ContentType::Jingle.as_ref(), 1, &[])?
@@ -55,7 +84,7 @@ pub fn pick_filler(db: &Db, content_type: ContentType) -> Result<Option<Track>> 
             .pick_random_from_bottom(
                 ContentType::Commercial.as_ref(),
                 1,
-                commercial_bucket_size(1),
+                commercial_bucket_size(1, il),
                 &[],
             )?
             .pop()),
@@ -164,10 +193,32 @@ mod tests {
     #[test]
     fn music_count_is_clamped_for_small_totals() {
         // count=3 → no jingles, no commercials, 3 music
+        let il = Interleave::default();
         let total = 3i64;
-        let jingle_count = total / JINGLE_EVERY;
-        let commercial_count = total / COMMERCIAL_EVERY;
+        let jingle_count = total / il.jingle_every;
+        let commercial_count = total / il.commercial_every;
         assert_eq!(jingle_count, 0);
         assert_eq!(commercial_count, 0);
+    }
+
+    #[test]
+    fn commercial_bucket_size_respects_multiplier_and_min() {
+        let il = Interleave::default(); // x3, min 10
+        assert_eq!(commercial_bucket_size(1, &il), 10); // min wins
+        assert_eq!(commercial_bucket_size(5, &il), 15); // multiplier wins
+        let custom = Interleave {
+            commercial_bucket_multiplier: 2,
+            commercial_bucket_min: 4,
+            ..Interleave::default()
+        };
+        assert_eq!(commercial_bucket_size(1, &custom), 4);
+        assert_eq!(commercial_bucket_size(10, &custom), 20);
+    }
+
+    #[test]
+    fn cadence_count_zero_disables_without_dividing() {
+        assert_eq!(cadence_count(100, 0), 0); // disabled: none inserted
+        assert_eq!(cadence_count(100, 4), 25); // normal cadence
+        assert_eq!(cadence_count(3, 4), 0); // fewer slots than cadence
     }
 }

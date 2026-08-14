@@ -34,9 +34,36 @@ const { api } = vi.hoisted(() => {
     setMainDevice: vi.fn(),
     getCueDevice: vi.fn(),
     setCueDevice: vi.fn(),
+    getTuningConfig: vi.fn(),
+    setTuningConfig: vi.fn(),
   };
   return { api };
 });
+
+// Default tuning config as returned by the backend.
+function defaultTuning() {
+  return {
+    interleave: {
+      jingleEvery: 4,
+      commercialEvery: 8,
+      commercialBucketMultiplier: 3,
+      commercialBucketMin: 10,
+    },
+    autoPlaylist: {
+      autoPlaylistBuffer: 20,
+      autoPlaylistThreshold: 5,
+      historyCap: 100,
+      sessionSaveThrottleMs: 500,
+      netRetryBackoffsMs: [1000, 2000, 5000],
+    },
+    cache: { maxCacheBytes: 150 * 1024 * 1024 },
+    player: {
+      readWatchdogTimeoutMs: 10000,
+      openRetryIntervalMs: 2000,
+      readRetryBackoffsMs: [500, 1000, 2000],
+    },
+  };
+}
 
 vi.mock("./api", () => ({ api }));
 
@@ -132,6 +159,8 @@ function resetApi(): void {
   api.getCueDevice.mockResolvedValue(null);
   api.setMainDevice.mockResolvedValue(undefined);
   api.setCueDevice.mockResolvedValue(undefined);
+  api.getTuningConfig.mockResolvedValue(defaultTuning());
+  api.setTuningConfig.mockImplementation((c: unknown) => Promise.resolve(c));
 }
 
 interface TestApp {
@@ -959,6 +988,63 @@ describe("AppState library + paths", () => {
       processed: 7,
       total: 10,
     });
+  });
+});
+
+describe("AppState tuning", () => {
+  let app: AppState;
+
+  beforeEach(() => {
+    resetApi();
+    app = makeApp().app;
+  });
+
+  it("defaults to the built-in tuning before load", () => {
+    expect(app.tuning.autoPlaylist.autoPlaylistBuffer).toBe(20);
+    expect(app.tuning.autoPlaylist.autoPlaylistThreshold).toBe(5);
+  });
+
+  it("loadTuning adopts backend values", async () => {
+    const cfg = defaultTuning();
+    cfg.autoPlaylist.autoPlaylistBuffer = 8;
+    cfg.autoPlaylist.autoPlaylistThreshold = 3;
+    api.getTuningConfig.mockResolvedValueOnce(cfg);
+    await app.loadTuning();
+    expect(app.tuning.autoPlaylist.autoPlaylistBuffer).toBe(8);
+  });
+
+  it("loaded buffer/threshold drive refill sizing", async () => {
+    const cfg = defaultTuning();
+    cfg.autoPlaylist.autoPlaylistBuffer = 8;
+    cfg.autoPlaylist.autoPlaylistThreshold = 3;
+    api.getTuningConfig.mockResolvedValueOnce(cfg);
+    api.generatePlaylist.mockResolvedValue([]);
+    await app.loadTuning();
+
+    app.autoPlaylistActive = true;
+    await app.maybeRefillPlaylist();
+    expect(api.generatePlaylist).toHaveBeenCalledWith(8, []);
+  });
+
+  it("loadTuning keeps defaults when the backend errors", async () => {
+    api.getTuningConfig.mockRejectedValueOnce(new Error("boom"));
+    await app.loadTuning();
+    expect(app.tuning.autoPlaylist.autoPlaylistBuffer).toBe(20);
+  });
+
+  it("saveTuning persists and adopts the clamped result", async () => {
+    const requested = defaultTuning();
+    requested.autoPlaylist.autoPlaylistBuffer = 4;
+    requested.autoPlaylist.autoPlaylistThreshold = 99;
+    // Backend clamps threshold down to the buffer.
+    const clamped = defaultTuning();
+    clamped.autoPlaylist.autoPlaylistBuffer = 4;
+    clamped.autoPlaylist.autoPlaylistThreshold = 4;
+    api.setTuningConfig.mockResolvedValueOnce(clamped);
+
+    await app.saveTuning(requested);
+    expect(api.setTuningConfig).toHaveBeenCalledWith(requested);
+    expect(app.tuning.autoPlaylist.autoPlaylistThreshold).toBe(4);
   });
 });
 

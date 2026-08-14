@@ -19,6 +19,9 @@ void attachConsole();
 
 mount(App, { target: document.getElementById("app")! });
 
+// Load user tuning first so runtime values (auto-playlist buffer, save
+// throttle, retry backoffs) are in effect before session/playlist logic runs.
+void app.loadTuning();
 void app.search();
 void app.loadStats();
 void app.loadSession();
