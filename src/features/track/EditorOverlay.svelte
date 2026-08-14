@@ -10,7 +10,9 @@
   let artist = $state("");
   let album = $state("");
   let genre = $state("");
-  let year = $state("");
+  // `type=number` bind:value hands us a number (or null when empty), not the
+  // string we seed — normalise on read in handleSave.
+  let year = $state<string | number | null>("");
   let saving = $state(false);
   let error = $state<string | null>(null);
 
@@ -46,9 +48,13 @@
 
     // `type=number` min/max are hints only; validate the entered year here so a
     // bad value is rejected before it reaches the backend.
+    // Svelte binds a numeric input to a number (or null when empty), so coerce
+    // to a trimmed string before validating — `year.trim()` would throw on the
+    // number the binding produces once the field has been edited.
+    const yearStr = year == null ? "" : String(year).trim();
     let parsedYear: number | null = null;
-    if (year.trim() !== "") {
-      const n = Number(year);
+    if (yearStr !== "") {
+      const n = Number(yearStr);
       if (!Number.isInteger(n) || n < MIN_YEAR || n > MAX_YEAR) {
         error = `Year must be a whole number between ${MIN_YEAR} and ${MAX_YEAR}`;
         return;

@@ -46,6 +46,18 @@ describe("metadata editing", () => {
     }, selector);
   }
 
+  // WebdriverIO's clearValue() sets the field empty without an `input` event, so
+  // Svelte's bind:value never sees the change and keeps the old value. Clear via
+  // the DOM and dispatch `input` so the binding updates like a real keystroke.
+  async function clearInput(selector: string): Promise<void> {
+    await browser.execute((s) => {
+      const el = document.querySelector(s) as HTMLInputElement | null;
+      if (!el) return;
+      el.value = "";
+      el.dispatchEvent(new Event("input", { bubbles: true }));
+    }, selector);
+  }
+
   async function openEditor(): Promise<void> {
     await browser.$(sel.editButton).click();
     await browser.$(sel.editorDialog).waitForExist({ timeout: 5_000 });
@@ -108,7 +120,7 @@ describe("metadata editing", () => {
     // Reopen, clear it, save.
     await openEditor();
     expect(await inputValue(sel.editorGenre)).toBe("Ambient");
-    await browser.$(sel.editorGenre).clearValue();
+    await clearInput(sel.editorGenre);
     await browser.$(sel.editorSave).click();
     await browser.$(sel.editorDialog).waitForExist({
       reverse: true,
@@ -125,7 +137,7 @@ describe("metadata editing", () => {
     await bootAndScan();
 
     await openEditor();
-    await browser.$(sel.editorTitle).clearValue();
+    await clearInput(sel.editorTitle);
     await browser.$(sel.editorSave).click();
 
     // Validation blocks the save: the dialog stays open and an error shows.
