@@ -1594,7 +1594,7 @@ describe("AppState updateTrackMetadata", () => {
     app = makeApp().app;
   });
 
-  it("sends the API call with provided fields (undefined values filtered)", async () => {
+  it("forwards only the fields the caller set (absent keys omitted)", async () => {
     const updated = t(5, {
       title: "NewTitle",
       artist: "NewArtist",
@@ -1608,11 +1608,23 @@ describe("AppState updateTrackMetadata", () => {
       artist: "NewArtist",
       album: "NewAlbum",
     });
+    // genre/year were not provided, so they are omitted entirely (leave
+    // unchanged) rather than sent as null (which would clear them).
     expect(api.updateTrackMetadata).toHaveBeenCalledWith({
       id: 5,
       title: "NewTitle",
       artist: "NewArtist",
       album: "NewAlbum",
+    });
+  });
+
+  it("forwards an explicit null to clear a nullable field", async () => {
+    const updated = t(5, { title: "T" });
+    api.updateTrackMetadata.mockResolvedValue(updated);
+    app.tracks = [t(5)];
+    await app.updateTrackMetadata(5, { genre: null, year: null });
+    expect(api.updateTrackMetadata).toHaveBeenCalledWith({
+      id: 5,
       genre: null,
       year: null,
     });

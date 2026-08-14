@@ -131,10 +131,6 @@
             e.preventDefault();
             app.addToPlaylist(track);
           }}
-          oncontextmenu={(e) => {
-            e.preventDefault();
-            app.editingTrack = track;
-          }}
           onmouseenter={(e) => onEnter(track, e)}
           onmouseleave={() => app.clearHover()}
           role="button"

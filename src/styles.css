@@ -1271,7 +1271,8 @@ body {
 /* Row action icon buttons */
 .btn-play-track,
 .btn-add,
-.btn-cue {
+.btn-cue,
+.btn-edit {
   width: 26px;
   height: 26px;
   display: flex;
@@ -1287,12 +1288,14 @@ body {
 
 .btn-play-track .material-symbols-outlined,
 .btn-add .material-symbols-outlined,
-.btn-cue .material-symbols-outlined {
+.btn-cue .material-symbols-outlined,
+.btn-edit .material-symbols-outlined {
   font-size: 18px;
 }
 
 .btn-add:hover,
-.btn-play-track:hover {
+.btn-play-track:hover,
+.btn-edit:hover {
   color: var(--primary);
 }
 

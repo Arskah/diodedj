@@ -7,6 +7,7 @@ import type {
   SortColumn,
   SortDir,
   Track,
+  TrackMetadataInput,
   TuningConfig,
 } from "./types";
 import { isStopMarker, isTrackItem, stopMarker, trackItem } from "./types";
@@ -897,16 +898,17 @@ export class AppState {
     if (index != null) {
       oldTitle = this.tracks[index].title;
     }
+    // Forward only the fields the caller actually set (partial patch); an
+    // absent key leaves that column unchanged on the backend.
+    const payload: TrackMetadataInput = { id };
+    if (input.title !== undefined) payload.title = input.title;
+    if (input.artist !== undefined) payload.artist = input.artist;
+    if (input.album !== undefined) payload.album = input.album;
+    if (input.genre !== undefined) payload.genre = input.genre;
+    if (input.year !== undefined) payload.year = input.year;
     let updatedTrack: Track;
     try {
-      updatedTrack = await api.updateTrackMetadata({
-        id,
-        title: input.title ?? "",
-        artist: input.artist ?? "",
-        album: input.album ?? "",
-        genre: input.genre ?? null,
-        year: input.year ?? null,
-      });
+      updatedTrack = await api.updateTrackMetadata(payload);
     } catch (err) {
       logger.error("updateTrackMetadata failed:", err);
       return null;

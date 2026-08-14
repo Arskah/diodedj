@@ -45,17 +45,24 @@ export interface LibraryStats {
   tracksByType: Record<ContentType, number>;
 }
 
-/** Serializable form for tracking which metadata fields were changed
- * by the user. Only non-Empty values are sent to the backend so empty
- * strings can clear a field without requiring `undefined`. */
+/**
+ * Partial-update payload for a track's metadata, following JSON Merge Patch
+ * (RFC 7396) semantics so it maps 1:1 onto the backend's `Option` fields:
+ *
+ * - key absent      → leave the field unchanged (`None`)
+ * - key present     → set the field to the value, empty string included
+ *                     (`Some(value)`)
+ * - key present null → clear the nullable field to NULL, genre/year only
+ *                     (`Some(None)`)
+ */
 export interface TrackMetadataInput {
   /** Always present — identifies the track to update. */
   id: number;
-  title: string;
-  artist: string;
-  album: string;
-  genre: string | null;
-  year: number | null;
+  title?: string;
+  artist?: string;
+  album?: string;
+  genre?: string | null;
+  year?: number | null;
 }
 
 export interface ScanResult {

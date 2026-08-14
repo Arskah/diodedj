@@ -191,26 +191,18 @@ export const api = {
     return invoke<void>("broadcast_shutdown");
   },
   updateTrackMetadata(updates: TrackMetadataInput): Promise<Track> {
-    // Empty strings for the non-nullable title/artist/album mean "leave
-    // unchanged", so they are omitted. genre/year are nullable: `null` is sent
-    // through explicitly so the backend clears the column (a present JSON
-    // `null` deserializes to `Some(None)`), while omitting them would leave the
-    // value untouched.
-    const filtered: Partial<TrackMetadataInput & { id: number }> = {
-      id: updates.id,
-      genre: updates.genre,
-      year: updates.year,
-    };
-    if (updates.title !== "") {
-      filtered.title = updates.title;
-    }
-    if (updates.artist !== "") {
-      filtered.artist = updates.artist;
-    }
-    if (updates.album !== "") {
-      filtered.album = updates.album;
-    }
-    return invoke<Track>("update_track_metadata", { updates: filtered });
+    // Partial patch (RFC 7396 style): forward only the keys the caller set.
+    // Absent key → leave unchanged; present value → set (empty string
+    // included); present `null` → clear the column (a present JSON `null`
+    // deserializes to `Some(None)` on the backend). Undefined keys are dropped
+    // explicitly rather than relying on the serializer to omit them.
+    const payload: TrackMetadataInput = { id: updates.id };
+    if (updates.title !== undefined) payload.title = updates.title;
+    if (updates.artist !== undefined) payload.artist = updates.artist;
+    if (updates.album !== undefined) payload.album = updates.album;
+    if (updates.genre !== undefined) payload.genre = updates.genre;
+    if (updates.year !== undefined) payload.year = updates.year;
+    return invoke<Track>("update_track_metadata", { updates: payload });
   },
   async pickDirectory(): Promise<string | null> {
     const dir = await open({ directory: true, multiple: false });

@@ -36,6 +36,14 @@
     const track = app.editingTrack;
     if (!track) return;
 
+    // The editor sends every field, so an empty box now writes an empty value
+    // (partial-patch: present key = set). Title backs document.title and the
+    // library rows, so reject a blank one rather than persisting "".
+    if (title.trim() === "") {
+      error = "Title is required";
+      return;
+    }
+
     // `type=number` min/max are hints only; validate the entered year here so a
     // bad value is rejected before it reaches the backend.
     let parsedYear: number | null = null;
@@ -258,6 +266,9 @@
     font-size: 14px;
     outline: none;
     transition: border-color 0.15s;
+    /* Render native controls (the number field's spin buttons) with a dark
+       palette so their arrows stay light-on-dark instead of near-invisible. */
+    color-scheme: dark;
   }
 
   .field input:focus {

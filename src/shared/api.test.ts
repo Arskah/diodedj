@@ -14,49 +14,34 @@ beforeEach(() => {
 });
 
 describe("api.updateTrackMetadata", () => {
-  it("omits empty title/artist/album (non-nullable: leave unchanged)", async () => {
-    await api.updateTrackMetadata({
-      id: 1,
-      title: "",
-      artist: "",
-      album: "",
-      genre: "Rock",
-      year: 2020,
-    });
+  it("omits absent keys entirely (leave unchanged)", async () => {
+    // Only genre is set — the other fields must not appear in the payload, so
+    // the backend leaves them untouched.
+    await api.updateTrackMetadata({ id: 1, genre: "Rock" });
     const [cmd, payload] = invoke.mock.calls[0];
     expect(cmd).toBe("update_track_metadata");
-    expect(payload).toEqual({
-      updates: { id: 1, genre: "Rock", year: 2020 },
-    });
+    expect(payload).toEqual({ updates: { id: 1, genre: "Rock" } });
+    expect(Object.keys(payload.updates).sort()).toEqual(["genre", "id"]);
+  });
+
+  it("forwards an empty string as a value to set (not an omission)", async () => {
+    // Partial-patch semantics: a present empty string means "set to empty",
+    // distinct from omitting the key.
+    await api.updateTrackMetadata({ id: 2, album: "" });
+    const [, payload] = invoke.mock.calls[0];
+    expect(payload.updates).toEqual({ id: 2, album: "" });
+    expect(Object.prototype.hasOwnProperty.call(payload.updates, "album")).toBe(
+      true,
+    );
   });
 
   it("sends genre/year null through so the backend clears them", async () => {
     // Regression: the wrapper previously dropped `null`, so the advertised
     // "clear a field" feature silently no-oped. A present `null` must reach the
     // backend to distinguish "clear" from "omit".
-    await api.updateTrackMetadata({
-      id: 7,
-      title: "Keep",
-      artist: "Keep",
-      album: "Keep",
-      genre: null,
-      year: null,
-    });
+    await api.updateTrackMetadata({ id: 7, genre: null, year: null });
     const [, payload] = invoke.mock.calls[0];
-    expect(payload).toEqual({
-      updates: {
-        id: 7,
-        title: "Keep",
-        artist: "Keep",
-        album: "Keep",
-        genre: null,
-        year: null,
-      },
-    });
-    // Explicit: the null keys are present, not omitted.
-    expect(Object.prototype.hasOwnProperty.call(payload.updates, "genre")).toBe(
-      true,
-    );
+    expect(payload.updates).toEqual({ id: 7, genre: null, year: null });
     expect(payload.updates.genre).toBeNull();
     expect(payload.updates.year).toBeNull();
   });
