@@ -6,6 +6,7 @@
     DeviceInfo,
     DeviceRef,
     NowPlayingConfig,
+    TuningConfig,
   } from "../../shared/types";
 
   const sections: { type: ContentType; label: string }[] = [
@@ -14,8 +15,13 @@
     { type: "jingle", label: "Jingles" },
   ];
 
-  type ActiveTab = "library" | "audio" | "now-playing";
+  type ActiveTab = "library" | "audio" | "now-playing" | "advanced";
   let activeTab = $state<ActiveTab>("library");
+  const MIB = 1024 * 1024;
+  // Editable draft of the tuning config. Synced from `app.tuning` whenever the
+  // overlay opens; each edit persists via `app.saveTuning`, then re-syncs so the
+  // backend's clamped values are reflected in the inputs.
+  let tuning = $state<TuningConfig>($state.snapshot(app.tuning));
   let mainDeviceChanged = $state(false);
   let nowPlaying = $state<NowPlayingConfig>({
     webhookUrl: null,
@@ -32,9 +38,33 @@
     if (app.settingsOpen) {
       void app.loadAudioConfig();
       void loadNowPlayingConfig();
+      tuning = $state.snapshot(app.tuning);
       mainDeviceChanged = false;
     }
   });
+
+  // Persist the current draft, then adopt the backend's clamped result so the
+  // inputs snap to any coerced values.
+  async function saveTuning(): Promise<void> {
+    await app.saveTuning($state.snapshot(tuning));
+    tuning = $state.snapshot(app.tuning);
+  }
+
+  // Parse a number input, ignoring empty/NaN so a mid-edit blank doesn't wipe
+  // the field; the min-clamp is enforced by the backend on save.
+  function numInput(e: Event, apply: (v: number) => void): void {
+    const v = Number((e.currentTarget as HTMLInputElement).value);
+    if (Number.isFinite(v)) apply(v);
+  }
+
+  // Parse a comma/space separated list of positive integers (backoff schedules).
+  function listInput(e: Event, apply: (v: number[]) => void): void {
+    const parsed = (e.currentTarget as HTMLInputElement).value
+      .split(/[,\s]+/)
+      .map((s) => Number(s))
+      .filter((n) => Number.isFinite(n) && n > 0);
+    if (parsed.length > 0) apply(parsed);
+  }
 
   async function loadNowPlayingConfig(): Promise<void> {
     nowPlaying = await api.getNowPlayingConfig();
@@ -164,6 +194,16 @@
           <span class="material-symbols-outlined">rss_feed</span>
           Now Playing
         </button>
+        <button
+          class="settings-tab"
+          class:active={activeTab === "advanced"}
+          role="tab"
+          aria-selected={activeTab === "advanced"}
+          onclick={() => (activeTab = "advanced")}
+        >
+          <span class="material-symbols-outlined">tune</span>
+          Advanced
+        </button>
       </div>
 
       <div id="settings-content">
@@ -283,7 +323,7 @@
               </button>
             </div>
           </div>
-        {:else}
+        {:else if activeTab === "now-playing"}
           <div class="settings-section">
             <h4>Now Playing Metadata</h4>
             <p class="settings-section-desc">
@@ -420,6 +460,250 @@
                 <code>now_playing.json</code> atomically. TXT is truncated on stop;
                 JSON keeps the Stopped event payload.
               </div>
+            </div>
+          </div>
+        {:else}
+          <div class="settings-section settings-section--tuning">
+            <h4>Advanced Tuning</h4>
+            <p class="settings-section-desc">
+              Fine-tune playlist rotation, buffering, and network resilience.
+              Out-of-range values are clamped on save.
+            </p>
+
+            <h5 class="tuning-group-title">Interleave</h5>
+            <div class="device-row">
+              <label for="tune-jingle-every">Jingle every N tracks</label>
+              <input
+                id="tune-jingle-every"
+                type="number"
+                min="0"
+                value={tuning.interleave.jingleEvery}
+                oninput={(e) =>
+                  numInput(e, (v) => (tuning.interleave.jingleEvery = v))}
+                onchange={saveTuning}
+              />
+              <div class="hint">
+                One jingle after this many music tracks. 0 disables jingles.
+              </div>
+            </div>
+            <div class="device-row">
+              <label for="tune-commercial-every"
+                >Commercial every N tracks</label
+              >
+              <input
+                id="tune-commercial-every"
+                type="number"
+                min="0"
+                value={tuning.interleave.commercialEvery}
+                oninput={(e) =>
+                  numInput(e, (v) => (tuning.interleave.commercialEvery = v))}
+                onchange={saveTuning}
+              />
+              <div class="hint">
+                One commercial break after this many music tracks. 0 disables
+                commercials.
+              </div>
+            </div>
+            <div class="device-row">
+              <label for="tune-bucket-mult">Commercial bucket multiplier</label>
+              <input
+                id="tune-bucket-mult"
+                type="number"
+                min="1"
+                value={tuning.interleave.commercialBucketMultiplier}
+                oninput={(e) =>
+                  numInput(
+                    e,
+                    (v) => (tuning.interleave.commercialBucketMultiplier = v),
+                  )}
+                onchange={saveTuning}
+              />
+              <div class="hint">
+                Commercials per break scale with playlist length times this
+                factor. Higher = more ads per break.
+              </div>
+            </div>
+            <div class="device-row">
+              <label for="tune-bucket-min">Commercial bucket minimum</label>
+              <input
+                id="tune-bucket-min"
+                type="number"
+                min="0"
+                value={tuning.interleave.commercialBucketMin}
+                oninput={(e) =>
+                  numInput(
+                    e,
+                    (v) => (tuning.interleave.commercialBucketMin = v),
+                  )}
+                onchange={saveTuning}
+              />
+              <div class="hint">
+                Floor on commercials per break, regardless of playlist length. 0
+                disables the floor.
+              </div>
+            </div>
+
+            <h5 class="tuning-group-title">Auto-playlist</h5>
+            <div class="device-row">
+              <label for="tune-buffer">Buffer (tracks kept queued)</label>
+              <input
+                id="tune-buffer"
+                type="number"
+                min="1"
+                value={tuning.autoPlaylist.autoPlaylistBuffer}
+                oninput={(e) =>
+                  numInput(
+                    e,
+                    (v) => (tuning.autoPlaylist.autoPlaylistBuffer = v),
+                  )}
+                onchange={saveTuning}
+              />
+              <div class="hint">
+                Target queue length the auto-playlist tops up to. Minimum 1.
+              </div>
+            </div>
+            <div class="device-row">
+              <label for="tune-threshold">Refill threshold</label>
+              <input
+                id="tune-threshold"
+                type="number"
+                min="1"
+                value={tuning.autoPlaylist.autoPlaylistThreshold}
+                oninput={(e) =>
+                  numInput(
+                    e,
+                    (v) => (tuning.autoPlaylist.autoPlaylistThreshold = v),
+                  )}
+                onchange={saveTuning}
+              />
+              <div class="hint">
+                Refill kicks in when the queue drops to this many tracks.
+                Clamped to at most the buffer size.
+              </div>
+            </div>
+            <div class="device-row">
+              <label for="tune-history">History cap</label>
+              <input
+                id="tune-history"
+                type="number"
+                min="1"
+                value={tuning.autoPlaylist.historyCap}
+                oninput={(e) =>
+                  numInput(e, (v) => (tuning.autoPlaylist.historyCap = v))}
+                onchange={saveTuning}
+              />
+              <div class="hint">
+                Recently played tracks remembered to avoid quick repeats.
+                Minimum 1.
+              </div>
+            </div>
+            <div class="device-row">
+              <label for="tune-save-throttle">Session save throttle (ms)</label>
+              <input
+                id="tune-save-throttle"
+                type="number"
+                min="0"
+                value={tuning.autoPlaylist.sessionSaveThrottleMs}
+                oninput={(e) =>
+                  numInput(
+                    e,
+                    (v) => (tuning.autoPlaylist.sessionSaveThrottleMs = v),
+                  )}
+                onchange={saveTuning}
+              />
+              <div class="hint">
+                Minimum gap between session writes to disk. 0 saves on every
+                change (more disk I/O).
+              </div>
+            </div>
+            <div class="device-row">
+              <label for="tune-net-backoffs">Network retry backoffs (ms)</label>
+              <input
+                id="tune-net-backoffs"
+                type="text"
+                value={tuning.autoPlaylist.netRetryBackoffsMs.join(", ")}
+                oninput={(e) =>
+                  listInput(
+                    e,
+                    (v) => (tuning.autoPlaylist.netRetryBackoffsMs = v),
+                  )}
+                onchange={saveTuning}
+              />
+              <div class="hint">
+                Comma-separated wait times between refill retries. The last
+                value repeats until recovery.
+              </div>
+            </div>
+
+            <h5 class="tuning-group-title">Network &amp; cache</h5>
+            <div class="device-row">
+              <label for="tune-cache">Prefetch cache size (MiB)</label>
+              <input
+                id="tune-cache"
+                type="number"
+                min="16"
+                value={Math.round(tuning.cache.maxCacheBytes / MIB)}
+                oninput={(e) =>
+                  numInput(
+                    e,
+                    (v) => (tuning.cache.maxCacheBytes = Math.round(v * MIB)),
+                  )}
+                onchange={saveTuning}
+              />
+              <div class="hint">
+                RAM budget for prefetched track files. Minimum 16 MiB.
+              </div>
+            </div>
+            <div class="device-row">
+              <label for="tune-watchdog">Read watchdog timeout (ms)</label>
+              <input
+                id="tune-watchdog"
+                type="number"
+                min="1"
+                value={tuning.player.readWatchdogTimeoutMs}
+                oninput={(e) =>
+                  numInput(e, (v) => (tuning.player.readWatchdogTimeoutMs = v))}
+                onchange={saveTuning}
+              />
+              <div class="hint">
+                A read stalled longer than this counts as a network hiccup and
+                triggers recovery.
+              </div>
+            </div>
+            <div class="device-row">
+              <label for="tune-open-retry"
+                >Output open-retry interval (ms)</label
+              >
+              <input
+                id="tune-open-retry"
+                type="number"
+                min="1"
+                value={tuning.player.openRetryIntervalMs}
+                oninput={(e) =>
+                  numInput(e, (v) => (tuning.player.openRetryIntervalMs = v))}
+                onchange={saveTuning}
+              />
+              <div class="hint">
+                Wait between attempts to reopen the audio output device.
+              </div>
+            </div>
+            <div class="device-row">
+              <label for="tune-read-backoffs">Read retry backoffs (ms)</label>
+              <input
+                id="tune-read-backoffs"
+                type="text"
+                value={tuning.player.readRetryBackoffsMs.join(", ")}
+                oninput={(e) =>
+                  listInput(e, (v) => (tuning.player.readRetryBackoffsMs = v))}
+                onchange={saveTuning}
+              />
+              <div class="hint">
+                Comma-separated wait times between file-read retries. The last
+                value repeats until recovery.
+              </div>
+            </div>
+            <div class="hint">
+              Cache and player settings apply on next restart.
             </div>
           </div>
         {/if}

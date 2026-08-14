@@ -37,6 +37,29 @@ const READ_RETRY_BACKOFFS: [Duration; 3] = [
 /// user action (a stalled/absent device at launch — see issue #259).
 const OPEN_RETRY_INTERVAL: Duration = Duration::from_secs(2);
 
+/// Network-resilience timeouts for the player worker, supplied at spawn from the
+/// stored config. Captured for the worker's lifetime. Clamped on write (see
+/// `persist::config::set_tuning`), so `read_retry_backoffs` is always non-empty.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct PlayerTuning {
+    /// See [`READ_WATCHDOG_TIMEOUT`].
+    pub read_watchdog_timeout: Duration,
+    /// See [`OPEN_RETRY_INTERVAL`].
+    pub open_retry_interval: Duration,
+    /// See [`READ_RETRY_BACKOFFS`]. Must be non-empty (enforced on write).
+    pub read_retry_backoffs: Vec<Duration>,
+}
+
+impl Default for PlayerTuning {
+    fn default() -> Self {
+        Self {
+            read_watchdog_timeout: READ_WATCHDOG_TIMEOUT,
+            open_retry_interval: OPEN_RETRY_INTERVAL,
+            read_retry_backoffs: READ_RETRY_BACKOFFS.to_vec(),
+        }
+    }
+}
+
 /// A load that could not be started because no audio output was openable.
 /// Retained so the idle auto-retry loop can replay it once the device returns.
 #[derive(Clone)]
@@ -114,11 +137,12 @@ impl PlayerHandle {
         device: Option<DeviceRef>,
         event_prefix: &'static str,
         cache: Arc<Cache>,
+        tuning: PlayerTuning,
     ) -> Self {
         let (tx, rx) = channel();
         let topics = Topics::new(event_prefix);
         thread::spawn(move || {
-            if let Err(e) = run(app.clone(), rx, device, &topics, cache) {
+            if let Err(e) = run(app.clone(), rx, device, &topics, cache, tuning) {
                 log::error!("[{}] player thread exited: {}", event_prefix, e);
                 let _ = app.emit(&topics.error, e.to_string());
             }
@@ -275,6 +299,7 @@ fn run(
     device: Option<DeviceRef>,
     topics: &Topics,
     cache: Arc<Cache>,
+    tuning: PlayerTuning,
 ) -> Result<()> {
     // Output is opened lazily and re-opened on demand: a stream-open failure at
     // launch (device not ready yet, briefly held, momentarily gone) must not
@@ -313,6 +338,7 @@ fn run(
                     topics,
                     &load_tx,
                     &cache,
+                    &tuning.read_retry_backoffs,
                     cmd,
                 ),
                 Err(std::sync::mpsc::TryRecvError::Empty) => break,
@@ -328,8 +354,13 @@ fn run(
         // Watchdog: a read that neither completed nor errored within the budget
         // is a wedged mount. Declare a timeout and abandon the detached read
         // thread — the worker never blocks waiting on it.
-        if watchdog_timed_out(state.loading, state.load_start, Instant::now()) {
-            handle_load_timeout(&app, &mut state, topics);
+        if watchdog_timed_out(
+            state.loading,
+            state.load_start,
+            Instant::now(),
+            tuning.read_watchdog_timeout,
+        ) {
+            handle_load_timeout(&app, &mut state, topics, tuning.read_watchdog_timeout);
         }
 
         // Idle auto-retry: a load deferred because the audio device could not be
@@ -338,7 +369,13 @@ fn run(
         // output becomes available, whether reopened here or by a command above
         // (#259). No user action required.
         if state.pending_load.is_some() {
-            if output.is_none() && open_retry_due(state.last_open_retry, Instant::now()) {
+            if output.is_none()
+                && open_retry_due(
+                    state.last_open_retry,
+                    Instant::now(),
+                    tuning.open_retry_interval,
+                )
+            {
                 state.last_open_retry = Some(Instant::now());
                 match open_audio(&device, state.volume) {
                     Ok(o) => {
@@ -360,6 +397,7 @@ fn run(
                         topics,
                         &load_tx,
                         &cache,
+                        &tuning.read_retry_backoffs,
                         p.id,
                         p.path,
                         p.duration,
@@ -401,6 +439,7 @@ fn start_load(
     topics: &Topics,
     load_tx: &Sender<LoadMsg>,
     cache: &Arc<Cache>,
+    read_retry_backoffs: &[Duration],
     id: i64,
     path: PathBuf,
     duration: Option<f64>,
@@ -451,10 +490,11 @@ fn start_load(
         // is in flight per deck at a time — a newer `Load` bumps
         // `generation`, so a stale read's result is discarded rather
         // than another thread being blocked on.
+        let backoffs = read_retry_backoffs.to_vec();
         thread::spawn(move || {
             // Retry transient failures with backoff; hangs are the
             // watchdog's job (handled in the worker loop, not here).
-            let bytes = read_with_retry(|| read_file(&path), thread::sleep);
+            let bytes = read_with_retry(|| read_file(&path), thread::sleep, &backoffs);
             let _ = tx.send(LoadMsg {
                 generation,
                 id,
@@ -474,12 +514,23 @@ fn apply(
     topics: &Topics,
     load_tx: &Sender<LoadMsg>,
     cache: &Arc<Cache>,
+    read_retry_backoffs: &[Duration],
     cmd: Cmd,
 ) {
     match cmd {
         Cmd::Load { id, path, duration } => {
             start_load(
-                app, output, device, state, topics, load_tx, cache, id, path, duration,
+                app,
+                output,
+                device,
+                state,
+                topics,
+                load_tx,
+                cache,
+                read_retry_backoffs,
+                id,
+                path,
+                duration,
             );
         }
         Cmd::Play => {
@@ -668,16 +719,21 @@ fn reset_after_failure(state: &mut State) {
 /// Decide whether the idle loop should attempt another output-open. Pure (clock
 /// via `now`) so it is unit-testable. Fires immediately the first time
 /// (`None`), then no more often than `OPEN_RETRY_INTERVAL`.
-fn open_retry_due(last_open_retry: Option<Instant>, now: Instant) -> bool {
+fn open_retry_due(last_open_retry: Option<Instant>, now: Instant, interval: Duration) -> bool {
     match last_open_retry {
         None => true,
-        Some(last) => now.saturating_duration_since(last) >= OPEN_RETRY_INTERVAL,
+        Some(last) => now.saturating_duration_since(last) >= interval,
     }
 }
 
-fn watchdog_timed_out(loading: bool, load_start: Option<Instant>, now: Instant) -> bool {
+fn watchdog_timed_out(
+    loading: bool,
+    load_start: Option<Instant>,
+    now: Instant,
+    timeout: Duration,
+) -> bool {
     match load_start {
-        Some(start) if loading => now.saturating_duration_since(start) >= READ_WATCHDOG_TIMEOUT,
+        Some(start) if loading => now.saturating_duration_since(start) >= timeout,
         _ => false,
     }
 }
@@ -686,7 +742,7 @@ fn watchdog_timed_out(loading: bool, load_start: Option<Instant>, now: Instant) 
 /// plus a `:load-failed` carrying the track id, and reset load state. The
 /// generation is bumped so a late `LoadMsg` from the abandoned thread is
 /// discarded rather than played.
-fn handle_load_timeout(app: &AppHandle, state: &mut State, topics: &Topics) {
+fn handle_load_timeout(app: &AppHandle, state: &mut State, topics: &Topics, timeout: Duration) {
     let id = state.current_id;
     let path = state
         .current_path
@@ -696,7 +752,7 @@ fn handle_load_timeout(app: &AppHandle, state: &mut State, topics: &Topics) {
     log::error!(
         "player: read {} timed out after {:?}; abandoning read",
         path,
-        READ_WATCHDOG_TIMEOUT
+        timeout
     );
     state.generation = state.generation.wrapping_add(1);
     reset_after_failure(state);
@@ -713,20 +769,20 @@ fn handle_load_timeout(app: &AppHandle, state: &mut State, topics: &Topics) {
 /// matching backoff between attempts, and returns the first success or the last
 /// error. `read`/`sleep` are injected so tests exercise the schedule without
 /// touching the filesystem or actually sleeping.
-fn read_with_retry<R, S>(mut read: R, mut sleep: S) -> Result<Bytes>
+fn read_with_retry<R, S>(mut read: R, mut sleep: S, backoffs: &[Duration]) -> Result<Bytes>
 where
     R: FnMut() -> Result<Bytes>,
     S: FnMut(Duration),
 {
     let mut last_err: Option<anyhow::Error> = None;
     // Attempt indices 0..=len: index 0 is the initial try, and after a failing
-    // attempt `i` we back off by `READ_RETRY_BACKOFFS[i]` if one exists.
-    for attempt in 0..=READ_RETRY_BACKOFFS.len() {
+    // attempt `i` we back off by `backoffs[i]` if one exists.
+    for attempt in 0..=backoffs.len() {
         match read() {
             Ok(bytes) => return Ok(bytes),
             Err(e) => {
                 last_err = Some(e);
-                if let Some(delay) = READ_RETRY_BACKOFFS.get(attempt) {
+                if let Some(delay) = backoffs.get(attempt) {
                     sleep(*delay);
                 }
             }
@@ -851,6 +907,7 @@ mod tests {
                 }
             },
             |d| slept.push(d),
+            &READ_RETRY_BACKOFFS,
         );
         assert!(result.is_ok());
         assert_eq!(attempts, 3, "initial attempt + 2 retries");
@@ -873,6 +930,7 @@ mod tests {
                 Err::<Bytes, _>(anyhow::anyhow!("always fails"))
             },
             |d| slept.push(d),
+            &READ_RETRY_BACKOFFS,
         );
         assert!(result.is_err());
         assert_eq!(attempts, READ_RETRY_BACKOFFS.len() as u32 + 1);
@@ -890,13 +948,63 @@ mod tests {
             .unwrap();
 
         // Under budget: not timed out.
-        assert!(!watchdog_timed_out(true, Some(start), before));
+        assert!(!watchdog_timed_out(
+            true,
+            Some(start),
+            before,
+            READ_WATCHDOG_TIMEOUT
+        ));
         // Over budget while loading: timed out.
-        assert!(watchdog_timed_out(true, Some(start), after));
+        assert!(watchdog_timed_out(
+            true,
+            Some(start),
+            after,
+            READ_WATCHDOG_TIMEOUT
+        ));
         // A result arrived (loading == false): never a timeout.
-        assert!(!watchdog_timed_out(false, Some(start), after));
+        assert!(!watchdog_timed_out(
+            false,
+            Some(start),
+            after,
+            READ_WATCHDOG_TIMEOUT
+        ));
         // No read in flight: never a timeout.
-        assert!(!watchdog_timed_out(true, None, after));
+        assert!(!watchdog_timed_out(
+            true,
+            None,
+            after,
+            READ_WATCHDOG_TIMEOUT
+        ));
+    }
+
+    /// `PlayerTuning::default` equals the module constants, so an untouched
+    /// config runs with these exact timeouts.
+    #[test]
+    fn player_tuning_default_matches_constants() {
+        let t = PlayerTuning::default();
+        assert_eq!(t.read_watchdog_timeout, READ_WATCHDOG_TIMEOUT);
+        assert_eq!(t.open_retry_interval, OPEN_RETRY_INTERVAL);
+        assert_eq!(t.read_retry_backoffs, READ_RETRY_BACKOFFS.to_vec());
+    }
+
+    /// The supplied backoff slice drives the retry count: one attempt per entry
+    /// plus the initial try.
+    #[test]
+    fn read_with_retry_honours_custom_backoffs() {
+        let mut attempts = 0u32;
+        let mut slept: Vec<Duration> = Vec::new();
+        let backoffs = [Duration::from_millis(10)];
+        let result = read_with_retry(
+            || {
+                attempts += 1;
+                Err::<Bytes, _>(anyhow::anyhow!("always fails"))
+            },
+            |d| slept.push(d),
+            &backoffs,
+        );
+        assert!(result.is_err());
+        assert_eq!(attempts, 2, "initial attempt + 1 retry");
+        assert_eq!(slept, vec![Duration::from_millis(10)]);
     }
 
     #[test]
@@ -910,10 +1018,10 @@ mod tests {
             .unwrap();
 
         // Never attempted before: retry immediately.
-        assert!(open_retry_due(None, start));
+        assert!(open_retry_due(None, start, OPEN_RETRY_INTERVAL));
         // Within the interval since the last attempt: hold off.
-        assert!(!open_retry_due(Some(start), before));
+        assert!(!open_retry_due(Some(start), before, OPEN_RETRY_INTERVAL));
         // Interval elapsed: retry again.
-        assert!(open_retry_due(Some(start), after));
+        assert!(open_retry_due(Some(start), after, OPEN_RETRY_INTERVAL));
     }
 }

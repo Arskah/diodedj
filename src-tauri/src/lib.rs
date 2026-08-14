@@ -15,13 +15,40 @@ use audio::devices::{list_output_devices, DeviceInfo};
 
 pub const APP_NAME: &str = "RadiodioDJ";
 
-use audio::player::{Cmd, PlayerHandle};
+use audio::player::{Cmd, PlayerHandle, PlayerTuning};
 use broadcast::{service::default_now_playing_dir, BroadcastService};
 use library::db::{Db, LibraryStats, Track};
 use library::scan_state::{ScanState, ScanStatus, StartResult};
 use library::waveform_scan::{WaveformJob, WaveformStatus};
-use persist::config::{Config, DeviceRef, NowPlayingConfig};
+use persist::config::{Config, DeviceRef, NowPlayingConfig, TuningConfig};
 use persist::session::{PlaylistItem, Session, SessionState};
+use playlist::Interleave;
+use std::time::Duration;
+
+/// Build the playlist interleave params from the stored tuning section.
+fn interleave_from(t: &TuningConfig) -> Interleave {
+    Interleave {
+        jingle_every: t.interleave.jingle_every,
+        commercial_every: t.interleave.commercial_every,
+        commercial_bucket_multiplier: t.interleave.commercial_bucket_multiplier,
+        commercial_bucket_min: t.interleave.commercial_bucket_min,
+    }
+}
+
+/// Build the audio-player network-resilience tuning from the stored tuning
+/// section. Values are already clamped on write, so the lists are non-empty.
+fn player_tuning_from(t: &TuningConfig) -> PlayerTuning {
+    PlayerTuning {
+        read_watchdog_timeout: Duration::from_millis(t.player.read_watchdog_timeout_ms),
+        open_retry_interval: Duration::from_millis(t.player.open_retry_interval_ms),
+        read_retry_backoffs: t
+            .player
+            .read_retry_backoffs_ms
+            .iter()
+            .map(|ms| Duration::from_millis(*ms))
+            .collect(),
+    }
+}
 
 pub struct AppState {
     db: Arc<Db>,
@@ -146,7 +173,10 @@ fn generate_playlist(
     count: i64,
     exclude_ids: Vec<i64>,
 ) -> Result<Vec<Track>, String> {
-    playlist::generate(&app.db, count, &exclude_ids).map_err(err)
+    // Read interleave live per-call so a settings change takes effect on the
+    // next generated block without a restart (cheap — one config lock).
+    let il = interleave_from(&app.config.get_tuning());
+    playlist::generate(&app.db, count, &exclude_ids, &il).map_err(err)
 }
 
 #[tauri::command(rename_all = "camelCase")]
@@ -154,7 +184,8 @@ fn pick_filler(
     app: State<'_, AppState>,
     content_type: playlist::ContentType,
 ) -> Result<Option<Track>, String> {
-    playlist::pick_filler(&app.db, content_type).map_err(err)
+    let il = interleave_from(&app.config.get_tuning());
+    playlist::pick_filler(&app.db, content_type, &il).map_err(err)
 }
 
 #[tauri::command(rename_all = "camelCase")]
@@ -284,6 +315,7 @@ where
             Some(cue_ref),
             "cue",
             Arc::clone(&state.cache),
+            player_tuning_from(&state.config.get_tuning()),
         ));
     }
     if let Some(handle) = guard.as_ref() {
@@ -348,6 +380,23 @@ fn set_now_playing_config(
     config: NowPlayingConfig,
 ) -> Result<(), String> {
     state.config.set_now_playing(config).map_err(err)
+}
+
+#[tauri::command(rename_all = "camelCase")]
+fn get_tuning_config(state: State<'_, AppState>) -> TuningConfig {
+    state.config.get_tuning()
+}
+
+/// Persist new tuning values and return the clamped result the UI should
+/// display. Interleave/auto-playlist changes apply live; cache/player changes
+/// (which are captured by long-lived worker threads at startup) take effect on
+/// the next restart — the UI surfaces that hint.
+#[tauri::command(rename_all = "camelCase")]
+fn set_tuning_config(
+    state: State<'_, AppState>,
+    config: TuningConfig,
+) -> Result<TuningConfig, String> {
+    state.config.set_tuning(config).map_err(err)
 }
 
 #[tauri::command(rename_all = "camelCase")]
@@ -440,12 +489,17 @@ pub fn run() {
             // system default, so a device unavailable at launch no longer kills
             // playback for the whole session (#259).
             let main_device = config.get_main_device();
-            let cache = Cache::new(app.handle().clone());
+            // The cache cap and player timeouts are read once here and captured
+            // by their worker threads for the process lifetime; editing them
+            // takes effect on the next launch.
+            let tuning = config.get_tuning();
+            let cache = Cache::new(app.handle().clone(), tuning.cache.max_cache_bytes);
             let main_deck = PlayerHandle::spawn(
                 app.handle().clone(),
                 main_device,
                 "main-deck",
                 Arc::clone(&cache),
+                player_tuning_from(&tuning),
             );
             let config = Arc::new(config);
             let broadcast = Arc::new(BroadcastService::new(
@@ -512,6 +566,8 @@ pub fn run() {
             get_cover_art,
             get_now_playing_config,
             set_now_playing_config,
+            get_tuning_config,
+            set_tuning_config,
             now_playing_test,
             broadcast_shutdown,
         ])

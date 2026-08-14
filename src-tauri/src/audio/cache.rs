@@ -26,8 +26,10 @@ use std::sync::Arc;
 use std::thread;
 use tauri::{AppHandle, Emitter};
 
-/// Hard cap on total resident bytes. The whole playlist is attempted, but only
-/// as many leading tracks as fit under this cap stay resident.
+/// Default hard cap on total resident bytes, used when no configured value is
+/// supplied (tests, and the config default). The live cap is held per-`Cache`.
+/// The whole playlist is attempted, but only as many leading tracks as fit
+/// under the cap stay resident.
 pub const MAX_CACHE_BYTES: usize = 150 * 1024 * 1024;
 
 /// Event topic on which cache membership changes are broadcast. Prefetch is a
@@ -55,14 +57,17 @@ struct Inner {
     /// Bumped on every `set_window`; lets the prefetch worker abort a run whose
     /// window has been superseded.
     generation: u64,
+    /// Hard cap on total resident bytes for this cache (from config).
+    cap: usize,
 }
 
 impl Inner {
-    fn new() -> Self {
+    fn new(cap: usize) -> Self {
         Self {
             entries: HashMap::new(),
             window: Vec::new(),
             generation: 0,
+            cap,
         }
     }
 
@@ -78,7 +83,7 @@ impl Inner {
     /// Enforce the byte cap by dropping entries beyond the cap, front-first.
     /// Returns `true` if membership changed.
     fn enforce_cap(&mut self) -> bool {
-        let keep = retain_within_cap(&self.window, &self.entries, MAX_CACHE_BYTES);
+        let keep = retain_within_cap(&self.window, &self.entries, self.cap);
         let before = self.entries.len();
         self.entries.retain(|id, _| keep.contains(id));
         self.entries.len() != before
@@ -118,8 +123,8 @@ pub struct Cache {
 }
 
 impl Cache {
-    pub fn new(app: AppHandle) -> Arc<Self> {
-        let inner = Arc::new(Mutex::new(Inner::new()));
+    pub fn new(app: AppHandle, max_cache_bytes: usize) -> Arc<Self> {
+        let inner = Arc::new(Mutex::new(Inner::new(max_cache_bytes)));
         let (prefetch_tx, prefetch_rx) = channel::<()>();
         {
             let inner = Arc::clone(&inner);
@@ -183,10 +188,10 @@ fn prefetch_worker(inner: Arc<Mutex<Inner>>, app: AppHandle, rx: Receiver<()>) {
 }
 
 fn run_prefetch(inner: &Arc<Mutex<Inner>>, app: &AppHandle) {
-    // Snapshot the window and generation we are fetching for.
-    let (window, generation) = {
+    // Snapshot the window, generation, and byte cap we are fetching for.
+    let (window, generation, cap) = {
         let guard = inner.lock();
-        (guard.window.clone(), guard.generation)
+        (guard.window.clone(), guard.generation, guard.cap)
     };
 
     let mut retained_bytes: usize = 0;
@@ -219,7 +224,7 @@ fn run_prefetch(inner: &Arc<Mutex<Inner>>, app: &AppHandle) {
 
         // Stop once the cap would be exceeded — leading entries are prioritised
         // and later ones would only be evicted anyway.
-        if retained_bytes + bytes.len() > MAX_CACHE_BYTES {
+        if retained_bytes + bytes.len() > cap {
             break;
         }
 
@@ -267,7 +272,7 @@ mod tests {
 
     #[test]
     fn evict_out_of_window_drops_ids_outside_window() {
-        let mut inner = Inner::new();
+        let mut inner = Inner::new(MAX_CACHE_BYTES);
         inner.entries.insert(1, bytes(10));
         inner.entries.insert(2, bytes(10));
         inner.entries.insert(3, bytes(10));
@@ -282,7 +287,7 @@ mod tests {
 
     #[test]
     fn evict_out_of_window_is_noop_when_all_in_window() {
-        let mut inner = Inner::new();
+        let mut inner = Inner::new(MAX_CACHE_BYTES);
         inner.entries.insert(1, bytes(10));
         inner.entries.insert(2, bytes(10));
         inner.window = win(&[1, 2, 3]);
@@ -295,7 +300,7 @@ mod tests {
     fn enforce_cap_retains_nearest_first_until_full() {
         // Three ~60 MB entries, cap 150 MB → only the first two fit.
         let big = 60 * 1024 * 1024;
-        let mut inner = Inner::new();
+        let mut inner = Inner::new(MAX_CACHE_BYTES);
         inner.window = win(&[1, 2, 3]);
         inner.entries.insert(1, bytes(big));
         inner.entries.insert(2, bytes(big));
@@ -309,7 +314,7 @@ mod tests {
 
     #[test]
     fn enforce_cap_noop_when_under_cap() {
-        let mut inner = Inner::new();
+        let mut inner = Inner::new(MAX_CACHE_BYTES);
         inner.window = win(&[1, 2]);
         inner.entries.insert(1, bytes(1024));
         inner.entries.insert(2, bytes(1024));
