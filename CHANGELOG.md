@@ -1,5 +1,39 @@
 # Changelog
 
+## [0.15.0](https://github.com/Arskah/radiodiodj/compare/v0.14.0...v0.15.0) (2026-08-14)
+
+
+### Features
+
+* implement in-app track metadata editing ([#290](https://github.com/Arskah/radiodiodj/issues/290)) ([d5b2483](https://github.com/Arskah/radiodiodj/commit/d5b2483474b2903b7e9beeb5a2a85ad9a1cc2251))
+* **settings:** expose hard-coded tuning constants in AppConfig ([#311](https://github.com/Arskah/radiodiodj/issues/311)) ([5353e2a](https://github.com/Arskah/radiodiodj/commit/5353e2af63b2dd0c1c4e491e05e153c226b9ea21))
+
+
+### Bug Fixes
+
+* **deps:** update dependency material-symbols to v0.45.10 ([#296](https://github.com/Arskah/radiodiodj/issues/296)) ([cdc4fe4](https://github.com/Arskah/radiodiodj/commit/cdc4fe4def0c4818178116cf4f304a971c01a97e))
+* **deps:** update rust crate base64 to v0.23.1 ([#302](https://github.com/Arskah/radiodiodj/issues/302)) ([f7a93ea](https://github.com/Arskah/radiodiodj/commit/f7a93eaf3ef1891a0cabb1875771d7dfc8a0c889))
+* **deps:** update rust crate lofty to v0.25.0 ([#310](https://github.com/Arskah/radiodiodj/issues/310)) ([2562740](https://github.com/Arskah/radiodiodj/commit/256274022a29e4c69db60e800be994448c4c08dc))
+* **deps:** update rust crate rusqlite to v0.40.2 ([#309](https://github.com/Arskah/radiodiodj/issues/309)) ([c7d31be](https://github.com/Arskah/radiodiodj/commit/c7d31be1832035adc3244b27f1b5f111bb38d7c1))
+
+
+### Miscellaneous Chores
+
+* **deps:** lock file maintenance ([#295](https://github.com/Arskah/radiodiodj/issues/295)) ([de1a4c6](https://github.com/Arskah/radiodiodj/commit/de1a4c61d9fefe4a48c9bf331505eba6558fb5ea))
+* **deps:** update dependency @sveltejs/vite-plugin-svelte to v7.3.0 ([#308](https://github.com/Arskah/radiodiodj/issues/308)) ([f39a164](https://github.com/Arskah/radiodiodj/commit/f39a164e1482ebac64e81a9942230754a012e2ba))
+* **deps:** update dependency eslint to v10.8.1 ([#305](https://github.com/Arskah/radiodiodj/issues/305)) ([f628522](https://github.com/Arskah/radiodiodj/commit/f62852205756358c39b109fcb353ad2c94a6a1d0))
+* **deps:** update dependency jsdom to v30.0.1 ([#291](https://github.com/Arskah/radiodiodj/issues/291)) ([a78518c](https://github.com/Arskah/radiodiodj/commit/a78518ca1e940abab17674cda726fc83891e7305))
+* **deps:** update dependency lint-staged to v17.3.0 ([#297](https://github.com/Arskah/radiodiodj/issues/297)) ([ae539f4](https://github.com/Arskah/radiodiodj/commit/ae539f404cc793645b999be137822fac3cc338ae))
+* **deps:** update dependency svelte-check to v4.7.5 ([#304](https://github.com/Arskah/radiodiodj/issues/304)) ([e28b176](https://github.com/Arskah/radiodiodj/commit/e28b176e586ff053b31ecf39ae62d8bdfd94098f))
+* **deps:** update dependency tsx to v4.23.12 ([#298](https://github.com/Arskah/radiodiodj/issues/298)) ([37babc6](https://github.com/Arskah/radiodiodj/commit/37babc6ec2da70923221dd6c07a03cad83475041))
+* **deps:** update dependency typescript-eslint to v8.67.0 ([#301](https://github.com/Arskah/radiodiodj/issues/301)) ([b83cf5d](https://github.com/Arskah/radiodiodj/commit/b83cf5d8c4a692b196d2c2d7b91d5773dc9d59a7))
+* **deps:** update dependency vite to v8.2.1 ([#293](https://github.com/Arskah/radiodiodj/issues/293)) ([b06c40b](https://github.com/Arskah/radiodiodj/commit/b06c40bc01b4ba4c75af5db7c9606e6b7dcc5e9c))
+* **deps:** update node.js to v24.19.0 ([#294](https://github.com/Arskah/radiodiodj/issues/294)) ([691cf28](https://github.com/Arskah/radiodiodj/commit/691cf28aba0c077f65aa3f05ae14a26d6ab9ae19))
+* **deps:** update pnpm to v11.21.0 ([#292](https://github.com/Arskah/radiodiodj/issues/292)) ([51f8a3c](https://github.com/Arskah/radiodiodj/commit/51f8a3c75fd42f9b2052ea52563fa1f6033ee136))
+* **deps:** update pnpm/action-setup action to v6.0.10 ([#300](https://github.com/Arskah/radiodiodj/issues/300)) ([15297a0](https://github.com/Arskah/radiodiodj/commit/15297a0f58ff36e0701d2476788b0c1050ac2dc3))
+* **deps:** update swatinem/rust-cache action to v2.9.2 ([#303](https://github.com/Arskah/radiodiodj/issues/303)) ([2b056e8](https://github.com/Arskah/radiodiodj/commit/2b056e877d584809e8743c77673362114864f825))
+* **deps:** update webdriverio monorepo to v9.30.1 ([#299](https://github.com/Arskah/radiodiodj/issues/299)) ([7c0ceac](https://github.com/Arskah/radiodiodj/commit/7c0ceace191a8d78b088b644b531dfa04d6fbb1c))
+
 ## [0.14.0](https://github.com/Arskah/radiodiodj/compare/v0.13.0...v0.14.0) (2026-07-31)
 
 
