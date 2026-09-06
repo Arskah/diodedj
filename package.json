@@ -78,5 +78,5 @@
     "vitest": "4.1.11",
     "webdriverio": "9.31.2"
   },
-  "packageManager": "pnpm@11.23.0+sha512.f00082e5b283a199b74e079da28d155c008fe232f44c8a06ea7ddfa014ecf719fc362f790ecc67b28106ddac2afb24c49a9a079159da560b2ce7d1e98efd11af"
+  "packageManager": "pnpm@12.3.1+sha512.3c14c15408d1489d350f8ed7f93361d26cc707054f6849a4eea3bb7407ff4fe4564b413a1c421a773a176ab1168a8df1c7d548f2cd0dc7d344f58c4e680a5b18"
 }
